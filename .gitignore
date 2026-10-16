@@ -1,0 +1,30 @@
+# IDEs and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Java / Spring Boot
+target/
+*.class
+*.jar
+*.war
+.mvn/
+!/.mvn/wrapper/maven-wrapper.jar
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Node (If used for API Gateway or tooling)
+node_modules/
+npm-debug.log
+
+# Docker and infrastructure secrets
+*.pem
+*.key
+docker-compose.override.yml
