@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # 1. Core Relational Database with Geospatial Capabilities
+  postgres-postgis:
+    image: postgis/postgis:15-3.3
+    container_name: smart-tours-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: tours_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - smart-tours-network
+    restart: unless-stopped
+
+  # 2. In-Memory Data Store for Caching & Rate Limiting
+  redis-cache:
+    image: redis:7.0-alpine
+    container_name: smart-tours-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - smart-tours-network
+    restart: unless-stopped
+
+  # 3. Message Broker for Asynchronous Event-Driven Communication
+  rabbitmq-broker:
+    image: rabbitmq:3.12-management-alpine
+    container_name: smart-tours-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"   # AMQP protocol port (for your apps)
+      - "15672:15672" # Management UI port (for you to view via browser)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - smart-tours-network
+    restart: unless-stopped
+
+# Volumes ensure your data survives even if the containers are destroyed
+volumes:
+  postgres_data:
+  rabbitmq_data:
+
+# A custom bridge network allows containers to discover each other by name
+networks:
+  smart-tours-network:
+    driver: bridge
