@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+jwt:
+  # inject this via environment variables. This is a secure 256-bit base64-encoded secret.
+  secret: "3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b"
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # Route 1: Tour Core Service
+        - id: tour-service
+          uri: http://localhost:8081 # Later, this will be the Docker container name
+          predicates:
+            - Path=/api/tours/**
+          filters:
+            - AuthenticationFilter # Applies  custom JWT checker
+
+        # Route 2: Booking Service
+        - id: booking-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/bookings/**
+          filters:
+            - AuthenticationFilter
