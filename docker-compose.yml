@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 1. Core Relational Database with Geospatial Capabilities
   postgres-postgis:
