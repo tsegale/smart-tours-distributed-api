@@ -1,0 +1,17 @@
+server:
+  port: 8081 # Runs on 8081, Gateway is on 8080
+
+spring:
+  application:
+    name: tour-core-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tours_db
+    username: admin
+    password: secretpassword
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        # Crucial: Tells Hibernate to use PostGIS functions instead of standard Postgres
+        dialect: org.hibernate.spatial.dialect.postgis.PostgisDialect
