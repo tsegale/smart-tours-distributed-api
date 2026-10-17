@@ -18,7 +18,7 @@ This project utilizes a polyglot microservices architecture (Java/Spring Boot & 
 - [✔️] **Phase 1:** Monorepo scaffolding and master documentation.
 - [✔️] **Phase 2:** Global infrastructure setup (Docker Compose, PostgreSQL, Redis, RabbitMQ).
 - [✔️] **Phase 3:** API Gateway and JWT Auth implementation.
-- [ ] **Phase 4:** Tour Core Service (Java/Spring Boot REST API).
+- [✔️] **Phase 4:** Tour Core Service (Java/Spring Boot REST API).
 - [ ] **Phase 5:** Booking Service (Python/FastAPI with transaction locking).
 - [ ] **Phase 6:** AI Recommendation Service (Vector Embeddings).
 - [ ] **Phase 7:** Asynchronous Event Integration (RabbitMQ).
