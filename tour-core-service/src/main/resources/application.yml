@@ -13,5 +13,5 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        # Crucial: Tells Hibernate to use PostGIS functions instead of standard Postgres
-        dialect: org.hibernate.spatial.dialect.postgis.PostgisDialect
+        # In Hibernate 6 (Spring Boot 3+), PostgreSQLDialect natively supports PostGIS with hibernate-spatial
+        dialect: org.hibernate.dialect.PostgreSQLDialect

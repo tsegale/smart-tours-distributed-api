@@ -17,6 +17,14 @@ public class Tour {
     @Column(columnDefinition = "geometry(Point,4326)")
     private Point location;
 
+    public Tour() {}
+
+    public Tour(String name, Double price, Point location) {
+        this.name = name;
+        this.price = price;
+        this.location = location;
+    }
+
     // standard getters and setters...
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

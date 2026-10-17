@@ -33,6 +33,18 @@ public class TourController {
         return tourRepository.save(tour);
     }
 
+    @GetMapping
+    public List<Tour> getAllTours() {
+        return tourRepository.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public org.springframework.http.ResponseEntity<Tour> getTourById(@PathVariable Long id) {
+        return tourRepository.findById(id)
+                .map(org.springframework.http.ResponseEntity::ok)
+                .orElse(org.springframework.http.ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/nearby")
     public List<Tour> getNearbyTours(@RequestParam double lon, @RequestParam double lat, @RequestParam double radius) {
         return tourRepository.findToursWithinRadius(lon, lat, radius);
@@ -44,9 +56,22 @@ class TourRequest {
     private Double price;
     private double latitude;
     private double longitude;
-    // Getters and setters omitted for brevity
+
+    public TourRequest() {}
+
+    public TourRequest(String name, Double price, double latitude, double longitude) {
+        this.name = name;
+        this.price = price;
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
+
     public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
     public Double getPrice() { return price; }
+    public void setPrice(Double price) { this.price = price; }
     public double getLatitude() { return latitude; }
+    public void setLatitude(double latitude) { this.latitude = latitude; }
     public double getLongitude() { return longitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
 }
