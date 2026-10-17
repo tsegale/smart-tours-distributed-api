@@ -15,14 +15,14 @@ spring:
         - id: tour-service
           uri: http://localhost:8081 # Later, this will be the Docker container name
           predicates:
-            - Path=/api/tours/**
+            - Path=/api/tours, /api/tours/**
           filters:
-            - AuthenticationFilter # Applies  custom JWT checker
+            - AuthenticationFilter # Applies custom JWT checker
 
         # Route 2: Booking Service
         - id: booking-service
           uri: http://localhost:8000
           predicates:
-            - Path=/api/bookings/**
+            - Path=/api/bookings, /api/bookings/**
           filters:
             - AuthenticationFilter

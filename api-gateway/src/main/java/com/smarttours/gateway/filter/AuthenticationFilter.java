@@ -8,6 +8,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class AuthenticationFilter extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
 
@@ -22,19 +24,23 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     public GatewayFilter apply(Config config) {
         return ((exchange, chain) -> {
             // 1. Check if the request has an Authorization header
-            if (!exchange.getRequest().getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
+            List<String> authHeaders = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
+            if (authHeaders == null || authHeaders.isEmpty()) {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }
 
-            String authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                authHeader = authHeader.substring(7); // Remove "Bearer " prefix
+            String authHeader = authHeaders.get(0);
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
             }
+
+            String token = authHeader.substring(7);
 
             // 2. Validate the token mathematically
             try {
-                jwtUtil.validateToken(authHeader);
+                jwtUtil.validateToken(token);
             } catch (Exception e) {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete(); // Reject the request
