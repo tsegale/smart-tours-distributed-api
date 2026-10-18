@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import chromadb
 from .ml_model import load_model, get_embedding
+import threading
+from .rabbitmq_consumer import start_consuming
 
 app = FastAPI(title="Smart Tours - AI Recommendation Service")
 
@@ -21,6 +23,10 @@ class TourData(BaseModel):
 @app.on_event("startup")
 def startup_event():
     load_model() # Load the PyTorch model into memory when server starts
+    
+    # Start the RabbitMQ listener in the background
+    consumer_thread = threading.Thread(target=start_consuming, daemon=True)
+    consumer_thread.start()
 
 @app.post("/api/ai/embed", status_code=201)
 def embed_tour(tour: TourData):

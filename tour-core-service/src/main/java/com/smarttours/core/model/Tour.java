@@ -1,4 +1,4 @@
-package com.smarttours.core.model;
+package main.java.com.smarttours.core.model;
 
 import jakarta.persistence.*;
 import org.locationtech.jts.geom.Point;

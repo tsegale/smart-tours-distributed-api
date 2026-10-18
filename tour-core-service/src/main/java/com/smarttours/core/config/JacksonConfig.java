@@ -1,4 +1,4 @@
-package com.smarttours.core.config;
+package main.java.com.smarttours.core.config;
 
 import org.n52.jackson.datatype.jts.JtsModule;
 import org.springframework.context.annotation.Bean;

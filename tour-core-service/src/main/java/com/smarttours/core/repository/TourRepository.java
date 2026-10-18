@@ -1,4 +1,4 @@
-package com.smarttours.core.repository;
+package main.java.com.smarttours.core.repository;
 
 import com.smarttours.core.model.Tour;
 import org.springframework.data.jpa.repository.JpaRepository;
