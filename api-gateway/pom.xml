@@ -1,52 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    
+
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.0</version>
+        <version>4.1.1</version>
+        <relativePath/>
     </parent>
 
     <groupId>com.smarttours</groupId>
     <artifactId>api-gateway</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>api-gateway</name>
+    <description>Single entry point: routing, JWT authentication, identity propagation</description>
 
     <properties>
-        <java.version>17</java.version>
-        <spring-cloud.version>2023.0.0</spring-cloud.version>
+        <java.version>21</java.version>
+        <spring-cloud.version>2025.1.2</spring-cloud.version>
     </properties>
 
     <dependencies>
-        <!-- The core API Gateway dependency -->
+        <!-- Reactive gateway (renamed from spring-cloud-starter-gateway in Gateway 5) -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-gateway</artifactId>
+            <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
         </dependency>
-        
-        <!-- JWT Parsing Libraries -->
+
+        <!-- Standard OAuth2 resource server instead of hand-rolled JWT parsing.
+             Today it verifies HS256 with a shared secret; switching to Keycloak (Phase 5)
+             is a config change to jwk-set-uri, with no code changes. -->
         <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>0.11.5</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
+
         <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>0.11.5</version>
-            <scope>runtime</scope>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>0.11.5</version>
-            <scope>runtime</scope>
-        </dependency>
+
+        <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -68,13 +72,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
-                </configuration>
             </plugin>
         </plugins>
     </build>
