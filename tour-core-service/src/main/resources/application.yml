@@ -1,17 +1,37 @@
 server:
-  port: 8081 # Runs on 8081, Gateway is on 8080
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
 
 spring:
   application:
     name: tour-core-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/tours_db
-    username: admin
-    password: secretpassword
+    # Defaults match docker-compose's published port, so the service runs from your IDE too.
+    url: ${TOURS_DB_URL:jdbc:postgresql://127.0.0.1:5433/tours}
+    username: ${TOURS_DB_USER:tours}
+    password: ${TOURS_DB_PASSWORD:change-me-tours}
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        # In Hibernate 6 (Spring Boot 3+), PostgreSQLDialect natively supports PostGIS with hibernate-spatial
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+      # Flyway owns the schema; Hibernate only checks that the entities match it.
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:smarttours}
+    password: ${RABBITMQ_PASSWORD:change-me-rabbit}
+  mvc:
+    problemdetails:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
