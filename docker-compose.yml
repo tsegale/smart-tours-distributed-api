@@ -1,52 +1,185 @@
+# Smart Tours: full local stack.
+#
+#   cp .env.example .env      # then edit the secrets
+#   docker compose up --build
+#
+# Only the API gateway (8080) and the RabbitMQ management UI (15672) are meant to be
+# called from outside. Databases are published on 127.0.0.1 only, for local tooling.
+# The application services are reachable only inside the compose network, so every
+# request has to go through the gateway, which authenticates it and sets X-User-Id.
+
+x-db-healthcheck: &db-healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 20
+
 services:
-  # 1. Core Relational Database with Geospatial Capabilities
-  postgres-postgis:
-    image: postgis/postgis:15-3.3
-    container_name: smart-tours-postgres
+  # ---------------------------------------------------------------- data stores
+  tours-db:
+    image: postgis/postgis:16-3.4
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: tours_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - smart-tours-network
+      POSTGRES_DB: tours
+      POSTGRES_USER: ${TOURS_DB_USER:?set TOURS_DB_USER in .env}
+      POSTGRES_PASSWORD: ${TOURS_DB_PASSWORD:?set TOURS_DB_PASSWORD in .env}
+    ports: ["127.0.0.1:5433:5432"]
+    volumes: [tours_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d tours"]
+      <<: *db-healthcheck
     restart: unless-stopped
 
-  # 2. In-Memory Data Store for Caching & Rate Limiting
-  redis-cache:
-    image: redis:7.0-alpine
-    container_name: smart-tours-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - smart-tours-network
-    restart: unless-stopped
-
-  # 3. Message Broker for Asynchronous Event-Driven Communication
-  rabbitmq-broker:
-    image: rabbitmq:3.12-management-alpine
-    container_name: smart-tours-rabbitmq
+  bookings-db:
+    image: postgres:16-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5672:5672"   # AMQP protocol port (for your apps)
-      - "15672:15672" # Management UI port (for you to view via browser)
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - smart-tours-network
+      POSTGRES_DB: bookings
+      POSTGRES_USER: ${BOOKINGS_DB_USER:?set BOOKINGS_DB_USER in .env}
+      POSTGRES_PASSWORD: ${BOOKINGS_DB_PASSWORD:?set BOOKINGS_DB_PASSWORD in .env}
+    ports: ["127.0.0.1:5434:5432"]
+    volumes: [bookings_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d bookings"]
+      <<: *db-healthcheck
     restart: unless-stopped
 
-# Volumes ensure your data survives even if the containers are destroyed
+  ai-db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ai
+      POSTGRES_USER: ${AI_DB_USER:?set AI_DB_USER in .env}
+      POSTGRES_PASSWORD: ${AI_DB_PASSWORD:?set AI_DB_PASSWORD in .env}
+    ports: ["127.0.0.1:5435:5432"]
+    volumes: [ai_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ai"]
+      <<: *db-healthcheck
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    ports: ["127.0.0.1:6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?set RABBITMQ_USER in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5672:5672"   # AMQP, for running services from your IDE
+      - "127.0.0.1:15672:15672" # management UI
+    volumes: [rabbitmq_data:/var/lib/rabbitmq]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- services
+  # Memory limits matter for the JVMs: MaxRAMPercentage=75 sizes the heap from the container
+  # limit, and without one each JVM would size itself from the whole host or VM.
+  api-gateway:
+    build: ./api-gateway
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      TOUR_SERVICE_URL: http://tour-core-service:8081
+      BOOKING_SERVICE_URL: http://booking-service:8082
+      AI_SERVICE_URL: http://ai-service:8083
+    ports: ["8080:8080"]
+    depends_on:
+      tour-core-service: { condition: service_healthy }
+      booking-service: { condition: service_healthy }
+      ai-service: { condition: service_started }
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+
+  tour-core-service:
+    build: ./tour-core-service
+    environment:
+      TOURS_DB_URL: jdbc:postgresql://tours-db:5432/tours
+      TOURS_DB_USER: ${TOURS_DB_USER}
+      TOURS_DB_PASSWORD: ${TOURS_DB_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    depends_on:
+      tours-db: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health/readiness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    restart: unless-stopped
+
+  booking-service:
+    build: ./booking-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://${BOOKINGS_DB_USER}:${BOOKINGS_DB_PASSWORD}@bookings-db:5432/bookings
+    depends_on:
+      bookings-db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://localhost:8082/health').status != 200)"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    restart: unless-stopped
+
+  ai-service:
+    build: ./ai-recommendation-service
+    image: smarttours/ai-recommendation-service:local # built once, reused by ai-worker
+    environment: &ai-env
+      DATABASE_URL: postgresql+psycopg://${AI_DB_USER}:${AI_DB_PASSWORD}@ai-db:5432/ai
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
+      HF_HOME: /models
+    volumes: [hf_models:/models]
+    depends_on:
+      ai-db: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 1536M # torch + the embedding model
+    restart: unless-stopped
+
+  # Same image, different process: consumes tour events and writes embeddings.
+  # Scales independently of the HTTP API (docker compose up --scale ai-worker=3).
+  ai-worker:
+    image: smarttours/ai-recommendation-service:local
+    pull_policy: never # local image from ai-service's build; a second build: would rebuild torch for nothing
+    command: ["python", "-m", "app.worker"]
+    environment: *ai-env
+    volumes: [hf_models:/models]
+    depends_on:
+      ai-db: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      ai-service: { condition: service_started } # runs the migrations
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+    restart: unless-stopped
+
 volumes:
-  postgres_data:
+  tours_data:
+  bookings_data:
+  ai_data:
   rabbitmq_data:
-
-# A custom bridge network allows containers to discover each other by name
-networks:
-  smart-tours-network:
-    driver: bridge
+  hf_models:
