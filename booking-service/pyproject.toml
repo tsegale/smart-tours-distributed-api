@@ -6,6 +6,10 @@ requires-python = ">=3.12"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+filterwarnings = [
+    # Raised inside the Stripe SDK's own httpx call (form bodies passed as data=bytes), not by this code.
+    "ignore:Use 'content=<...>' to upload raw bytes:DeprecationWarning:httpx",
+]
 
 [tool.ruff]
 line-length = 120

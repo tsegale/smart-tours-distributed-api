@@ -5,7 +5,9 @@ behaviour under test and SQLite fakes neither.
     createdb -h 127.0.0.1 -p 5434 -U bookings bookings_test   # once
     TEST_DATABASE_URL=postgresql+psycopg://bookings:<pw>@127.0.0.1:5434/bookings_test pytest
 
-CI provides the database as a service container.
+CI provides the database as a service container. Nothing here talks to Stripe or to
+tour-core-service: payments use FakePaymentProvider, tour-core is mocked with respx, and
+Stripe's own API is mocked with respx in test_stripe_provider.py.
 """
 
 import os
@@ -16,18 +18,32 @@ TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 if not TEST_DATABASE_URL:
     pytest.skip("TEST_DATABASE_URL not set; these tests need a real PostgreSQL", allow_module_level=True)
 
-# Must happen before the app is imported: the engine is built from settings at import time.
-os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+TOUR_SERVICE_URL = "http://tour-core.test"
+WEBHOOK_SECRET = "whsec_test_secret_for_signatures"
 
+# Must happen before the app is imported: the engine and settings are built at import time.
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+os.environ["TOUR_SERVICE_URL"] = TOUR_SERVICE_URL
+os.environ["TOUR_SERVICE_BACKOFF_S"] = "0.01"
+os.environ["PAYMENT_PROVIDER"] = "fake"
+os.environ["STRIPE_WEBHOOK_SECRET"] = WEBHOOK_SECRET
+os.environ["STRIPE_SECRET_KEY"] = ""
+
+import respx  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
+from app.config import get_settings  # noqa: E402
 from app.database import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.payments import get_payment_provider  # noqa: E402
+from app.payments.fake_provider import FakePaymentProvider  # noqa: E402
 
 SERVICE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+TOUR = {"id": 1, "name": "Sossusvlei Sunrise Dunes", "price": 1850.00, "currency": "NAD"}
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -46,8 +62,29 @@ def migrated_database():
 @pytest.fixture(autouse=True)
 def clean_tables():
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE bookings, tour_availability RESTART IDENTITY CASCADE"))
+        conn.execute(
+            text("TRUNCATE processed_webhook_events, payments, bookings, tour_availability RESTART IDENTITY CASCADE")
+        )
     yield
+
+
+@pytest.fixture(autouse=True)
+def tour_core():
+    """tour-core-service, mocked. Any tour id resolves to TOUR unless a test overrides the route."""
+    with respx.mock(base_url=TOUR_SERVICE_URL, assert_all_called=False) as mock:
+        mock.get(path__regex=r"^/api/tours/(?P<tour_id>\d+)$", name="get_tour").mock(
+            side_effect=lambda request, tour_id: respx.MockResponse(200, json={**TOUR, "id": int(tour_id)})
+        )
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def payments() -> FakePaymentProvider:
+    """A fresh fake provider per test, injected wherever the app asks for one."""
+    provider = FakePaymentProvider(get_settings())
+    app.dependency_overrides[get_payment_provider] = lambda: provider
+    yield provider
+    app.dependency_overrides.pop(get_payment_provider, None)
 
 
 @pytest.fixture
@@ -67,13 +104,15 @@ def as_user(user_id: str, *roles: str) -> dict[str, str]:
 
 
 OPERATOR = as_user("operator-1", "OPERATOR")
+ALICE = as_user("alice")
+BOB = as_user("bob")
 
 
 @pytest.fixture
 def departure(client):
     """Factory: create a departure with N seats and return its id."""
 
-    def _create(total_slots: int = 10, tour_id: int = 1, starts_at: str = "2026-12-01T06:00:00+02:00") -> int:
+    def _create(total_slots: int = 10, tour_id: int = 1, starts_at: str = "2030-12-01T06:00:00+02:00") -> int:
         response = client.post(
             "/api/availability",
             json={"tour_id": tour_id, "starts_at": starts_at, "total_slots": total_slots},
@@ -83,3 +122,24 @@ def departure(client):
         return response.json()["id"]
 
     return _create
+
+
+@pytest.fixture
+def book(client):
+    """Factory: book seats as a user and return the response JSON (asserting success)."""
+
+    def _book(availability_id: int, slots: int = 1, headers: dict[str, str] = ALICE, **extra_headers: str) -> dict:
+        response = client.post(
+            "/api/bookings",
+            json={"availability_id": availability_id, "slots": slots},
+            headers={**headers, **extra_headers},
+        )
+        assert response.status_code in (200, 201), response.text
+        return response.json()
+
+    return _book
+
+
+def remaining(client, tour_id: int = 1) -> int:
+    response = client.get("/api/availability", params={"tour_id": tour_id}, headers=ALICE)
+    return response.json()[0]["slots_remaining"]

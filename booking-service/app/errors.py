@@ -32,6 +32,30 @@ class ConflictError(DomainError):
     status, slug, title = 409, "conflict", "Request conflicts with current state"
 
 
+class IllegalTransitionError(ConflictError):
+    slug, title = "illegal-transition", "Booking cannot move to that status"
+
+
+class PaymentPendingError(ConflictError):
+    slug, title = "payment-in-progress", "A payment for this booking is already being completed"
+
+
+class TourNotFoundError(NotFoundError):
+    slug, title = "tour-not-found", "Tour not found"
+
+
+class UpstreamUnavailableError(DomainError):
+    status, slug, title = 503, "upstream-unavailable", "A dependency is temporarily unavailable"
+
+
+class PaymentProviderError(DomainError):
+    status, slug, title = 502, "payment-provider-error", "The payment provider could not process the request"
+
+
+class InvalidWebhookError(DomainError):
+    status, slug, title = 400, "invalid-webhook", "Webhook rejected"
+
+
 class IdempotencyKeyReusedError(DomainError):
     status, slug, title = 422, "idempotency-key-reused", "Idempotency key reused with a different request"
 

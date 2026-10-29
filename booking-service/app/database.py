@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -31,6 +31,17 @@ class Base(DeclarativeBase):
     pass
 
 
-def get_db() -> Iterator[Session]:
-    with SessionLocal() as session:
+async def get_db() -> AsyncIterator[Session]:
+    """One session per request.
+
+    Deliberately an async dependency even though the session is synchronous: FastAPI runs the
+    teardown of a *sync* yield-dependency in the threadpool, so under load every thread can end
+    up blocked in pool.connect() waiting for connections that only those teardowns can return,
+    and nothing moves until the pool timeout. Endpoints finish their transaction before they
+    return (see routers), so close() here does no I/O on the event loop.
+    """
+    session = SessionLocal()
+    try:
         yield session
+    finally:
+        session.close()
