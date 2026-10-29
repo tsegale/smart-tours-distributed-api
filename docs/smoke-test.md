@@ -160,6 +160,10 @@ docker compose run --rm stripe-cli listen --api-key "$STRIPE_SECRET_KEY" --print
 #    (or: docker compose --profile payments logs stripe-cli | grep -o 'whsec_[A-Za-z0-9]*')
 # 3. Restart with the payments profile, so booking-service picks up the key and secret:
 docker compose --profile payments up -d --wait
+#    Using a Stripe CLI installed on the host instead of the compose service? Forward to the gateway
+#    route, and name the events (recent CLI versions refuse to listen without an event selection):
+#    stripe listen --forward-to localhost:8080/webhooks/stripe \
+#      --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired
 set -a; . ./.env; set +a
 
 AV2=$(curl -s -X POST $GW/api/availability -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' \
@@ -178,6 +182,11 @@ curl -s $GW/api/bookings/me -H "Authorization: Bearer $CUSTOMER" | json "[(b['id
 # expect CONFIRMED. Cancelling it now (> 48 h before departure) issues a real test-mode refund,
 # visible in the Stripe dashboard under Payments.
 ```
+
+Last run 2026-10-29 against a real test-mode account: Checkout showed NAD 3,700.00 for 2 seats,
+`checkout.session.completed` was delivered with `[200]` and the booking went CONFIRMED with payment PAID.
+Cancelling it 37 days before departure returned `policy: full_refund`, Stripe created a `re_...`
+refund with status `succeeded`, the booking went REFUNDED and both seats were released.
 
 Switch back to the fake provider afterwards: `PAYMENT_PROVIDER=fake` in `.env`, then `docker compose up -d`.
 
