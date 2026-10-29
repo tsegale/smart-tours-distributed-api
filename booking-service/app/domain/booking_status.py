@@ -24,7 +24,7 @@ from ..models import BookingStatus
 if TYPE_CHECKING:
     from ..models import Booking
 
-log = logging.getLogger("booking.transition")
+log = logging.getLogger(__name__)
 
 S = BookingStatus
 

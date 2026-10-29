@@ -36,7 +36,7 @@ def test_table_is_exactly_the_documented_one():
 @pytest.mark.parametrize(("current", "target"), sorted(LEGAL))
 def test_legal_moves_apply(current, target, caplog):
     b = booking(current)
-    with caplog.at_level(logging.INFO, logger="booking.transition"):
+    with caplog.at_level(logging.INFO, logger="app.domain.booking_status"):
         transition(b, target, reason="test")
     assert b.status == target
     [record] = caplog.records
