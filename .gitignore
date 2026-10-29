@@ -34,3 +34,6 @@ docker-compose.override.yml
 # Local tooling
 node_modules/
 *.log
+
+# Benchmark output (raw k6 summaries, minted tokens)
+benchmarks/out/
