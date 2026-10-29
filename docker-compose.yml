@@ -127,8 +127,21 @@ services:
 
   booking-service:
     build: ./booking-service
-    environment:
+    image: smarttours/booking-service:local # built once, reused by booking-sweeper
+    environment: &booking-env
       DATABASE_URL: postgresql+psycopg://${BOOKINGS_DB_USER}:${BOOKINGS_DB_PASSWORD}@bookings-db:5432/bookings
+      # Price snapshots: called directly on the internal network, not through the gateway.
+      TOUR_SERVICE_URL: http://tour-core-service:8081
+      # fake (default, no account needed) or stripe (test mode: see docs/smoke-test.md).
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-fake}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      # Required for both providers: the fake one verifies Stripe-format signatures too.
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?set STRIPE_WEBHOOK_SECRET in .env}
+      CHECKOUT_SUCCESS_URL: ${CHECKOUT_SUCCESS_URL:-http://localhost:3000/bookings/{booking_id}?checkout=success}
+      CHECKOUT_CANCEL_URL: ${CHECKOUT_CANCEL_URL:-http://localhost:3000/bookings/{booking_id}?checkout=cancelled}
+      HOLD_MINUTES: ${HOLD_MINUTES:-30}
+      CANCELLATION_FULL_REFUND_HOURS: ${CANCELLATION_FULL_REFUND_HOURS:-48}
+      RESERVATION_STRATEGY: ${RESERVATION_STRATEGY:-pessimistic}
     depends_on:
       bookings-db: { condition: service_healthy }
     healthcheck:
@@ -141,6 +154,36 @@ services:
       resources:
         limits:
           memory: 384M
+    restart: unless-stopped
+
+  # Same image, different process: expires unpaid holds every 60 s and retries pending refunds.
+  # Safe to scale (SELECT ... FOR UPDATE SKIP LOCKED; see app/services/sweeper.py).
+  booking-sweeper:
+    image: smarttours/booking-service:local
+    pull_policy: never # local image from booking-service's build
+    command: ["python", "-m", "app.jobs.expire_holds"]
+    environment: *booking-env
+    depends_on:
+      booking-service: { condition: service_healthy } # runs the migrations
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
+
+  # Stripe test mode only: docker compose --profile payments up
+  # Forwards Stripe events to booking-service. Its signing secret (whsec_...) goes into
+  # STRIPE_WEBHOOK_SECRET in .env; see docs/smoke-test.md.
+  stripe-cli:
+    image: stripe/stripe-cli:v1.55.3
+    profiles: [payments]
+    command:
+      - listen
+      - --api-key=${STRIPE_SECRET_KEY:-}
+      - --forward-to=booking-service:8082/webhooks/stripe
+      - --events=checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired
+    depends_on:
+      booking-service: { condition: service_healthy }
     restart: unless-stopped
 
   ai-service:
