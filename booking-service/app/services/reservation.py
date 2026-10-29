@@ -7,6 +7,7 @@ write, and the departure ends up oversold. Each strategy closes it differently:
 - optimistic: read without a lock, then a compare-and-swap UPDATE on the version column.
   A lost race retries with jittered backoff and gives up with 409 after a bounded number of tries.
 - atomic: one conditional UPDATE that checks capacity and increments in the same statement.
+  The default: best median throughput and latency in docs/benchmarks/booking-locking.md.
 
 reserve() runs inside the caller's transaction: on return the seats are taken but not
 committed, so the caller can add the booking row and commit both together. Releasing seats

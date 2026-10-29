@@ -141,7 +141,7 @@ services:
       CHECKOUT_CANCEL_URL: ${CHECKOUT_CANCEL_URL:-http://localhost:3000/bookings/{booking_id}?checkout=cancelled}
       HOLD_MINUTES: ${HOLD_MINUTES:-30}
       CANCELLATION_FULL_REFUND_HOURS: ${CANCELLATION_FULL_REFUND_HOURS:-48}
-      RESERVATION_STRATEGY: ${RESERVATION_STRATEGY:-pessimistic}
+      RESERVATION_STRATEGY: ${RESERVATION_STRATEGY:-atomic}
       # uvicorn worker processes (it reads WEB_CONCURRENCY). One worker is a single Python
       # process, and the benchmark showed it saturating one core long before the database.
       # Connections: workers x (pool + overflow) = 4 x 15 = 60, under Postgres' default of 100.

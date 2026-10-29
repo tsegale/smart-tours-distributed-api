@@ -77,9 +77,15 @@ def env_file_value(key: str) -> str | None:
     return None
 
 
-def restart_booking_service(strategy: str) -> None:
-    env = {**os.environ, "RESERVATION_STRATEGY": strategy, "PAYMENT_PROVIDER": "fake"}
+def restart_booking_service(strategy: str | None) -> None:
+    """Recreate booking-service with `strategy`, or with the compose default when None."""
+    env = {**os.environ, "PAYMENT_PROVIDER": "fake"}
+    env.pop("RESERVATION_STRATEGY", None)
+    if strategy is not None:
+        env["RESERVATION_STRATEGY"] = strategy
     sh("docker", "compose", "up", "-d", "--wait", "--no-deps", "booking-service", env=env)
+    if strategy is None:
+        return
     actual = sh("docker", "compose", "exec", "-T", "booking-service", "printenv", "RESERVATION_STRATEGY")
     if actual != strategy:
         raise SystemExit(f"booking-service runs {actual!r}, expected {strategy!r}")
@@ -333,7 +339,7 @@ def main() -> None:
             results.append({"strategy": strategy, "round": round_no, "summary": summary, "final": final})
 
     service = service_settings()
-    restart_booking_service("pessimistic")  # back to the compose default
+    restart_booking_service(None)  # back to the compose default
     write_report(results, args, host, service)
 
 

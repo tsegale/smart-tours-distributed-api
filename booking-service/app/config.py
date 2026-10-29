@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     sweeper_batch_size: int = Field(default=100, gt=0)
 
     # --- seat reservation strategy (see ADR 0002 and docs/benchmarks/booking-locking.md)
-    reservation_strategy: Literal["pessimistic", "optimistic", "atomic"] = "pessimistic"
+    # atomic won the contention benchmark (ADR 0002); pessimistic is within noise, optimistic loses.
+    reservation_strategy: Literal["pessimistic", "optimistic", "atomic"] = "atomic"
     optimistic_max_attempts: int = Field(default=8, gt=0)
     optimistic_backoff_base_ms: float = 5.0
     optimistic_backoff_cap_ms: float = 100.0
