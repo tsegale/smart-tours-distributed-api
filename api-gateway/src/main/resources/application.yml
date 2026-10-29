@@ -14,6 +14,12 @@ spring:
     gateway:
       server:
         webflux:
+          httpclient:
+            pool:
+              # Retire pooled upstream connections before the services close them (uvicorn runs
+              # with a 75 s keep-alive). Reusing a connection the server is closing gives
+              # "connection reset by peer", and a POST that was already sent can't be retried.
+              max-idle-time: 30s
           routes:
             - id: tour-core-service
               uri: ${TOUR_SERVICE_URL:http://localhost:8081}
