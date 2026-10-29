@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Response, status
@@ -12,6 +13,7 @@ from ..schemas import BookingCreate, BookingResponse, CancellationSummary, Payme
 from ..security import CurrentUser, get_current_user
 from ..services import booking_service
 from ..services.booking_service import CancellationOutcome
+from ..services.reservation import SeatReservationStrategy, strategy_from_settings
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
 
@@ -19,6 +21,14 @@ DbSession = Annotated[Session, Depends(get_db)]
 User = Annotated[CurrentUser, Depends(get_current_user)]
 Provider = Annotated[PaymentProvider, Depends(get_payment_provider)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
+
+
+@lru_cache
+def get_reservation_strategy() -> SeatReservationStrategy:
+    return strategy_from_settings(get_settings())
+
+
+Strategy = Annotated[SeatReservationStrategy, Depends(get_reservation_strategy)]
 
 
 def respond(db: Session, booking: Booking, cancellation: CancellationOutcome | None = None) -> BookingResponse:
@@ -75,13 +85,14 @@ def create_booking(
     user: User,
     db: DbSession,
     response: Response,
+    strategy: Strategy,
     provider: Provider,
     settings: AppSettings,
     idempotency_key: Annotated[str | None, Header(max_length=255)] = None,
 ) -> BookingResponse:
     """Hold seats for HOLD_MINUTES and return the checkout URL to pay at."""
     ttl = booking_service.hold_ttl(settings, provider)
-    booking, created = booking_service.hold_seats(db, user.id, body, idempotency_key, ttl)
+    booking, created = booking_service.hold_seats(db, user.id, body, idempotency_key, strategy, ttl)
     # The hold is committed before the provider is called: no lock is held across the network.
     booking = booking_service.ensure_checkout(db, booking, provider, settings)
     if not created:

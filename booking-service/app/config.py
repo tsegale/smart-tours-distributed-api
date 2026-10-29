@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     sweeper_interval_s: float = Field(default=60.0, gt=0)
     sweeper_batch_size: int = Field(default=100, gt=0)
 
+    # --- seat reservation strategy (see ADR 0002 and docs/benchmarks/booking-locking.md)
+    reservation_strategy: Literal["pessimistic", "optimistic", "atomic"] = "pessimistic"
+    optimistic_max_attempts: int = Field(default=8, gt=0)
+    optimistic_backoff_base_ms: float = 5.0
+    optimistic_backoff_cap_ms: float = 100.0
+
     # --- payments
     payment_provider: Literal["fake", "stripe"] = "fake"
     stripe_secret_key: str = ""

@@ -27,7 +27,6 @@ from ..domain.booking_status import ensure_can_transition, transition
 from ..errors import (
     ConflictError,
     IdempotencyKeyReusedError,
-    NotEnoughSlotsError,
     NotFoundError,
     PaymentPendingError,
     PaymentProviderError,
@@ -35,7 +34,7 @@ from ..errors import (
 from ..models import Booking, BookingStatus, Payment, PaymentStatus, TourAvailability
 from ..payments.base import CheckoutAlreadyCompletedError, CheckoutRequest, PaymentProvider, PaymentRef
 from ..schemas import AvailabilityCreate, BookingCreate
-from .reservation import lock_availability
+from .reservation import SeatReservationStrategy, lock_availability
 
 log = logging.getLogger(__name__)
 
@@ -103,6 +102,7 @@ def hold_seats(
     user_id: str,
     data: BookingCreate,
     idempotency_key: str | None,
+    strategy: SeatReservationStrategy,
     ttl: timedelta,
 ) -> tuple[Booking, bool]:
     """Reserve seats as a PENDING_PAYMENT hold. Returns (booking, created); False on a replay."""
@@ -113,13 +113,7 @@ def hold_seats(
                 db.rollback()
                 return _replay(existing, data), False
 
-        availability = lock_availability(db, data.availability_id)
-        if data.slots > availability.slots_remaining:
-            raise NotEnoughSlotsError(
-                f"Requested {data.slots} slots but only {availability.slots_remaining} remain",
-                slots_remaining=availability.slots_remaining,
-            )
-        availability.booked_slots += data.slots
+        availability = strategy.reserve(db, data.availability_id, data.slots)
         booking = Booking(
             user_id=user_id,
             availability_id=availability.id,
@@ -135,9 +129,10 @@ def hold_seats(
         db.commit()
         db.refresh(booking)
         log.info(
-            "booking.transition booking_id=%s from=none to=%s reason=seats_held",
+            "booking.transition booking_id=%s from=none to=%s reason=seats_held strategy=%s",
             booking.id,
             BookingStatus.PENDING_PAYMENT,
+            strategy.name,
         )
         return booking, True
     except IntegrityError as exc:
