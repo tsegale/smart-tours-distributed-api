@@ -2,6 +2,8 @@ package com.smarttours.gateway.security;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.route.Route;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -10,6 +12,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -44,6 +47,41 @@ class UserContextHeadersFilterTest {
 
         assertThat(forwarded.getRequest().getHeaders().containsHeader(UserContextHeadersFilter.USER_ID)).isFalse();
         assertThat(forwarded.getRequest().getHeaders().containsHeader(UserContextHeadersFilter.USER_ROLES)).isFalse();
+    }
+
+    @Test
+    void routeThatOptsOut_getsNoIdentityHeaders_evenWhenAuthenticated_andSpoofedOnesAreStripped() {
+        MockServerWebExchange original = MockServerWebExchange.from(MockServerHttpRequest.post("/webhooks/stripe")
+                .header(UserContextHeadersFilter.USER_ID, "victim-user")
+                .header(UserContextHeadersFilter.USER_ROLES, "ADMIN"));
+        ServerWebExchange exchange = original.mutate().principal(Mono.just(token("alice", "CUSTOMER"))).build();
+        exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR, route(false));
+
+        ServerWebExchange forwarded = run(exchange);
+
+        assertThat(forwarded.getRequest().getHeaders().containsHeader(UserContextHeadersFilter.USER_ID)).isFalse();
+        assertThat(forwarded.getRequest().getHeaders().containsHeader(UserContextHeadersFilter.USER_ROLES)).isFalse();
+    }
+
+    @Test
+    void routesPropagateIdentityUnlessTheyOptOut() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/bookings/me"));
+        assertThat(UserContextHeadersFilter.propagatesIdentity(exchange)).isTrue();
+
+        exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR, route(true));
+        assertThat(UserContextHeadersFilter.propagatesIdentity(exchange)).isTrue();
+
+        exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR, route(false));
+        assertThat(UserContextHeadersFilter.propagatesIdentity(exchange)).isFalse();
+    }
+
+    private static Route route(boolean identityPropagation) {
+        return Route.async()
+                .id("test-route")
+                .uri(URI.create("http://localhost:1"))
+                .predicate(exchange -> true)
+                .metadata(UserContextHeadersFilter.IDENTITY_PROPAGATION, identityPropagation)
+                .build();
     }
 
     private ServerWebExchange run(ServerWebExchange exchange) {

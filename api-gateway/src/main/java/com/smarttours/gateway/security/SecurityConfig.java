@@ -3,6 +3,8 @@ package com.smarttours.gateway.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
@@ -15,6 +17,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 import org.springframework.core.convert.converter.Converter;
 import reactor.core.publisher.Mono;
 
@@ -32,6 +36,29 @@ public class SecurityConfig {
 
     static final String ROLES_CLAIM = "roles";
     static final int MIN_SECRET_BYTES = 32; // HS256 needs a key of at least 256 bits
+    static final String WEBHOOK_PATHS = "/webhooks/**";
+
+    /**
+     * Payment-provider webhooks. Matched first and kept apart from the main chain: there is no
+     * bearer-token filter at all here, so a stray or invalid Authorization header can't turn a
+     * provider's delivery into a 401. booking-service authenticates the call by verifying the
+     * provider's signature over the raw body.
+     */
+    @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    SecurityWebFilterChain webhookSecurityWebFilterChain(ServerHttpSecurity http) {
+        return http
+                .securityMatcher(ServerWebExchangeMatchers.pathMatchers(WEBHOOK_PATHS))
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+                .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
+                .requestCache(ServerHttpSecurity.RequestCacheSpec::disable)
+                .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
+                .authorizeExchange(exchanges -> exchanges
+                        .pathMatchers(HttpMethod.POST, WEBHOOK_PATHS).permitAll()
+                        .anyExchange().denyAll())
+                .build();
+    }
 
     @Bean
     SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {

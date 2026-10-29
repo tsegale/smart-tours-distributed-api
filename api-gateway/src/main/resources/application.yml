@@ -29,6 +29,20 @@ spring:
               uri: ${BOOKING_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/api/bookings,/api/bookings/**,/api/availability,/api/availability/**
+            # Public: payment providers call this with no token. The provider's signature over the
+            # raw body is the credential, so the body is forwarded byte for byte (no body filters),
+            # and identity headers are not propagated (see UserContextHeadersFilter).
+            - id: booking-webhooks
+              uri: ${BOOKING_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/webhooks/stripe
+                - Method=POST
+              filters:
+                - name: RequestSize
+                  args:
+                    maxSize: 256KB # Stripe events are a few KB; refuse anything far larger
+              metadata:
+                identity-propagation: false
             - id: ai-service
               uri: ${AI_SERVICE_URL:http://localhost:8083}
               predicates:

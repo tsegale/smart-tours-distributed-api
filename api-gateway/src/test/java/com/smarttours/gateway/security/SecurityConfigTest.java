@@ -92,6 +92,25 @@ class SecurityConfigTest {
     }
 
     @Test
+    void stripeWebhookWithoutToken_passesSecurity() {
+        client.post().uri("/webhooks/stripe").bodyValue("{}").exchange()
+                .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+    }
+
+    @Test
+    void stripeWebhookWithGarbageBearer_isNotRejectedByTheGateway() {
+        // The webhook chain has no bearer-token filter; booking-service checks the signature instead.
+        client.post().uri("/webhooks/stripe").header("Authorization", "Bearer not-a-jwt").bodyValue("{}")
+                .exchange().expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+    }
+
+    @Test
+    void otherMethodsOnWebhookPaths_areDenied() {
+        client.get().uri("/webhooks/stripe").exchange()
+                .expectStatus().value(status -> assertThat(status).isIn(401, 403));
+    }
+
+    @Test
     void healthIsPublic() {
         client.get().uri("/actuator/health").exchange().expectStatus().isOk();
     }
