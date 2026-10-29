@@ -86,6 +86,15 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+psycopg://ai:ai@localhost:5432/ai_test
 
+  compose:
+    name: docker compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Catches broken interpolation or references before anyone runs the stack.
+      # .env.example has placeholder values for every required variable.
+      - run: cp .env.example .env && docker compose config --quiet && docker compose --profile payments config --quiet
+
   docker:
     name: Docker image · ${{ matrix.service }}
     needs: [java, booking-service, ai-service]
