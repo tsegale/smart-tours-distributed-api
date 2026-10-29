@@ -142,6 +142,12 @@ services:
       HOLD_MINUTES: ${HOLD_MINUTES:-30}
       CANCELLATION_FULL_REFUND_HOURS: ${CANCELLATION_FULL_REFUND_HOURS:-48}
       RESERVATION_STRATEGY: ${RESERVATION_STRATEGY:-pessimistic}
+      # uvicorn worker processes (it reads WEB_CONCURRENCY). One worker is a single Python
+      # process, and the benchmark showed it saturating one core long before the database.
+      # Connections: workers x (pool + overflow) = 4 x 15 = 60, under Postgres' default of 100.
+      WEB_CONCURRENCY: ${BOOKING_WEB_CONCURRENCY:-4}
+      DB_POOL_SIZE: 5
+      DB_MAX_OVERFLOW: 10
     depends_on:
       bookings-db: { condition: service_healthy }
     healthcheck:
@@ -153,7 +159,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 768M # 4 workers
     restart: unless-stopped
 
   # Same image, different process: expires unpaid holds every 60 s and retries pending refunds.
