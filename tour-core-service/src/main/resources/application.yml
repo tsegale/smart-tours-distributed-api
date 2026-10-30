@@ -22,9 +22,19 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:smarttours}
     password: ${RABBITMQ_PASSWORD:change-me-rabbit}
+    listener:
+      simple:
+        # Listeners decide retry versus DLQ themselves (RetryingHandler). Anything that still escapes
+        # is rejected without requeue, so it can't spin in a redelivery loop.
+        default-requeue-rejected: false
   mvc:
     problemdetails:
       enabled: true
+
+smarttours:
+  messaging:
+    max-retries: 5
+    retry-delay: 10s
 
 management:
   endpoints:
