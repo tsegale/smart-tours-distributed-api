@@ -138,8 +138,8 @@ sequenceDiagram
   safe against duplicates and reordering ([ADR 0008](docs/adr/0008-outbox-and-cqrs-availability-read-model.md)).
 - **Caching that can fail.** Redis first pages keyed by a catalogue generation (no SCAN/KEYS), jittered TTLs,
   single-flight on misses, and Redis down costs latency, not availability (tested by stopping Redis mid-test).
-  Under load the median search dropped from 3.0 s cold to 108 ms warm on a laptop
-  ([load test](docs/benchmarks/search.md#load-test-k6-through-the-gateway)).
+  On a laptop, a realistic search mix through the gateway runs at a median of 15 to 19 ms at 20 req/s and
+  tops out around 80 req/s ([load test](docs/benchmarks/search.md#load-test-k6-through-the-gateway)).
 - **Rate limits per caller.** Redis token buckets at the gateway keyed by JWT subject or a proxy-aware client IP,
   429 Problem Details with `Retry-After`, fail-open for reads and fail-closed for seat holds
   ([ADR 0010](docs/adr/0010-rate-limiting-at-the-gateway.md)).

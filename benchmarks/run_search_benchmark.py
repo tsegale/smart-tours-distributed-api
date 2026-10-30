@@ -3,9 +3,10 @@
 
   1. check the catalogue holds the 100k seed (scripts/seed_tours.sql; --seed appends it);
   2. mint one JWT per simulated user (scripts/dev_token.py);
-  3. cold: empty the cache (redis-cache), run benchmarks/k6/search.js (SCENARIO=mix) at --rate requests per second;
-  4. warm: run the same mix again straight away, with the cache as the cold run left it;
-  5. burst: one user fires --burst-rate requests per second at search, to show the limiter's 429s.
+  3. warm-up: 20 s of the same mix, not reported (JIT, pools and statement plans, not the cache);
+  4. cold: empty the cache (redis-cache), run benchmarks/k6/search.js (SCENARIO=mix) at --rate requests per second;
+  5. warm: run the same mix again straight away, with the cache as the cold run left it;
+  6. burst: one user fires --burst-rate requests per second at search, to show the limiter's 429s.
 The cache hit ratio of each run is the difference in tour-core's cache_gets_total counters
 (/actuator/prometheus, read inside the container: it is not routed through the gateway).
 
@@ -148,6 +149,11 @@ def main() -> None:
     (OUT_DIR / "burst-token.json").write_text(json.dumps([mint(secret, f"burst-{int(time.time())}", [], 3600)]))
     network = compose_network()
     host = machine()
+
+    # Warm the JVMs (JIT, connection pools, per-connection statement plans) first, so "cold" below means a cold
+    # cache, not a freshly started service: right after a restart, first searches took up to 15 s on this laptop.
+    print("--- warm-up: 20 s of the mix, not reported")
+    run_k6(network, "mix", args.rate, "20s", "search-tokens.json", "search-warmup")
 
     print("--- cold: empty cache")
     sh("docker", "compose", "exec", "-T", "redis-cache", "redis-cli", "FLUSHALL")
