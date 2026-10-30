@@ -84,3 +84,9 @@ outbox in the same transaction as the seat change. The outbox adds one INSERT of
 transaction that already holds the departure's row lock for an UPDATE and an INSERT; the honest measurement of
 that difference needs a quiet machine, with the gateway limiter disabled for both runs. Raw output:
 `benchmarks/out/atomic-before-outbox.md`, `benchmarks/out/atomic-after-outbox.md` (not committed).
+
+Re-run after giving uvicorn workers 30 s to answer health checks (`fix(booking)` commit), same settings:
+median 26 req/s, p50 1757 ms, p95 12259 ms; rounds of 13, 42 and 26 req/s. **No worker was killed and no
+request failed with 500** (18 before). The remaining 136 errors (all in rounds 1 and 3) are client timeouts at
+30 s and 503s from the booking route failing closed when the gateway's Redis call timed out, both symptoms of the
+starved host. Inventory and bookings agreed and nothing was oversold in every round.
