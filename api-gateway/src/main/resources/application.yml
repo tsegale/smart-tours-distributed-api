@@ -6,10 +6,37 @@ smarttours:
   security:
     # Base64, >= 32 bytes. Required: there is deliberately no default, so a missing secret fails fast.
     jwt-secret: ${JWT_SECRET}
+  rate-limit:
+    # CIDRs of proxies in front of the gateway (a load balancer). X-Forwarded-For is believed only on
+    # connections from these; with none configured, the TCP peer address is the client.
+    trusted-proxies: ${RATE_LIMIT_TRUSTED_PROXIES:}
+
+# Rate-limit budgets per caller (ADR 0010): token bucket, refilled at replenishRate tokens per second,
+# holding at most burstCapacity. A caller is a JWT subject, or an IP address when anonymous.
+rate-limits:
+  search: # GET /api/tours/search, signed in: generous, it is the product's front door
+    replenish-rate: ${RATE_LIMIT_SEARCH_RPS:20}
+    burst-capacity: ${RATE_LIMIT_SEARCH_BURST:40}
+  user: # everything else a signed-in caller does, except creating bookings
+    replenish-rate: ${RATE_LIMIT_USER_RPS:10}
+    burst-capacity: ${RATE_LIMIT_USER_BURST:20}
+  anonymous: # public catalogue reads without a token, per IP address
+    replenish-rate: ${RATE_LIMIT_ANONYMOUS_RPS:5}
+    burst-capacity: ${RATE_LIMIT_ANONYMOUS_BURST:10}
+  booking-create: # POST /api/bookings: every request holds seats for 30 minutes
+    replenish-rate: ${RATE_LIMIT_BOOKING_RPS:1}
+    burst-capacity: ${RATE_LIMIT_BOOKING_BURST:5}
 
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      # The limiter sits in front of every request: never let a slow Redis add more than this.
+      timeout: 250ms
+      connect-timeout: 250ms
   cloud:
     gateway:
       server:
@@ -20,19 +47,16 @@ spring:
               # with a 75 s keep-alive). Reusing a connection the server is closing gives
               # "connection reset by peer", and a POST that was already sent can't be retried.
               max-idle-time: 30s
+          # Routes are tried in `order`. Signed-in requests are told apart by their bearer token: an invalid
+          # token never gets this far (Spring Security answers 401 first), so "has a bearer token" here means
+          # "authenticated".
           routes:
-            - id: tour-core-service
-              uri: ${TOUR_SERVICE_URL:http://localhost:8081}
-              predicates:
-                - Path=/api/tours,/api/tours/**
-            - id: booking-service
-              uri: ${BOOKING_SERVICE_URL:http://localhost:8082}
-              predicates:
-                - Path=/api/bookings,/api/bookings/**,/api/availability,/api/availability/**
             # Public: payment providers call this with no token. The provider's signature over the
             # raw body is the credential, so the body is forwarded byte for byte (no body filters),
             # and identity headers are not propagated (see UserContextHeadersFilter).
+            # Not rate limited: Stripe retries failed deliveries, and a 429 would only delay payments.
             - id: booking-webhooks
+              order: 0
               uri: ${BOOKING_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/webhooks/stripe
@@ -43,12 +67,100 @@ spring:
                     maxSize: 256KB # Stripe events are a few KB; refuse anything far larger
               metadata:
                 identity-propagation: false
+            - id: tour-search-user
+              order: 10
+              uri: ${TOUR_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/tours/search
+                - Method=GET
+                - Header=Authorization, Bearer .+
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.search.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.search.burst-capacity}
+            - id: tours-user
+              order: 20
+              uri: ${TOUR_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/tours,/api/tours/**
+                - Header=Authorization, Bearer .+
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.user.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.user.burst-capacity}
+            # Without a token only GETs are allowed here (SecurityConfig); everything else is 401 already.
+            - id: tours-anonymous
+              order: 30
+              uri: ${TOUR_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/tours,/api/tours/**
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.anonymous.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.anonymous.burst-capacity}
+            # tour-core's OpenAPI document and Swagger UI: /docs/tours/swagger-ui.html
+            - id: tour-docs
+              order: 40
+              uri: ${TOUR_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/docs/tours/**
+                - Method=GET
+              filters:
+                - StripPrefix=2 # the gateway sends X-Forwarded-Prefix: /docs/tours, so links stay correct
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.anonymous.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.anonymous.burst-capacity}
+            # Fail closed: a hold takes inventory for 30 minutes, so an unthrottled client could take every
+            # seat of a departure. A short 503 while Redis is down is the lesser harm (ADR 0010).
+            - id: booking-create
+              order: 50
+              uri: ${BOOKING_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/bookings
+                - Method=POST
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: closed
+                    redis-rate-limiter.replenishRate: ${rate-limits.booking-create.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.booking-create.burst-capacity}
+            - id: booking-service
+              order: 60
+              uri: ${BOOKING_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/bookings,/api/bookings/**,/api/availability,/api/availability/**
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.user.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.user.burst-capacity}
             - id: ai-service
+              order: 70
               uri: ${AI_SERVICE_URL:http://localhost:8083}
               predicates:
                 - Path=/api/ai/**
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.user.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.user.burst-capacity}
 
 management:
+  # Redis is the rate limiter's store, and most routes fail open without it (ADR 0010): an outage must not
+  # mark the gateway unhealthy. Limiter failures are logged by RateLimitGatewayFilterFactory.
+  health:
+    redis:
+      enabled: false
   endpoints:
     web:
       exposure:

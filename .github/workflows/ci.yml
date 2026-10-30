@@ -24,7 +24,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      # Unit tests plus Testcontainers integration tests (Docker is available on GitHub runners).
+      # Unit tests plus Testcontainers integration tests (Docker is available on GitHub runners): PostGIS,
+      # RabbitMQ and Redis for tour-core, Redis for the gateway.
       - run: ./mvnw -B -ntp verify
         working-directory: ${{ matrix.service }}
       # The jOOQ classes are committed (docker build has no Docker daemon to generate them). Regenerate them

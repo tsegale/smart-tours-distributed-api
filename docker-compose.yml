@@ -90,8 +90,20 @@ services:
       TOUR_SERVICE_URL: http://tour-core-service:8081
       BOOKING_SERVICE_URL: http://booking-service:8082
       AI_SERVICE_URL: http://ai-service:8083
+      # Token buckets for rate limiting (ADR 0010). Budgets: RATE_LIMIT_* in .env.example.
+      REDIS_HOST: redis
+      RATE_LIMIT_SEARCH_RPS: ${RATE_LIMIT_SEARCH_RPS:-20}
+      RATE_LIMIT_SEARCH_BURST: ${RATE_LIMIT_SEARCH_BURST:-40}
+      RATE_LIMIT_USER_RPS: ${RATE_LIMIT_USER_RPS:-10}
+      RATE_LIMIT_USER_BURST: ${RATE_LIMIT_USER_BURST:-20}
+      RATE_LIMIT_ANONYMOUS_RPS: ${RATE_LIMIT_ANONYMOUS_RPS:-5}
+      RATE_LIMIT_ANONYMOUS_BURST: ${RATE_LIMIT_ANONYMOUS_BURST:-10}
+      RATE_LIMIT_BOOKING_RPS: ${RATE_LIMIT_BOOKING_RPS:-1}
+      RATE_LIMIT_BOOKING_BURST: ${RATE_LIMIT_BOOKING_BURST:-5}
+      RATE_LIMIT_TRUSTED_PROXIES: ${RATE_LIMIT_TRUSTED_PROXIES:-}
     ports: ["8080:8080"]
     depends_on:
+      redis: { condition: service_healthy }
       tour-core-service: { condition: service_healthy }
       booking-service: { condition: service_healthy }
       ai-service: { condition: service_started }
