@@ -57,3 +57,30 @@ CONFIRMED bookings for that departure, read straight from bookings-db after the 
 the total. *409 busy* is a lock wait that hit `lock_timeout`, or optimistic retries that ran out.
 
 Raw k6 summaries: `benchmarks/out/` (not committed).
+
+## Phase 2: transactional outbox (atomic strategy, before and after)
+
+Same script and settings (`--strategies atomic --runs 3`), both on 2026-10-30 on the machine above, before and
+after every seat change started writing an `availability.changed` row to the outbox in the same transaction.
+Median of 3 rounds:
+
+| Build | p50 | p95 | p99 | 201 p95 | Throughput (req/s) | 201 | 409 sold out | 409 busy | Errors | Final booked / total | Bookings agree |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| before outbox (Phase 1 code) | 991 | 5280 | 8553 | 5503 | 54 | 500 | 500 | 0 | 0 | 500 / 500 | yes |
+| with outbox and relay | 1628 | 9567 | 13376 | 11025 | 33 | 500 | 499 | 13 | 53 | 500 / 500 | yes |
+
+**This does not isolate the outbox's cost, and should not be read as "the outbox costs 40%".** The second run
+differs in more than the outbox:
+- the gateway now calls Redis once per request for rate limiting (the booking budget was raised for the run so
+  the limiter allowed every request, but the call still happens);
+- one more process (the relay) and a tour catalogue of 100k rows from the search benchmark share the same 3.7 GiB
+  Docker VM, and the host had about 0.1 GB of physical memory free;
+- under that starvation the gateway's Redis calls timed out even at 1 s (13 bookings refused with 503: the route
+  fails closed, ADR 0010), and uvicorn's supervisor killed three booking-service workers that missed their health
+  check (18 requests answered 500, connection closed before response). None of this appeared before the run.
+
+What the runs do show: **no overbooking and inventory consistent with the bookings in every round**, with the
+outbox in the same transaction as the seat change. The outbox adds one INSERT of a small JSONB row to a
+transaction that already holds the departure's row lock for an UPDATE and an INSERT; the honest measurement of
+that difference needs a quiet machine, with the gateway limiter disabled for both runs. Raw output:
+`benchmarks/out/atomic-before-outbox.md`, `benchmarks/out/atomic-after-outbox.md` (not committed).

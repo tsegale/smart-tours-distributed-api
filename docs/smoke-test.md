@@ -38,7 +38,7 @@ tries `::1` first and can stall for the full connect timeout.
 ```bash
 echo "no token on /api/bookings/me:   $(code $GW/api/bookings/me)  (expect 401)"
 echo "CUSTOMER creating a tour:       $(code -X POST $GW/api/tours -H "Authorization: Bearer $CUSTOMER" \
-  -H 'Content-Type: application/json' -d '{"name":"x","price":1,"latitude":0,"longitude":0}')  (expect 403)"
+  -H 'Content-Type: application/json' -d '{"name":"x","price":1,"latitude":0,"longitude":0,"category":"CULTURAL","difficulty":"EASY","durationMinutes":240}')  (expect 403)"
 echo "public GET /api/tours:          $(code $GW/api/tours)  (expect 200)"
 ```
 
@@ -48,8 +48,8 @@ echo "public GET /api/tours:          $(code $GW/api/tours)  (expect 200)"
 create_tour() {
   curl -s -X POST $GW/api/tours -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' -d "$1" | json "d['id']"
 }
-T1=$(create_tour '{"name":"Sossusvlei Sunrise Dunes","description":"Climb Dune 45 at dawn above the red desert","price":1850.00,"latitude":-24.7275,"longitude":15.3424}')
-T2=$(create_tour '{"name":"Swakopmund Kayak with Seals","description":"Paddle Walvis Bay lagoon among Cape fur seals","price":1200.00,"latitude":-22.9575,"longitude":14.5053}')
+T1=$(create_tour '{"name":"Sossusvlei Sunrise Dunes","description":"Climb Dune 45 at dawn above the red desert","price":1850.00,"latitude":-24.7275,"longitude":15.3424,"category":"DESERT","difficulty":"MODERATE","durationMinutes":300}')
+T2=$(create_tour '{"name":"Swakopmund Kayak with Seals","description":"Paddle Walvis Bay lagoon among Cape fur seals","price":1200.00,"latitude":-22.9575,"longitude":14.5053,"category":"COASTAL","difficulty":"EASY","durationMinutes":180}')
 echo "created tours $T1 and $T2"
 
 wait_for "docker compose logs ai-worker | grep -q 'Embedded tour $T2 '"
@@ -89,7 +89,7 @@ wait_for '[ "$(queue_depth ai.tour-embedding.dlq)" -gt "$DLQ_BEFORE" ]'
 echo "DLQ depth: $DLQ_BEFORE -> $(queue_depth ai.tour-embedding.dlq)  (expect +1)"
 
 # A valid event published after the poison one is still processed.
-T3=$(create_tour '{"name":"Etosha Game Drive","description":"Lions and elephants at the waterholes","price":2400.00,"latitude":-18.8556,"longitude":16.3294}')
+T3=$(create_tour '{"name":"Etosha Game Drive","description":"Lions and elephants at the waterholes","price":2400.00,"latitude":-18.8556,"longitude":16.3294,"category":"SAFARI","difficulty":"EASY","durationMinutes":480}')
 wait_for "docker compose logs ai-worker | grep -q 'Embedded tour $T3 '"
 docker compose logs ai-worker | grep -E "Poison message|Embedded tour $T3 "   # expect both lines
 echo "main queue depth: $(queue_depth ai.tour-embedding)  (expect 0)"
@@ -189,6 +189,79 @@ Cancelling it 37 days before departure returned `policy: full_refund`, Stripe cr
 refund with status `succeeded`, the booking went REFUNDED and both seats were released.
 
 Switch back to the fake provider afterwards: `PAYMENT_PROVIDER=fake` in `.env`, then `docker compose up -d`.
+
+## 8. Search, caching, conditional requests and rate limits
+
+Runs after sections 0 to 6 (section 7 is not needed). Uses `$T1` (Sossusvlei) and `$T2` from section 2.
+
+```bash
+S="$GW/api/tours/search"
+
+# Search: desert tours near Sossusvlei, nearest first, with distances
+curl -s "$S?lat=-24.73&lon=15.34&radius=100000&category=DESERT" | json "[(i['name'], i['distanceMeters']) for i in d['items']][:3]"
+# expect Sossusvlei Sunrise Dunes first, a few hundred metres away
+
+# Contradictions are one 400 listing every problem
+curl -s "$S?lat=-24.7&lon=15.3&radius=1000&bbox=14,-25,16,-22&minPrice=900&maxPrice=100" | json "d['status'], [e['param'] for e in d['errors']]"
+# expect 400 ['bbox', 'minPrice']
+
+# Conditional requests on a tour
+ETAG=$(curl -s -D - -o /dev/null $GW/api/tours/$T2 | tr -d '\r' | sed -n 's/^[Ee][Tt]ag: //p')
+echo "ETag: $ETAG"
+echo "If-None-Match:       $(code $GW/api/tours/$T2 -H "If-None-Match: $ETAG")  (expect 304)"
+BODY='{"name":"Swakopmund Kayak with Seals","description":"Paddle Walvis Bay lagoon among Cape fur seals and pelicans","price":1250.00,"latitude":-22.9575,"longitude":14.5053,"category":"COASTAL","difficulty":"EASY","durationMinutes":180}'
+echo "PUT without If-Match: $(code -X PUT $GW/api/tours/$T2 -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' -d "$BODY")  (expect 428)"
+echo "PUT with If-Match:    $(code -X PUT $GW/api/tours/$T2 -H "Authorization: Bearer $OPERATOR" -H "If-Match: $ETAG" -H 'Content-Type: application/json' -d "$BODY")  (expect 200)"
+echo "PUT with stale ETag:  $(code -X PUT $GW/api/tours/$T2 -H "Authorization: Bearer $OPERATOR" -H "If-Match: $ETAG" -H 'Content-Type: application/json' -d "$BODY")  (expect 412)"
+wait_for "docker compose logs ai-worker | grep -q 'Embedded tour $T2 (event'"   # tour.updated re-embeds it
+
+# A booking changes availability in search (outbox -> relay -> RabbitMQ -> read model)
+AV8=$(curl -s -X POST $GW/api/availability -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json'   -d "{\"tour_id\":$T1,\"starts_at\":\"2026-12-10T05:30:00+02:00\",\"total_slots\":3}" | json "d['id']")
+DAY=2026-12-10
+# Is $T1 among the Sossusvlei tours with a departure that day that has 3 free seats? (1 = yes)
+free() { curl -s "$S?q=sossusvlei&from=$DAY&to=$DAY&minSlots=3&size=$1" | json "int(any(i['id'] == $T1 for i in d['items']))"; }
+wait_for '[ "$(free 100)" = 1 ]'
+echo "T1 listed with 3 free seats: $(free 100)  (expect 1, once availability.changed arrived)"
+B4=$(curl -s -X POST $GW/api/bookings -H "Authorization: Bearer $CUSTOMER" -H 'Content-Type: application/json'   -d "{\"availability_id\":$AV8,\"slots\":3}" | json "d['id']")      # takes all three seats
+# size=99 is a new cache key: a cached first page may lag up to 60 s (ADR 0009)
+wait_for '[ "$(free 99)" = 0 ]'
+echo "after holding all 3: $(free 99)  (expect 0)"
+docker compose exec -T tours-db psql -U "$TOURS_DB_USER" -d tours -tAc   "SELECT slots_left, source_version FROM tour_departure_summary WHERE availability_id = $AV8"   # expect 0|2
+
+# A verified review feeds the rating: backdate the departure, confirm the booking, review it
+docker compose exec -T bookings-db psql -U "$BOOKINGS_DB_USER" -d bookings -c \
+  "UPDATE tour_availability SET starts_at = now() - interval '1 day' WHERE id = $AV8"
+python scripts/fake_webhook.py --booking $B4
+curl -s -X POST $GW/api/bookings/$B4/review -H "Authorization: Bearer $CUSTOMER" -H 'Content-Type: application/json' \
+  -d '{"rating":5,"comment":"Unforgettable sunrise"}' | json "d['rating'], d['tour_id']"     # expect 5 and $T1
+wait_for "[ \"\$(curl -s $GW/api/tours/$T1 | json \"d['ratingCount']\")\" -ge 1 ]"
+curl -s $GW/api/tours/$T1 | json "d['avgRating'], d['ratingCount']"   # expect 5.0 and 1
+echo "second review: $(code -X POST $GW/api/bookings/$B4/review -H "Authorization: Bearer $CUSTOMER" -H 'Content-Type: application/json' -d '{"rating":1}')  (expect 409)"
+
+# Rate limit: anonymous search allows a burst of 10, refilled at 5/s. 40 requests at once (one process with
+# threads: separate curl processes start too slowly on Windows to land inside one second):
+python -c "
+import urllib.request, urllib.error, collections, json
+from concurrent.futures import ThreadPoolExecutor
+def get(_):
+    try: return urllib.request.urlopen('$S?q=dunes', timeout=30).status, None
+    except urllib.error.HTTPError as e: return e.code, (e.headers['Retry-After'], json.loads(e.read())['type'])
+results = list(ThreadPoolExecutor(40).map(get, range(40)))
+print(collections.Counter(status for status, _ in results), next(p for s, p in results if s == 429))
+"   # expect both 200s and 429s (the split depends on how fast the threads fire; 5 tokens refill per
+    # second), and ('1', 'https://smarttours.dev/problems/rate-limited')
+curl -s -i "$S?q=dunes" | tr -d '\r' | grep -E '^HTTP|^X-RateLimit'   # a moment later: 200 again, budget headers
+
+# Cache metrics, internal only
+docker compose exec -T tour-core-service wget -qO- localhost:8081/actuator/prometheus | grep '^cache_gets_total{cache="search"'
+```
+
+OpenAPI: http://127.0.0.1:8080/docs/tours/swagger-ui.html (the document itself: `/docs/tours/v3/api-docs`).
+
+Last run 2026-10-30 against the 100k seed: nearest result 368.8 m away; contradictions gave 400 with
+`['bbox', 'minPrice']`; 304, 428, 200, 412 in that order; the read model went to `0|2` (no seats, version 2)
+and search dropped the tour; the review gave rating 5 and the tour `5.0 1`, a second review 409; 40 concurrent
+anonymous searches gave 21 x 200 and 19 x 429 in one run, 34 and 6 in another.
 
 ## Reset
 
