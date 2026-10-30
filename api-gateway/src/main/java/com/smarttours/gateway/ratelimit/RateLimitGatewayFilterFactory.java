@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
+import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
@@ -72,7 +73,15 @@ public class RateLimitGatewayFilterFactory extends AbstractGatewayFilterFactory<
             Route route = exchange.getRequiredAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
             return keyResolver.resolve(exchange)
                     .defaultIfEmpty(ClientAddressResolver.UNKNOWN)
-                    .flatMap(key -> rateLimiter.isAllowed(route.getId(), key).flatMap(response -> {
+                    .flatMap(key -> rateLimiter.isAllowed(route.getId(), key)
+                            // Any failure the limiter doesn't absorb itself counts as "unavailable" too, so the
+                            // route's fail mode decides, never an unhandled 500.
+                            .onErrorResume(ex -> {
+                                log.warn("Rate limiter failed on route {}: {}", route.getId(), ex.toString());
+                                return Mono.just(new RateLimiter.Response(true,
+                                        Map.of(RedisRateLimiter.REMAINING_HEADER, "-1")));
+                            })
+                            .flatMap(response -> {
                         Map<String, String> headers = response.getHeaders();
                         if (redisUnavailable(headers)) {
                             if (config.getFailMode() == FailMode.CLOSED) {

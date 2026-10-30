@@ -34,9 +34,11 @@ spring:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
-      # The limiter sits in front of every request: never let a slow Redis add more than this.
-      timeout: 250ms
-      connect-timeout: 250ms
+      # The limiter sits in front of every request, so this bounds what a slow Redis can add. Not lower: under
+      # CPU pressure the gateway's own event loop delays replies, and 250 ms timed out a healthy Redis under
+      # the booking benchmark. A Redis that is down fails at once anyway (Lettuce rejects while disconnected).
+      timeout: 1s
+      connect-timeout: 1s
   cloud:
     gateway:
       server:
