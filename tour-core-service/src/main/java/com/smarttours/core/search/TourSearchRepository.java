@@ -11,6 +11,7 @@ import org.jooq.Field;
 import org.jooq.Record;
 import org.jooq.SelectFieldOrAsterisk;
 import org.jooq.SortField;
+import org.jooq.Table;
 import org.jooq.impl.DSL;
 import org.jooq.impl.SQLDataType;
 import org.springframework.stereotype.Repository;
@@ -71,22 +72,54 @@ public class TourSearchRepository {
             select.add(x.distance.as("distance_meters"));
         }
 
-        List<Record> rows = dsl.select(select)
-                .from(T)
-                .where(where)
-                .orderBy(sortKey.orderBy())
-                .limit(criteria.size() + 1) // one extra row says whether there is a next page
-                .fetch();
+        int fetch = criteria.size() + 1; // one extra row says whether there is a next page
+        List<Record> rows = criteria.sort() == SearchSort.DISTANCE
+                ? nearestFirst(select, where, x, fetch)
+                : dsl.select(select).from(T).where(where).orderBy(sortKey.orderBy()).limit(fetch).fetch();
 
         boolean more = rows.size() > criteria.size();
         List<Record> page = more ? rows.subList(0, criteria.size()) : rows;
         String next = null;
         if (more) {
             Record last = page.getLast();
-            next = SearchCursor.after(criteria.sort(), sortKey.format(last.get("sort_key")), last.get(T.ID),
-                    criteria.filterFingerprint()).encode();
+            next = SearchCursor.after(criteria.sort(), sortKey.format(last.get("sort_key")),
+                    last.get("id", Long.class), criteria.filterFingerprint()).encode();
         }
         return new Page(page.stream().map(r -> hit(r, x.distance != null)).toList(), next);
+    }
+
+    /**
+     * Nearest first, in two steps, because PostgreSQL only answers {@code ORDER BY location <-> point} from
+     * the GiST index (a KNN scan that stops after a few rows) when the distance is the whole sort key. With
+     * the {@code id} tie-breaker keyset paging needs, it sorts every candidate instead: all 100k tours when
+     * there is no radius (measured in docs/benchmarks/search.md).
+     * <ol>
+     *   <li>{@code candidates}: KNN by distance alone, {@code fetch} rows. Every row nearer than the farthest
+     *       candidate is among them, but rows at exactly that distance may be cut arbitrarily.</li>
+     *   <li>{@code ties}: every matching row at exactly that boundary distance, found through the same GiST
+     *       index ({@code ST_DWithin} with a 1 m margin, then an exact equality on the same expression).</li>
+     * </ol>
+     * Their union, ordered by (distance, id), gives exactly the rows and order a full sort would, so cursors
+     * stay exact even across many tours at one spot.
+     */
+    private List<Record> nearestFirst(List<SelectFieldOrAsterisk> select, List<Condition> where, Expressions x,
+                                      int fetch) {
+        var candidates = DSL.name("candidates").as(
+                DSL.select(select).from(T).where(where).orderBy(x.distance.asc()).limit(fetch));
+        Table<Record> candidatesTable = DSL.table(DSL.name("candidates"));
+        Field<Double> boundary = DSL.field(DSL.select(
+                DSL.max(DSL.field(DSL.name("candidates", "sort_key"), SQLDataType.DOUBLE))).from(candidatesTable));
+        var ties = DSL.select(select).from(T).where(where)
+                .and(DSL.condition("ST_DWithin({0}, {1}, {2} + 1, false)", LOCATION_GEOG, x.point, boundary))
+                .and(x.distance.eq(boundary));
+        Table<Record> union = DSL.select(DSL.asterisk()).from(candidatesTable).union(ties).asTable("nearest");
+        return dsl.with(candidates)
+                .select()
+                .from(union)
+                .orderBy(DSL.field(DSL.name("nearest", "sort_key"), SQLDataType.DOUBLE).asc(),
+                        DSL.field(DSL.name("nearest", "id"), SQLDataType.BIGINT).asc())
+                .limit(fetch)
+                .fetch();
     }
 
     private static List<Condition> filters(SearchCriteria c, Expressions x) {
@@ -146,23 +179,24 @@ public class TourSearchRepository {
         return conditions;
     }
 
+    /** By column name, not table field: the nearest-first query returns rows of a derived table. */
     private static TourSearchHit hit(Record r, boolean geo) {
-        int ratingCount = r.get(T.RATING_COUNT);
+        int ratingCount = r.get("rating_count", Integer.class);
         Double distance = geo ? r.get("distance_meters", Double.class) : null;
         return new TourSearchHit(
-                r.get(T.ID),
-                r.get(T.NAME),
-                r.get(T.DESCRIPTION),
-                r.get(T.PRICE),
-                r.get(T.CURRENCY),
+                r.get("id", Long.class),
+                r.get("name", String.class),
+                r.get("description", String.class),
+                r.get("price", BigDecimal.class),
+                r.get("currency", String.class),
                 r.get("latitude", Double.class),
                 r.get("longitude", Double.class),
-                Category.valueOf(r.get(T.CATEGORY)),
-                Difficulty.valueOf(r.get(T.DIFFICULTY)),
-                r.get(T.DURATION_MINUTES),
-                ratingCount == 0 ? null : r.get(T.AVG_RATING),
+                Category.valueOf(r.get("category", String.class)),
+                Difficulty.valueOf(r.get("difficulty", String.class)),
+                r.get("duration_minutes", Integer.class),
+                ratingCount == 0 ? null : r.get("avg_rating", BigDecimal.class),
                 ratingCount,
-                r.get(T.CREATED_AT).toInstant(),
+                r.get("created_at", OffsetDateTime.class).toInstant(),
                 distance == null ? null : Math.round(distance * 10) / 10.0);
     }
 

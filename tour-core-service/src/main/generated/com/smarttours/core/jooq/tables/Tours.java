@@ -182,7 +182,7 @@ public class Tours extends TableImpl<ToursRecord> {
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.asList(Indexes.IDX_TOURS_SEARCH_VECTOR);
+        return Arrays.asList(Indexes.IDX_TOURS_CREATED_ID, Indexes.IDX_TOURS_LOCATION_GEOM, Indexes.IDX_TOURS_PRICE_ID, Indexes.IDX_TOURS_RATING_ID, Indexes.IDX_TOURS_SEARCH_VECTOR);
     }
 
     @Override

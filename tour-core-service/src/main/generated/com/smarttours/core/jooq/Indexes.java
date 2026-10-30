@@ -22,5 +22,9 @@ public class Indexes {
     // INDEX definitions
     // -------------------------------------------------------------------------
 
+    public static final Index IDX_TOURS_CREATED_ID = Internal.createIndex(DSL.name("idx_tours_created_id"), Tours.TOURS, new OrderField[] { Tours.TOURS.CREATED_AT, Tours.TOURS.ID }, false);
+    public static final Index IDX_TOURS_LOCATION_GEOM = Internal.createIndex(DSL.name("idx_tours_location_geom"), Tours.TOURS, new OrderField[] { Tours.TOURS.LOCATION }, false);
+    public static final Index IDX_TOURS_PRICE_ID = Internal.createIndex(DSL.name("idx_tours_price_id"), Tours.TOURS, new OrderField[] { Tours.TOURS.PRICE, Tours.TOURS.ID }, false);
+    public static final Index IDX_TOURS_RATING_ID = Internal.createIndex(DSL.name("idx_tours_rating_id"), Tours.TOURS, new OrderField[] { Tours.TOURS.AVG_RATING, Tours.TOURS.ID }, false);
     public static final Index IDX_TOURS_SEARCH_VECTOR = Internal.createIndex(DSL.name("idx_tours_search_vector"), Tours.TOURS, new OrderField[] { Tours.TOURS.SEARCH_VECTOR }, false);
 }
