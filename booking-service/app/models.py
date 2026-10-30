@@ -1,6 +1,8 @@
 import enum
+import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -16,6 +18,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -168,3 +171,26 @@ class ProcessedWebhookEvent(Base):
     provider: Mapped[str] = mapped_column(String(20))
     event_type: Mapped[str] = mapped_column(String(100))
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class OutboxEvent(Base):
+    """An integration event, written in the same transaction as the change it describes.
+
+    app.jobs.outbox_relay publishes unpublished rows to RabbitMQ and then sets published_at, so an
+    event is never lost and never sent for a change that rolled back (ADR 0008).
+    """
+
+    __tablename__ = "outbox"
+    __table_args__ = (
+        Index("ix_outbox_unpublished", "occurred_at", "id", postgresql_where=text("published_at IS NULL")),
+        Index("ix_outbox_published_at", "published_at", postgresql_where=text("published_at IS NOT NULL")),
+    )
+
+    # Doubles as the event's eventId, the consumers' dedupe key.
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    aggregate_type: Mapped[str] = mapped_column(String(50))
+    aggregate_id: Mapped[str] = mapped_column(String(64))
+    event_type: Mapped[str] = mapped_column(String(100))  # also the routing key
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

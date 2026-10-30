@@ -41,6 +41,15 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U bookings" --health-interval 5s --health-timeout 5s --health-retries 10
+      # The outbox relay's publisher is tested against a real broker (publisher confirms).
+      rabbitmq:
+        image: rabbitmq:4.1-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: test
+          RABBITMQ_DEFAULT_PASS: test
+        ports: ["5672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping" --health-interval 10s --health-timeout 10s --health-retries 12
     defaults:
       run:
         working-directory: booking-service
@@ -56,6 +65,7 @@ jobs:
       - run: pytest
         env:
           TEST_DATABASE_URL: postgresql+psycopg://bookings:bookings@localhost:5432/bookings_test
+          TEST_RABBITMQ_URL: amqp://test:test@localhost:5672/%2F
 
   ai-service:
     name: Python · ai-recommendation-service

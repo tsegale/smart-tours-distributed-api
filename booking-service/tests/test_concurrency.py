@@ -164,6 +164,7 @@ def test_check_constraint_is_never_violated_under_contention(strategy, make_depa
     assert _state(availability_id) == (2, 2)
 
 
+@pytest.mark.raw_seat_writes
 def test_without_any_strategy_updates_are_lost(make_departure):
     """Control experiment: the naive read-check-write every strategy exists to prevent.
 

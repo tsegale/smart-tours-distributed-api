@@ -148,6 +148,8 @@ services:
       WEB_CONCURRENCY: ${BOOKING_WEB_CONCURRENCY:-4}
       DB_POOL_SIZE: 5
       DB_MAX_OVERFLOW: 10
+      # Only the outbox relay connects to the broker; the API writes events to the outbox table.
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
     depends_on:
       bookings-db: { condition: service_healthy }
     healthcheck:
@@ -171,6 +173,22 @@ services:
     environment: *booking-env
     depends_on:
       booking-service: { condition: service_healthy } # runs the migrations
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
+
+  # Same image, different process: publishes committed outbox rows to RabbitMQ (ADR 0008).
+  # Safe to scale (SELECT ... FOR UPDATE SKIP LOCKED; see app/services/outbox_relay.py).
+  booking-outbox-relay:
+    image: smarttours/booking-service:local
+    pull_policy: never # local image from booking-service's build
+    command: ["python", "-m", "app.jobs.outbox_relay"]
+    environment: *booking-env
+    depends_on:
+      booking-service: { condition: service_healthy } # runs the migrations
+      rabbitmq: { condition: service_healthy }
     deploy:
       resources:
         limits:

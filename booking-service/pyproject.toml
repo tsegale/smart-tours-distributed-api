@@ -6,6 +6,9 @@ requires-python = ">=3.12"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "raw_seat_writes: the test changes seat counts with raw SQL on purpose, so the outbox invariant does not apply",
+]
 filterwarnings = [
     # Raised inside the Stripe SDK's own httpx call (form bodies passed as data=bytes), not by this code.
     "ignore:Use 'content=<...>' to upload raw bytes:DeprecationWarning:httpx",

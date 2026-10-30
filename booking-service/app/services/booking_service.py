@@ -34,6 +34,7 @@ from ..errors import (
 from ..models import Booking, BookingStatus, Payment, PaymentStatus, TourAvailability
 from ..payments.base import CheckoutAlreadyCompletedError, CheckoutRequest, PaymentProvider, PaymentRef
 from ..schemas import AvailabilityCreate, BookingCreate
+from . import outbox
 from .reservation import SeatReservationStrategy, lock_availability
 
 log = logging.getLogger(__name__)
@@ -59,6 +60,8 @@ def create_availability(db: Session, data: AvailabilityCreate, tours: TourClient
     )
     db.add(availability)
     try:
+        db.flush()
+        outbox.availability_changed(db, availability)
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -114,6 +117,7 @@ def hold_seats(
                 return _replay(existing, data), False
 
         availability = strategy.reserve(db, data.availability_id, data.slots)
+        outbox.availability_changed(db, availability)
         booking = Booking(
             user_id=user_id,
             availability_id=availability.id,
@@ -164,8 +168,9 @@ def _payment_for(db: Session, booking_id: int) -> Payment | None:
     ).scalar_one_or_none()
 
 
-def _release_seats(availability: TourAvailability, booking: Booking) -> None:
+def _release_seats(db: Session, availability: TourAvailability, booking: Booking) -> None:
     availability.booked_slots -= booking.slots  # the CHECK constraint stops this going negative
+    outbox.availability_changed(db, availability)
 
 
 def start_checkout(db: Session, booking: Booking, provider: PaymentProvider, settings: Settings) -> Booking:
@@ -227,7 +232,7 @@ def _compensate_failed_checkout(db: Session, booking_id: int) -> None:
         booking = lock_booking(db, booking_id)
         if booking.status == BookingStatus.PENDING_PAYMENT:
             transition(booking, BookingStatus.CANCELLED, reason="checkout_failed")
-            _release_seats(availability, booking)
+            _release_seats(db, availability, booking)
             # The attempt left nothing behind, so the client may retry with the same key.
             booking.idempotency_key = None
         db.commit()
@@ -313,7 +318,7 @@ def _cancel_hold(
         if booking.status != BookingStatus.PENDING_PAYMENT:
             raise ConflictError(f"Booking is now {booking.status}; please retry", current_status=booking.status)
         transition(booking, BookingStatus.CANCELLED, reason="customer_cancelled_hold")
-        _release_seats(availability, booking)
+        _release_seats(db, availability, booking)
         payment = _payment_for(db, booking_id)
         if payment is not None and payment.status == PaymentStatus.PENDING:
             payment.status = PaymentStatus.EXPIRED
@@ -349,7 +354,7 @@ def _cancel_confirmed(
             payment.status = PaymentStatus.REFUND_PENDING
         else:
             transition(booking, BookingStatus.CANCELLED, reason="customer_cancelled_no_refund")
-        _release_seats(availability, booking)
+        _release_seats(db, availability, booking)
         total_amount = booking.total_amount
         db.commit()
     except Exception:

@@ -27,6 +27,7 @@ from ..domain.booking_status import transition
 from ..errors import ConflictError
 from ..models import Booking, BookingStatus, Payment, PaymentStatus
 from ..payments.base import PaymentProvider
+from . import outbox
 from .booking_service import issue_refund
 from .reservation import lock_availability
 
@@ -107,6 +108,7 @@ def _expire_departure(db: Session, availability_id: int, now: datetime, batch_si
             released += booking.slots
         availability.booked_slots -= released
         if holds:
+            outbox.availability_changed(db, availability)
             db.execute(
                 Payment.__table__.update()
                 .where(

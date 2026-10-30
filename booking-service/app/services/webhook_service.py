@@ -21,6 +21,7 @@ from ..domain.booking_status import transition
 from ..domain.money import to_minor_units
 from ..models import Booking, BookingStatus, Payment, PaymentStatus, ProcessedWebhookEvent, TourAvailability
 from ..payments.base import PaymentProvider, ProviderEvent, ProviderEventType
+from . import outbox
 from .booking_service import lock_booking
 from .reservation import lock_availability
 
@@ -75,6 +76,7 @@ def _apply(db: Session, event: ProviderEvent, provider: PaymentProvider) -> Webh
     booking = lock_booking(db, booking_id)
     payment = _ensure_payment(db, booking, event, provider)
     result = WebhookResult(booking_id=booking_id)
+    seats_before = availability.booked_slots
 
     match event.type:
         case E.CHECKOUT_COMPLETED if event.payment_status == "paid":
@@ -95,6 +97,8 @@ def _apply(db: Session, event: ProviderEvent, provider: PaymentProvider) -> Webh
             if booking.status == BookingStatus.PENDING_PAYMENT:
                 transition(booking, BookingStatus.EXPIRED, reason="checkout_expired")
                 availability.booked_slots -= booking.slots
+    if availability.booked_slots != seats_before:
+        outbox.availability_changed(db, availability)
     return result
 
 

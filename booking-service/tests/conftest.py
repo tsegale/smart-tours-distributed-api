@@ -63,9 +63,47 @@ def migrated_database():
 def clean_tables():
     with engine.begin() as conn:
         conn.execute(
-            text("TRUNCATE processed_webhook_events, payments, bookings, tour_availability RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE outbox, processed_webhook_events, payments, bookings, tour_availability "
+                "RESTART IDENTITY CASCADE"
+            )
         )
     yield
+
+
+LATEST_AVAILABILITY_EVENTS = text(
+    """
+    SELECT a.id, a.version, a.total_slots - a.booked_slots AS slots_left,
+           (e.payload ->> 'version')::int AS event_version, (e.payload ->> 'slotsLeft')::int AS event_slots_left
+    FROM tour_availability a
+    LEFT JOIN LATERAL (
+        SELECT payload FROM outbox o
+        WHERE o.event_type = 'availability.changed' AND o.aggregate_id = a.id::text
+        ORDER BY (o.payload ->> 'version')::int DESC
+        LIMIT 1
+    ) e ON true
+    ORDER BY a.id
+    """
+)
+
+
+@pytest.fixture(autouse=True)
+def every_seat_change_is_in_the_outbox(request):
+    """After every test: each departure's newest availability.changed event matches the row.
+
+    This is what makes "every change to seat counts writes an outbox row" a checked property of
+    the whole suite, not just of the tests that look for events. A path that changes seats
+    without calling outbox.availability_changed() leaves the row ahead of its newest event.
+    """
+    yield
+    if request.node.get_closest_marker("raw_seat_writes"):
+        return
+    with engine.connect() as conn:
+        for row in conn.execute(LATEST_AVAILABILITY_EVENTS):
+            assert (row.event_version, row.event_slots_left) == (row.version, row.slots_left), (
+                f"departure {row.id} is at version {row.version} with {row.slots_left} seats left, but its newest "
+                f"availability.changed event says version {row.event_version} with {row.event_slots_left}"
+            )
 
 
 @pytest.fixture(autouse=True)

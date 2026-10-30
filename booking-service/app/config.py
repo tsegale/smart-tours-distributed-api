@@ -50,6 +50,16 @@ class Settings(BaseSettings):
     # --- cancellation policy
     cancellation_full_refund_hours: int = Field(default=48, ge=0)
 
+    # --- integration events: transactional outbox and its relay (ADR 0008)
+    rabbitmq_url: str = "amqp://smarttours:change-me-rabbit@127.0.0.1:5672/%2F"
+    events_exchange: str = "smarttours.events"
+    outbox_batch_size: int = Field(default=100, gt=0)
+    # Idle wait between polls. A full batch is followed by the next one immediately.
+    outbox_poll_interval_s: float = Field(default=0.5, gt=0)
+    outbox_retention_hours: int = Field(default=168, gt=0)
+    outbox_prune_interval_s: float = Field(default=300.0, gt=0)
+    outbox_prune_batch_size: int = Field(default=1000, gt=0)
+
 
 @lru_cache
 def get_settings() -> Settings:
