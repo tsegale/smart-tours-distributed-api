@@ -213,7 +213,8 @@ BODY='{"name":"Swakopmund Kayak with Seals","description":"Paddle Walvis Bay lag
 echo "PUT without If-Match: $(code -X PUT $GW/api/tours/$T2 -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' -d "$BODY")  (expect 428)"
 echo "PUT with If-Match:    $(code -X PUT $GW/api/tours/$T2 -H "Authorization: Bearer $OPERATOR" -H "If-Match: $ETAG" -H 'Content-Type: application/json' -d "$BODY")  (expect 200)"
 echo "PUT with stale ETag:  $(code -X PUT $GW/api/tours/$T2 -H "Authorization: Bearer $OPERATOR" -H "If-Match: $ETAG" -H 'Content-Type: application/json' -d "$BODY")  (expect 412)"
-wait_for "docker compose logs ai-worker | grep -q 'Embedded tour $T2 (event'"   # tour.updated re-embeds it
+# tour.updated re-embeds it: a second "Embedded tour $T2" line after the one from section 2
+wait_for '[ "$(docker compose logs ai-worker | grep -c "Embedded tour $T2 (event")" -ge 2 ]'
 
 # A booking changes availability in search (outbox -> relay -> RabbitMQ -> read model)
 AV8=$(curl -s -X POST $GW/api/availability -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json'   -d "{\"tour_id\":$T1,\"starts_at\":\"2026-12-10T05:30:00+02:00\",\"total_slots\":3}" | json "d['id']")
@@ -258,7 +259,8 @@ docker compose exec -T tour-core-service wget -qO- localhost:8081/actuator/prome
 
 OpenAPI: http://127.0.0.1:8080/docs/tours/swagger-ui.html (the document itself: `/docs/tours/v3/api-docs`).
 
-Last run 2026-10-30 against the 100k seed: nearest result 368.8 m away; contradictions gave 400 with
+Last full run (sections 0 to 6 and 8, in one shell) 2026-10-30 against the 100k seed: every expectation met.
+Section 8: nearest result 368.8 m away; contradictions gave 400 with
 `['bbox', 'minPrice']`; 304, 428, 200, 412 in that order; the read model went to `0|2` (no seats, version 2)
 and search dropped the tour; the review gave rating 5 and the tour `5.0 1`, a second review 409; 40 concurrent
 anonymous searches gave 21 x 200 and 19 x 429 in one run, 34 and 6 in another.
