@@ -12,6 +12,7 @@ import org.jooq.Record;
 import org.jooq.SelectFieldOrAsterisk;
 import org.jooq.SortField;
 import org.jooq.Table;
+import org.jooq.TableLike;
 import org.jooq.impl.DSL;
 import org.jooq.impl.SQLDataType;
 import org.springframework.stereotype.Repository;
@@ -75,7 +76,7 @@ public class TourSearchRepository {
         int fetch = criteria.size() + 1; // one extra row says whether there is a next page
         List<Record> rows = criteria.sort() == SearchSort.DISTANCE
                 ? nearestFirst(select, where, x, fetch)
-                : dsl.select(select).from(T).where(where).orderBy(sortKey.orderBy()).limit(fetch).fetch();
+                : dsl.select(select).from(x.from()).where(where).orderBy(sortKey.orderBy()).limit(fetch).fetch();
 
         boolean more = rows.size() > criteria.size();
         List<Record> page = more ? rows.subList(0, criteria.size()) : rows;
@@ -105,11 +106,11 @@ public class TourSearchRepository {
     private List<Record> nearestFirst(List<SelectFieldOrAsterisk> select, List<Condition> where, Expressions x,
                                       int fetch) {
         var candidates = DSL.name("candidates").as(
-                DSL.select(select).from(T).where(where).orderBy(x.distance.asc()).limit(fetch));
+                DSL.select(select).from(x.from()).where(where).orderBy(x.distance.asc()).limit(fetch));
         Table<Record> candidatesTable = DSL.table(DSL.name("candidates"));
         Field<Double> boundary = DSL.field(DSL.select(
                 DSL.max(DSL.field(DSL.name("candidates", "sort_key"), SQLDataType.DOUBLE))).from(candidatesTable));
-        var ties = DSL.select(select).from(T).where(where)
+        var ties = DSL.select(select).from(x.from()).where(where)
                 .and(DSL.condition("ST_DWithin({0}, {1}, {2} + 1, false)", LOCATION_GEOG, x.point, boundary))
                 .and(x.distance.eq(boundary));
         Table<Record> union = DSL.select(DSL.asterisk()).from(candidatesTable).union(ties).asTable("nearest");
@@ -207,6 +208,8 @@ public class TourSearchRepository {
         final Field<Object> point;
         final Field<Double> distance;
         final Field<Object> tsQuery;
+        /** The full-text query as a one-row FROM item, so it is computed once per statement (see below). */
+        final Table<?> queryTable;
         final Field<Float> rank;
 
         Expressions(SearchCriteria c) {
@@ -221,12 +224,20 @@ public class TourSearchRepository {
                 distance = null;
             }
             if (c.hasQuery()) {
-                tsQuery = DSL.field("websearch_to_tsquery('english', {0})", Object.class, DSL.val(c.query()));
+                // A function in FROM (evaluated once), not an inline expression: inline in ts_rank_cd(...) PostgreSQL
+                // evaluated websearch_to_tsquery once per matching row, 2.2 s instead of 64 ms for 18k matches.
+                queryTable = DSL.table("websearch_to_tsquery('english', {0})", DSL.val(c.query())).as("query", "q");
+                tsQuery = DSL.field(DSL.name("query", "q"), Object.class);
                 rank = DSL.field("ts_rank_cd({0}, {1})", SQLDataType.REAL, T.SEARCH_VECTOR, tsQuery);
             } else {
                 tsQuery = null;
+                queryTable = null;
                 rank = null;
             }
+        }
+
+        List<TableLike<?>> from() {
+            return queryTable == null ? List.of(T) : List.of(T, queryTable);
         }
 
         SortKey<?> sortKey() {
