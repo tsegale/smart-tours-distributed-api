@@ -58,35 +58,48 @@ the total. *409 busy* is a lock wait that hit `lock_timeout`, or optimistic retr
 
 Raw k6 summaries: `benchmarks/out/` (not committed).
 
-## Phase 2: transactional outbox (atomic strategy, before and after)
+## Phase 2: transactional outbox (atomic strategy, A/B)
 
-Same script and settings (`--strategies atomic --runs 3`), both on 2026-10-30 on the machine above, before and
-after every seat change started writing an `availability.changed` row to the outbox in the same transaction.
-Median of 3 rounds:
+Does writing an `availability.changed` row to the outbox in the same transaction as every seat change, plus the
+relay publishing it, cost throughput under contention? Measured as an A/B on 2026-10-30, on the machine above:
 
-| Build | p50 | p95 | p99 | 201 p95 | Throughput (req/s) | 201 | 409 sold out | 409 busy | Errors | Final booked / total | Bookings agree |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
-| before outbox (Phase 1 code) | 991 | 5280 | 8553 | 5503 | 54 | 500 | 500 | 0 | 0 | 500 / 500 | yes |
-| with outbox and relay | 1628 | 9567 | 13376 | 11025 | 33 | 500 | 499 | 13 | 53 | 500 / 500 | yes |
+- **A, Phase 1**: booking-service built from commit `7d90e57` (no outbox), relay stopped;
+- **B, Phase 2**: the current booking-service (outbox in the transaction), relay running and publishing.
 
-**This does not isolate the outbox's cost, and should not be read as "the outbox costs 40%".** The second run
-differs in more than the outbox:
-- the gateway now calls Redis once per request for rate limiting (the booking budget was raised for the run so
-  the limiter allowed every request, but the call still happens);
-- one more process (the relay) and a tour catalogue of 100k rows from the search benchmark share the same 3.7 GiB
-  Docker VM, and the host had about 0.1 GB of physical memory free;
-- under that starvation the gateway's Redis calls timed out even at 1 s (13 bookings refused with 503: the route
-  fails closed, ADR 0010), and uvicorn's supervisor killed three booking-service workers that missed their health
-  check (18 requests answered 500, connection closed before response). None of this appeared before the run.
+Everything else identical for both: the same gateway (its booking-creation budget raised so the rate limiter
+allowed every request; the Redis call still happens on both sides), the same databases, uvicorn workers with
+the same 30 s health-check timeout; AI containers stopped to quiet the machine. Rounds alternate A, B, A, B, A, B
+so drift hits both. Same scenario as above: 100 VUs, 1000 attempts, one 500-seat departure, fake payments.
 
-What the runs do show: **no overbooking and inventory consistent with the bookings in every round**, with the
-outbox in the same transaction as the seat change. The outbox adds one INSERT of a small JSONB row to a
-transaction that already holds the departure's row lock for an UPDATE and an INSERT; the honest measurement of
-that difference needs a quiet machine, with the gateway limiter disabled for both runs. Raw output:
-`benchmarks/out/atomic-before-outbox.md`, `benchmarks/out/atomic-after-outbox.md` (not committed).
+| Build | Round | p50 | p95 | p99 | 201 p95 | Throughput (req/s) | 201 | 409 sold out | 409 busy | Errors | Final booked / total | Bookings agree |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| A: no outbox | 1 | 864 | 3862 | 5128 | 4587 | 77 | 500 | 500 | 0 | 0 | 500 / 500 | yes |
+| B: outbox | 1 | 764 | 4520 | 6981 | 5091 | 66 | 500 | 500 | 0 | 0 | 500 / 500 | yes |
+| A: no outbox | 2 | 908 | 4397 | 6594 | 4902 | 69 | 500 | 500 | 0 | 0 | 500 / 500 | yes |
+| B: outbox | 2 | 1180 | 5570 | 8009 | 6324 | 57 | 500 | 500 | 0 | 0 | 500 / 500 | yes |
+| A: no outbox | 3 | 708 | 4016 | 5467 | 4175 | 80 | 500 | 500 | 0 | 0 | 500 / 500 | yes |
+| B: outbox | 3 | 776 | 4228 | 6458 | 4576 | 69 | 500 | 500 | 0 | 0 | 500 / 500 | yes |
+| **A median** | | **864** | **4016** | **5467** | **4587** | **77** | | | 0 | 0 | | |
+| **B median** | | **776** | **4520** | **6981** | **5091** | **66** | | | 0 | 0 | | |
 
-Re-run after giving uvicorn workers 30 s to answer health checks (`fix(booking)` commit), same settings:
-median 26 req/s, p50 1757 ms, p95 12259 ms; rounds of 13, 42 and 26 req/s. **No worker was killed and no
-request failed with 500** (18 before). The remaining 136 errors (all in rounds 1 and 3) are client timeouts at
-30 s and 503s from the booking route failing closed when the gateway's Redis call timed out, both symptoms of the
-starved host. Inventory and bookings agreed and nothing was oversold in every round.
+- **Throughput is 14% lower with the outbox** (77 to 66 req/s, medians), and lower in every pair: -14%, -17%,
+  -14%. The tail grows with it: p95 +13%, p99 +28%. The median latency moves both ways between rounds (-12%, +30%,
+  +10%), so it is not a reliable signal at this sample size.
+- **Correctness held in every run**: exactly 500 seats sold, no busy refusals, no errors, inventory equal to the
+  bookings.
+- **The relay kept up**: 0 unpublished rows afterwards, out of 2,125 events written in that half hour. Commit to
+  publish took 1.1 s median and 5.2 s at p99 under this load (`published_at - occurred_at`).
+- **Where the cost goes, plausibly** (not separately measured): one more INSERT of a JSONB row while the
+  departure's row lock is held, plus the relay process polling and publishing with confirms. On this laptop the
+  whole stack is CPU-bound (see above), so the relay's CPU comes straight out of request handling. On a host with
+  idle cores the second part would largely disappear; the first is inherent to the pattern.
+- The cost buys the guarantee ADR 0008 needs: an event for every seat change that commits, and none for one that
+  rolls back. The alternatives (publish after commit and lose events when the broker is down, or two-phase commit
+  with the broker) are worse trades for a read model that must not drift.
+
+Earlier attempts the same day, before the machine was quieted and before the uvicorn health-check fix, are not
+comparable: the after-run also paid for the gateway limiter's Redis call that the before-run didn't make, and
+starved workers were killed by uvicorn's supervisor (18 requests failed with 500 until the timeout was raised).
+
+Reproduce: build Phase 1's image from `7d90e57`, then alternate `run_booking_contention.py --strategies atomic
+--runs 1` against each build. Raw output: `benchmarks/out/ab-*.md` (not committed).

@@ -50,13 +50,16 @@ reordering: one relay's batch can overtake another's.
 
 ## Consequences
 - **Search is eventually consistent.** A seat change reaches search after commit + relay poll (at most
-  0.5 s idle) + broker + consumer: normally well under a second; longer while the relay or broker is down,
-  and then it catches up from the outbox. Cached first pages add up to their TTL on top (ADR 0009).
+  0.5 s idle) + broker + consumer. Commit to publish measured 1.1 s median and 5.2 s at p99 under the
+  contention benchmark on a laptop; longer while the relay or broker is down, and then it catches up from the
+  outbox. Cached first pages add up to their TTL on top (ADR 0009).
 - **booking-service stays the source of truth.** Search may show a departure that has just sold out; the
   booking request is then refused there with 409 `not-enough-slots`. Nobody can be oversold through a stale
   read model, because nothing writes seats from it.
-- The outbox adds one INSERT to each seat-changing transaction. Measured on the contention benchmark: see the
-  "Phase 2: transactional outbox" section of [`docs/benchmarks/booking-locking.md`](../benchmarks/booking-locking.md).
+- The outbox adds one INSERT to each seat-changing transaction, and a relay process. Measured as an A/B against
+  Phase 1 on the contention benchmark: **14% less throughput** (77 to 66 req/s, lower in every round) on a
+  CPU-bound laptop, where the relay competes with request handling; correctness unchanged
+  ([results](../benchmarks/booking-locking.md#phase-2-transactional-outbox-atomic-strategy-ab)).
 - tour-core still publishes `tour.created` / `tour.updated` after commit, with the known dual-write gap. Its
   outbox remains Phase 4. A lost tour event is repaired by the next update of that tour.
 - One more process to run (`booking-outbox-relay`), and a table that grows with traffic until pruned.

@@ -136,6 +136,8 @@ sequenceDiagram
 - **Outbox and CQRS read model.** Every seat change writes its event in the same transaction (checked after
   every test in the suite); a relay publishes with confirms, at least once; tour-core applies events by version,
   safe against duplicates and reordering ([ADR 0008](docs/adr/0008-outbox-and-cqrs-availability-read-model.md)).
+  Measured as an A/B against Phase 1 under contention: 14% less throughput on a CPU-bound laptop, no change in
+  correctness ([results](docs/benchmarks/booking-locking.md#phase-2-transactional-outbox-atomic-strategy-ab)).
 - **Caching that can fail.** Redis first pages keyed by a catalogue generation (no SCAN/KEYS), jittered TTLs,
   single-flight on misses, and Redis down costs latency, not availability (tested by stopping Redis mid-test).
   On a laptop, a realistic search mix through the gateway runs at a median of 15 to 19 ms at 20 req/s and
