@@ -272,9 +272,9 @@ def write_report(results: list[dict], args: argparse.Namespace, host: dict[str, 
         "Raw k6 summaries: `benchmarks/out/` (not committed).",
         "",
     ]
-    REPORT.parent.mkdir(parents=True, exist_ok=True)
-    REPORT.write_text("\n".join(lines), encoding="utf-8", newline="\n")
-    print(f"wrote {REPORT.relative_to(ROOT)}")
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    args.report.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    print(f"wrote {args.report}")
 
 
 def service_settings() -> dict[str, str]:
@@ -292,6 +292,7 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=200)
     parser.add_argument("--runs", type=int, default=1, help="rounds; the report shows the median and every run")
     parser.add_argument("--strategies", nargs="+", default=list(STRATEGIES), choices=STRATEGIES)
+    parser.add_argument("--report", type=Path, default=REPORT, help="where to write the markdown report")
     args = parser.parse_args()
     args.warmup = max(args.warmup, args.vus)  # k6: shared-iterations needs at least one per VU
     if not os.environ.get("STRIPE_WEBHOOK_SECRET"):
@@ -308,6 +309,7 @@ def main() -> None:
     tour = api("POST", "/api/tours", operator, {
         "name": "Benchmark Dunes", "description": "contention benchmark", "price": 1850.00,
         "latitude": -24.7275, "longitude": 15.3424,
+        "category": "DESERT", "difficulty": "MODERATE", "durationMinutes": 300,
     })  # fmt: skip
     network = compose_network()
     host = machine()

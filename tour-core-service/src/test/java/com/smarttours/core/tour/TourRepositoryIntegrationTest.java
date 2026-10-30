@@ -1,37 +1,22 @@
 package com.smarttours.core.tour;
 
+import com.smarttours.core.support.IntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Runs the real Flyway migrations against real PostGIS, then checks the radius query.
- * Skipped automatically when Docker isn't available; always runs in CI.
- */
-@SpringBootTest
-@Testcontainers(disabledWithoutDocker = true)
-class TourRepositoryIntegrationTest {
-
-    @Container
-    @ServiceConnection
-    static final PostgreSQLContainer POSTGIS = new PostgreSQLContainer(
-            DockerImageName.parse("postgis/postgis:16-3.4").asCompatibleSubstituteFor("postgres"));
+/** Runs the real Flyway migrations against real PostGIS, then checks the radius query and the V2 columns. */
+class TourRepositoryIntegrationTest extends IntegrationTest {
 
     private static final GeometryFactory GEOMETRY = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -39,11 +24,11 @@ class TourRepositoryIntegrationTest {
     private static final double WINDHOEK_LAT = -22.5609;
     private static final double WINDHOEK_LON = 17.0658;
 
-    @MockitoBean
-    private RabbitTemplate rabbitTemplate; // no broker needed for repository tests
-
     @Autowired
     private TourRepository tours;
+
+    @Autowired
+    private JdbcClient jdbc;
 
     @BeforeEach
     void seed() {
@@ -71,16 +56,51 @@ class TourRepositoryIntegrationTest {
     }
 
     @Test
-    void savedTour_roundTripsLocationAndExactPrice() {
+    void savedTour_roundTripsLocationExactPriceAndFacets() {
         Tour saved = tours.findWithinRadius(WINDHOEK_LAT, WINDHOEK_LON, 6_000, 1).getFirst();
 
         assertThat(saved.getLatitude()).isEqualTo(-22.5236);
         assertThat(saved.getLongitude()).isEqualTo(17.0447);
         assertThat(saved.getPrice()).isEqualByComparingTo("450.00");
+        assertThat(saved.getCategory()).isEqualTo(Category.CULTURAL);
+        assertThat(saved.getDifficulty()).isEqualTo(Difficulty.EASY);
+        assertThat(saved.getRatingCount()).isZero();
+        assertThat(saved.getAvgRating()).isEqualByComparingTo("0.00");
         assertThat(saved.getCreatedAt()).isNotNull();
     }
 
+    @Test
+    void searchVector_isGeneratedWithNameWeighedAboveDescription() {
+        Tour saved = tours.findWithinRadius(WINDHOEK_LAT, WINDHOEK_LON, 6_000, 1).getFirst();
+
+        String vector = jdbc.sql("SELECT search_vector::text FROM tours WHERE id = ?")
+                .param(saved.getId()).query(String.class).single();
+
+        assertThat(vector).contains("'katutura':1A", "'township':2A");
+    }
+
+    @Test
+    void avgRating_isDerivedFromSumAndCount() {
+        long id = tours.findWithinRadius(WINDHOEK_LAT, WINDHOEK_LON, 6_000, 1).getFirst().getId();
+
+        jdbc.sql("UPDATE tours SET rating_sum = 14, rating_count = 3 WHERE id = ?").param(id).update();
+
+        assertThat(jdbc.sql("SELECT avg_rating FROM tours WHERE id = ?").param(id).query(BigDecimal.class).single())
+                .isEqualByComparingTo("4.67");
+    }
+
+    @Test
+    void checkConstraints_rejectImpossibleRatingsAndUnknownCategories() {
+        long id = tours.findWithinRadius(WINDHOEK_LAT, WINDHOEK_LON, 6_000, 1).getFirst().getId();
+
+        assertThatThrownBy(() -> jdbc.sql("UPDATE tours SET rating_sum = 6, rating_count = 1 WHERE id = ?")
+                .param(id).update()).hasMessageContaining("ck_tours_rating_range");
+        assertThatThrownBy(() -> jdbc.sql("UPDATE tours SET category = 'SPACE' WHERE id = ?")
+                .param(id).update()).hasMessageContaining("tours_category_check");
+    }
+
     private static Tour tour(String name, double lat, double lon) {
-        return new Tour(name, null, new BigDecimal("450.00"), GEOMETRY.createPoint(new Coordinate(lon, lat)));
+        return new Tour(name, "A walk", new BigDecimal("450.00"), GEOMETRY.createPoint(new Coordinate(lon, lat)),
+                Category.CULTURAL, Difficulty.EASY, 120);
     }
 }

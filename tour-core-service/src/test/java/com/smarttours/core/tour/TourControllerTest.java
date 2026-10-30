@@ -1,11 +1,14 @@
 package com.smarttours.core.tour;
 
-import com.smarttours.core.tour.dto.CreateTourRequest;
+import com.smarttours.core.support.TourFixtures;
 import com.smarttours.core.tour.dto.PageResponse;
+import com.smarttours.core.tour.dto.TourRequest;
 import com.smarttours.core.tour.dto.TourResponse;
+import com.smarttours.core.tour.dto.VersionedTour;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -15,10 +18,15 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -26,9 +34,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(TourController.class)
 class TourControllerTest {
 
-    private static final TourResponse SOSSUSVLEI = new TourResponse(
+    static final TourResponse SOSSUSVLEI = new TourResponse(
             1L, "Sossusvlei Sunrise Dunes", "Climb Dune 45 at dawn", new BigDecimal("1850.00"), "NAD",
-            -24.7275, 15.3424, Instant.parse("2026-10-01T08:00:00Z"));
+            -24.7275, 15.3424, Category.DESERT, Difficulty.MODERATE, 300, new BigDecimal("4.60"), 12,
+            Instant.parse("2026-10-01T08:00:00Z"));
 
     @Autowired
     private MockMvc mockMvc;
@@ -37,20 +46,18 @@ class TourControllerTest {
     private TourService tourService;
 
     @Test
-    void create_returns201WithLocationHeader() throws Exception {
-        when(tourService.create(any(CreateTourRequest.class))).thenReturn(SOSSUSVLEI);
+    void create_returns201WithLocationAndEtag() throws Exception {
+        when(tourService.create(any(TourRequest.class))).thenReturn(new VersionedTour(SOSSUSVLEI, 0));
 
-        mockMvc.perform(post("/api/tours")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Sossusvlei Sunrise Dunes", "description": "Climb Dune 45 at dawn",
-                                 "price": 1850.00, "latitude": -24.7275, "longitude": 15.3424}
-                                """))
+        mockMvc.perform(post("/api/tours").contentType(MediaType.APPLICATION_JSON).content(TourFixtures.VALID_BODY))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/tours/1"))
+                .andExpect(header().string(HttpHeaders.ETAG, "\"0\""))
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.latitude").value(-24.7275))
                 .andExpect(jsonPath("$.longitude").value(15.3424))
+                .andExpect(jsonPath("$.category").value("DESERT"))
+                .andExpect(jsonPath("$.durationMinutes").value(300))
                 .andExpect(jsonPath("$.currency").value("NAD"));
     }
 
@@ -61,6 +68,17 @@ class TourControllerTest {
                         .content("""
                                 {"name": "", "price": -5, "latitude": 123.0, "longitude": 15.0}
                                 """))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE));
+
+        verifyNoInteractions(tourService);
+    }
+
+    @Test
+    void create_rejectsUnknownCategory() throws Exception {
+        mockMvc.perform(post("/api/tours")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(TourFixtures.VALID_BODY.replace("DESERT", "SPACE")))
                 .andExpect(status().isBadRequest())
                 .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE));
 
@@ -84,12 +102,34 @@ class TourControllerTest {
     }
 
     @Test
-    void get_found_returnsTour() throws Exception {
-        when(tourService.get(1L)).thenReturn(SOSSUSVLEI);
+    void get_found_returnsTourWithEtagAndCacheControl() throws Exception {
+        when(tourService.get(1L)).thenReturn(new VersionedTour(SOSSUSVLEI, 7));
 
         mockMvc.perform(get("/api/tours/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Sossusvlei Sunrise Dunes"));
+                .andExpect(header().string(HttpHeaders.ETAG, "\"7\""))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=60, public"))
+                .andExpect(jsonPath("$.name").value("Sossusvlei Sunrise Dunes"))
+                .andExpect(jsonPath("$.avgRating").value(4.6));
+    }
+
+    @Test
+    void get_withMatchingIfNoneMatch_returns304WithoutBody() throws Exception {
+        when(tourService.get(1L)).thenReturn(new VersionedTour(SOSSUSVLEI, 7));
+
+        mockMvc.perform(get("/api/tours/1").header(HttpHeaders.IF_NONE_MATCH, "\"7\""))
+                .andExpect(status().isNotModified())
+                .andExpect(header().string(HttpHeaders.ETAG, "\"7\""))
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    void get_withStaleIfNoneMatch_returns200() throws Exception {
+        when(tourService.get(1L)).thenReturn(new VersionedTour(SOSSUSVLEI, 8));
+
+        mockMvc.perform(get("/api/tours/1").header(HttpHeaders.IF_NONE_MATCH, "\"7\""))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ETAG, "\"8\""));
     }
 
     @Test
@@ -101,6 +141,50 @@ class TourControllerTest {
                 .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
                 .andExpect(jsonPath("$.title").value("Tour not found"))
                 .andExpect(jsonPath("$.tourId").value(99));
+    }
+
+    @Test
+    void put_withoutIfMatch_returns428() throws Exception {
+        when(tourService.update(eq(1L), any(TourRequest.class), isNull()))
+                .thenThrow(new PreconditionRequiredException());
+
+        mockMvc.perform(put("/api/tours/1").contentType(MediaType.APPLICATION_JSON).content(TourFixtures.VALID_BODY))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.type").value("https://smarttours.dev/problems/precondition-required"));
+    }
+
+    @Test
+    void put_withStaleIfMatch_returns412WithCurrentEtag() throws Exception {
+        when(tourService.update(eq(1L), any(TourRequest.class), eq("\"3\"")))
+                .thenThrow(new PreconditionFailedException(1L, "\"4\""));
+
+        mockMvc.perform(put("/api/tours/1").header(HttpHeaders.IF_MATCH, "\"3\"")
+                        .contentType(MediaType.APPLICATION_JSON).content(TourFixtures.VALID_BODY))
+                .andExpect(status().isPreconditionFailed())
+                .andExpect(header().string(HttpHeaders.ETAG, "\"4\""))
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.tourId").value(1));
+    }
+
+    @Test
+    void put_valid_returnsNewEtag() throws Exception {
+        when(tourService.update(anyLong(), any(TourRequest.class), eq("\"3\"")))
+                .thenReturn(new VersionedTour(SOSSUSVLEI, 4));
+
+        mockMvc.perform(put("/api/tours/1").header(HttpHeaders.IF_MATCH, "\"3\"")
+                        .contentType(MediaType.APPLICATION_JSON).content(TourFixtures.VALID_BODY))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ETAG, "\"4\""));
+    }
+
+    @Test
+    void put_invalidBody_isRejectedBeforeThePreconditionCheck() throws Exception {
+        mockMvc.perform(put("/api/tours/1").header(HttpHeaders.IF_MATCH, "\"3\"")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\": \"\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(tourService);
     }
 
     @Test
