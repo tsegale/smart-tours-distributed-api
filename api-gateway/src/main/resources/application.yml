@@ -112,7 +112,9 @@ spring:
                 - Path=/docs/tours/**
                 - Method=GET
               filters:
-                - StripPrefix=2 # the gateway sends X-Forwarded-Prefix: /docs/tours, so links stay correct
+                # tour-core serves the docs under this same path (springdoc paths), so no prefix rewriting.
+                # The client's Host is kept, so the document's server URL points at the gateway.
+                - PreserveHostHeader
                 - name: RateLimit
                   args:
                     fail-mode: open

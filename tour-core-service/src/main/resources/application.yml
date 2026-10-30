@@ -1,8 +1,6 @@
 server:
   port: ${SERVER_PORT:8081}
   shutdown: graceful
-  # Only the gateway can reach this service, so its X-Forwarded-* headers are trusted.
-  forward-headers-strategy: framework
 
 spring:
   application:
@@ -56,13 +54,13 @@ smarttours:
     # Search dates (from/to) are calendar days in this zone. Namibia is UTC+2 all year.
     zone: Africa/Windhoek
 
-# OpenAPI document and Swagger UI. Behind the gateway they live under /docs/tours (see the gateway
-# route); X-Forwarded-Prefix from the gateway makes the generated links point there.
+# OpenAPI document and Swagger UI, served under the path the gateway publishes them at (route tour-docs),
+# so every link in Swagger UI works through the gateway without path rewriting.
 springdoc:
   api-docs:
-    path: /v3/api-docs
+    path: /docs/tours/v3/api-docs
   swagger-ui:
-    path: /swagger-ui.html
+    path: /docs/tours/swagger-ui.html
   default-produces-media-type: application/json
 
 management:
