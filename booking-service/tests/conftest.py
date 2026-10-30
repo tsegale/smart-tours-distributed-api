@@ -64,7 +64,7 @@ def clean_tables():
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE outbox, processed_webhook_events, payments, bookings, tour_availability "
+                "TRUNCATE outbox, reviews, processed_webhook_events, payments, bookings, tour_availability "
                 "RESTART IDENTITY CASCADE"
             )
         )

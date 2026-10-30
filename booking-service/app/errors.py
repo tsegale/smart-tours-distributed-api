@@ -40,6 +40,14 @@ class PaymentPendingError(ConflictError):
     slug, title = "payment-in-progress", "A payment for this booking is already being completed"
 
 
+class ReviewNotAllowedError(ConflictError):
+    slug, title = "review-not-allowed", "This booking can't be reviewed"
+
+
+class ReviewAlreadySubmittedError(ConflictError):
+    slug, title = "review-already-submitted", "This booking has already been reviewed"
+
+
 class TourNotFoundError(NotFoundError):
     slug, title = "tour-not-found", "Tour not found"
 

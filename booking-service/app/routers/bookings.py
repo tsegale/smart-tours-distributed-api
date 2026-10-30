@@ -9,9 +9,16 @@ from ..database import get_db
 from ..models import Booking, BookingStatus
 from ..payments import get_payment_provider
 from ..payments.base import PaymentProvider
-from ..schemas import BookingCreate, BookingResponse, CancellationSummary, PaymentSummary
+from ..schemas import (
+    BookingCreate,
+    BookingResponse,
+    CancellationSummary,
+    PaymentSummary,
+    ReviewCreate,
+    ReviewResponse,
+)
 from ..security import CurrentUser, get_current_user
-from ..services import booking_service
+from ..services import booking_service, review_service
 from ..services.booking_service import CancellationOutcome
 from ..services.reservation import SeatReservationStrategy, strategy_from_settings
 
@@ -125,3 +132,21 @@ def cancel_booking(
     """Release a hold, or cancel a confirmed booking under the refund policy (explained in `cancellation`)."""
     booking, outcome = booking_service.cancel_booking(db, user.id, booking_id, provider, settings)
     return respond(db, booking, outcome)
+
+
+@router.post(
+    "/{booking_id}/review",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ReviewResponse,
+    responses={
+        404: {"description": "No such booking, or it belongs to someone else"},
+        409: {"description": "Not confirmed, departure not started yet, or already reviewed"},
+    },
+)
+def review_booking(booking_id: int, body: ReviewCreate, user: User, db: DbSession) -> ReviewResponse:
+    """Rate a trip you took. Counts toward the tour's average once tour-core has consumed the event."""
+    review = review_service.submit_review(db, user.id, booking_id, body)
+    try:
+        return ReviewResponse.model_validate(review)
+    finally:
+        db.rollback()
