@@ -54,14 +54,24 @@ services:
       <<: *db-healthcheck
     restart: unless-stopped
 
+  # Rate-limit token buckets (gateway). Default policy: never evicts, so a bucket can't vanish under pressure.
   redis:
     image: redis:7.4-alpine
     ports: ["127.0.0.1:6379:6379"]
-    healthcheck:
+    healthcheck: &redis-healthcheck
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
+
+  # tour-core's catalogue cache: bounded, evicts least recently used keys, nothing persisted (it's a cache).
+  # Separate from the limiter's Redis so cache pressure or a cache flush never touches rate-limit state.
+  redis-cache:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
+    ports: ["127.0.0.1:6380:6379"]
+    healthcheck: *redis-healthcheck
     restart: unless-stopped
 
   rabbitmq:
@@ -123,11 +133,11 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       # Catalogue cache (ADR 0009). Optional at runtime: without Redis, reads go to the database.
-      REDIS_HOST: redis
+      REDIS_HOST: redis-cache
     depends_on:
       tours-db: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
-      redis: { condition: service_healthy }
+      redis-cache: { condition: service_healthy }
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health/readiness | grep -q UP"]
       interval: 10s

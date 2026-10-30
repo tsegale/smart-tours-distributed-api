@@ -3,7 +3,7 @@
 
   1. check the catalogue holds the 100k seed (scripts/seed_tours.sql; --seed appends it);
   2. mint one JWT per simulated user (scripts/dev_token.py);
-  3. cold: empty Redis, run benchmarks/k6/search.js (SCENARIO=mix) at --rate requests per second;
+  3. cold: empty the cache (redis-cache), run benchmarks/k6/search.js (SCENARIO=mix) at --rate requests per second;
   4. warm: run the same mix again straight away, with the cache as the cold run left it;
   5. burst: one user fires --burst-rate requests per second at search, to show the limiter's 429s.
 The cache hit ratio of each run is the difference in tour-core's cache_gets_total counters
@@ -150,7 +150,7 @@ def main() -> None:
     host = machine()
 
     print("--- cold: empty cache")
-    sh("docker", "compose", "exec", "-T", "redis", "redis-cli", "FLUSHALL")
+    sh("docker", "compose", "exec", "-T", "redis-cache", "redis-cli", "FLUSHALL")
     before = cache_counters()
     cold = run_k6(network, "mix", args.rate, args.duration, "search-tokens.json", "search-cold")
     cold_counts = cache_counters()

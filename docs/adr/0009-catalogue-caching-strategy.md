@@ -9,6 +9,9 @@ several index scans and a sort over 100k tours, so answering the popular ones fr
 The cache must never be needed, though: an outage of Redis must cost latency, not availability.
 
 ## Decision
+A Redis of its own (`redis-cache`: 128 MB, `allkeys-lru`, nothing persisted), separate from the rate
+limiter's (ADR 0010), so the two can't evict or flush each other's keys.
+
 Spring Cache on Redis (`RedisCacheManager`), JSON values through Spring Data Redis' Jackson 3
 `JacksonJsonRedisSerializer`, typed per cache (no polymorphic type ids in the payload, so nothing in Redis
 can make the service instantiate an arbitrary class). Accessed through one component, `CatalogueCache`, so

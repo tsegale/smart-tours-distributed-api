@@ -11,12 +11,12 @@ an event-fed read model, rate limiting at the edge, and semantic recommendations
 ```mermaid
 flowchart LR
     client([Client]) -->|HTTPS + JWT| gw[API Gateway<br/>Spring Cloud Gateway]
-    gw <-->|token buckets| redis[(Redis)]
+    gw <-->|token buckets| redis[(Redis<br/>rate limits)]
     gw -->|X-User-Id| tour[tour-core-service<br/>Spring Boot]
     gw -->|X-User-Id| book[booking-service<br/>FastAPI]
     psp([Stripe]) -->|signed webhooks| gw
     gw --> ai[ai-service<br/>FastAPI]
-    tour <-->|tour + search cache| redis
+    tour <-->|tour + search cache| cache[(Redis<br/>cache)]
     book -->|price snapshot| tour
     book -->|Checkout, refunds| psp
     tour --> toursdb[(PostgreSQL + PostGIS<br/>tours, departure read model)]

@@ -55,5 +55,5 @@ Both modes are tested against a Redis container that the test stops (`RateLimitR
 - Anonymous users behind one NAT share a budget; signing in lifts them onto their own.
 - Budgets are guesses until production traffic exists. The k6 burst scenario in
   [`docs/benchmarks/search.md`](../benchmarks/search.md) shows the limiter refusing a single user's excess.
-- Redis is now shared by the limiter and tour-core's cache. In production they would be separate instances
-  (or at least separate databases), so evictions under cache pressure can't drop rate-limit state.
+- The limiter has its own Redis (`redis`, default `noeviction` policy), separate from tour-core's cache
+  (`redis-cache`, bounded with LRU eviction): cache pressure or a cache flush can never drop rate-limit state.
