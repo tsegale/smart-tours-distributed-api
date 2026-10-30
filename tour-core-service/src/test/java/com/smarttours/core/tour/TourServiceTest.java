@@ -1,5 +1,6 @@
 package com.smarttours.core.tour;
 
+import com.smarttours.core.cache.CatalogueCache;
 import com.smarttours.core.events.TourCreatedEvent;
 import com.smarttours.core.events.TourUpdatedEvent;
 import com.smarttours.core.tour.dto.TourRequest;
@@ -17,10 +18,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -38,6 +41,9 @@ class TourServiceTest {
 
     @Mock
     private ApplicationEventPublisher events;
+
+    @Mock
+    private CatalogueCache cache;
 
     @InjectMocks
     private TourService service;
@@ -75,6 +81,7 @@ class TourServiceTest {
 
     @Test
     void get_missingTour_throwsNotFound() {
+        when(cache.tour(eq(42L), any())).thenAnswer(invocation -> invocation.<Supplier<?>>getArgument(1).get());
         when(tours.findById(42L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.get(42L))
@@ -86,7 +93,7 @@ class TourServiceTest {
     void update_withoutIfMatch_isRefusedBeforeLoading() {
         assertThatThrownBy(() -> service.update(7L, ETOSHA, null)).isInstanceOf(PreconditionRequiredException.class);
         assertThatThrownBy(() -> service.update(7L, ETOSHA, " ")).isInstanceOf(PreconditionRequiredException.class);
-        verifyNoInteractions(tours, events);
+        verifyNoInteractions(tours, events, cache);
     }
 
     @Test

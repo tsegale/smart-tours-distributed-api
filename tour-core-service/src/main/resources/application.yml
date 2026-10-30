@@ -34,6 +34,19 @@ spring:
       enabled: true
   jooq:
     sql-dialect: postgres
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      # A cache that answers slower than the database is worse than none: give up quickly and fall through.
+      timeout: 250ms
+      connect-timeout: 250ms
+  cache:
+    type: redis
+    # Created at start-up, so Micrometer binds their hit/miss metrics.
+    cache-names: tour,search
+    redis:
+      enable-statistics: true
 
 smarttours:
   messaging:
@@ -53,10 +66,16 @@ springdoc:
   default-produces-media-type: application/json
 
 management:
+  # Redis only caches (ADR 0009): when it is down the service still answers from the database, so it
+  # must not report itself unhealthy. Cache failures are counted in cache.errors.
+  health:
+    redis:
+      enabled: false
   endpoints:
     web:
       exposure:
-        include: health,info
+        # prometheus is for scraping on the internal network: the gateway routes no /actuator path here.
+        include: health,info,prometheus
   endpoint:
     health:
       probes:

@@ -1,5 +1,6 @@
 package com.smarttours.core.tour;
 
+import com.smarttours.core.cache.CatalogueCache;
 import com.smarttours.core.common.ETags;
 import com.smarttours.core.events.TourCreatedEvent;
 import com.smarttours.core.events.TourUpdatedEvent;
@@ -15,6 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -31,10 +33,12 @@ public class TourService {
 
     private final TourRepository tours;
     private final ApplicationEventPublisher events;
+    private final CatalogueCache cache;
 
-    public TourService(TourRepository tours, ApplicationEventPublisher events) {
+    public TourService(TourRepository tours, ApplicationEventPublisher events, CatalogueCache cache) {
         this.tours = tours;
         this.events = events;
+        this.cache = cache;
     }
 
     @Transactional
@@ -70,8 +74,14 @@ public class TourService {
         return versioned(tour);
     }
 
+    /**
+     * From the {@code tour} cache, else the database. No transaction around it: a cache hit must not
+     * take a database connection; a miss reads in the repository's own read-only transaction.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public VersionedTour get(long id) {
-        return tours.findById(id).map(TourService::versioned).orElseThrow(() -> new TourNotFoundException(id));
+        return cache.tour(id, () -> tours.findById(id).map(TourService::versioned)
+                .orElseThrow(() -> new TourNotFoundException(id)));
     }
 
     public PageResponse<TourResponse> list(int page, int size) {
