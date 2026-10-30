@@ -1,6 +1,8 @@
 server:
   port: ${SERVER_PORT:8081}
   shutdown: graceful
+  # Only the gateway can reach this service, so its X-Forwarded-* headers are trusted.
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -30,11 +32,25 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  jooq:
+    sql-dialect: postgres
 
 smarttours:
   messaging:
     max-retries: 5
     retry-delay: 10s
+  search:
+    # Search dates (from/to) are calendar days in this zone. Namibia is UTC+2 all year.
+    zone: Africa/Windhoek
+
+# OpenAPI document and Swagger UI. Behind the gateway they live under /docs/tours (see the gateway
+# route); X-Forwarded-Prefix from the gateway makes the generated links point there.
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  default-produces-media-type: application/json
 
 management:
   endpoints:

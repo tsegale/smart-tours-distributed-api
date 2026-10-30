@@ -1,5 +1,6 @@
 package com.smarttours.core.common;
 
+import com.smarttours.core.search.InvalidSearchException;
 import com.smarttours.core.tour.PreconditionFailedException;
 import com.smarttours.core.tour.PreconditionRequiredException;
 import com.smarttours.core.tour.TourNotFoundException;
@@ -54,6 +55,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleOptimisticLock(OptimisticLockingFailureException ex) {
         return problem(HttpStatus.PRECONDITION_FAILED, "precondition-failed", "The tour has changed",
                 "The tour was changed concurrently; GET it again and reapply the change");
+    }
+
+    /** Every problem with the search parameters at once, so a client can fix them in one go. */
+    @ExceptionHandler(InvalidSearchException.class)
+    ProblemDetail handleInvalidSearch(InvalidSearchException ex) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "invalid-search", "Invalid search parameters",
+                ex.getMessage());
+        problem.setProperty("errors", ex.getErrors());
+        return problem;
     }
 
     static ProblemDetail problem(HttpStatus status, String slug, String title, String detail) {

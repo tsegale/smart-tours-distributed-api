@@ -27,6 +27,19 @@ jobs:
       # Unit tests plus Testcontainers integration tests (Docker is available on GitHub runners).
       - run: ./mvnw -B -ntp verify
         working-directory: ${{ matrix.service }}
+      # The jOOQ classes are committed (docker build has no Docker daemon to generate them). Regenerate them
+      # from the Flyway migrations in a throwaway PostGIS container and fail if anything differs.
+      - name: jOOQ classes match the migrations
+        if: matrix.service == 'tour-core-service'
+        working-directory: tour-core-service
+        run: |
+          ./mvnw -B -ntp -Pjooq-codegen generate-sources
+          # status, not diff: a new table shows up as an untracked file
+          if [ -n "$(git status --porcelain -- src/main/generated)" ]; then
+            git status --porcelain -- src/main/generated
+            echo "::error::src/main/generated is stale: run ./mvnw -Pjooq-codegen generate-sources and commit"
+            exit 1
+          fi
 
   booking-service:
     name: Python · booking-service

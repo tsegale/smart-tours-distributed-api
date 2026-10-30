@@ -19,6 +19,11 @@
 
     <properties>
         <java.version>21</java.version>
+        <springdoc.version>3.1.1</springdoc.version>
+        <!-- Testcontainers 1.x for the codegen plugin's own classpath only (it uses the 1.x API).
+             1.21.4 speaks the Docker Engine API versions Docker 29 still accepts. -->
+        <testcontainers-codegen.version>1.21.4</testcontainers-codegen.version>
+        <jooq.codegen.package>com.smarttours.core.jooq</jooq.codegen.package>
     </properties>
 
     <dependencies>
@@ -43,6 +48,19 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Dynamic search SQL (ADR 0007). JPA stays for plain CRUD. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jooq</artifactId>
+        </dependency>
+
+        <!-- OpenAPI document and Swagger UI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
 
         <!-- Schema migrations. Spring Boot 4 needs the starter: flyway-core alone no longer auto-configures. -->
@@ -109,6 +127,123 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- jOOQ classes live in src/main/generated, generated from the real schema by the
+                 jooq-codegen profile and committed. Builds (and docker build, which has no Docker daemon
+                 for a codegen container) then need no database; CI regenerates them and fails on drift. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-jooq-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/main/generated</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Regenerate the jOOQ classes after changing a migration:
+                 ./mvnw -Pjooq-codegen generate-sources
+             Needs Docker. CI runs it and fails if the result differs from what is committed. -->
+        <profile>
+            <id>jooq-codegen</id>
+            <build>
+                <plugins>
+                    <!-- Flyway runs every migration against a throwaway PostGIS container, then jOOQ
+                         reads that database and writes the classes. -->
+                    <plugin>
+                        <groupId>org.testcontainers</groupId>
+                        <artifactId>testcontainers-jooq-codegen-maven-plugin</artifactId>
+                        <version>0.0.4</version>
+                        <!-- Replace the plugin's own (older) jOOQ, Testcontainers and JDBC driver with current ones.
+                             Flyway stays the plugin's own (9.x): its runner uses Flyway 9 internals, and our
+                             migrations are plain SQL that any Flyway applies identically. -->
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.testcontainers</groupId>
+                                <artifactId>testcontainers</artifactId>
+                                <version>${testcontainers-codegen.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.testcontainers</groupId>
+                                <artifactId>jdbc</artifactId>
+                                <version>${testcontainers-codegen.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.testcontainers</groupId>
+                                <artifactId>database-commons</artifactId>
+                                <version>${testcontainers-codegen.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.testcontainers</groupId>
+                                <artifactId>postgresql</artifactId>
+                                <version>${testcontainers-codegen.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.postgresql</groupId>
+                                <artifactId>postgresql</artifactId>
+                                <version>${postgresql.version}</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.jooq</groupId>
+                                <artifactId>jooq-codegen</artifactId>
+                                <version>${jooq.version}</version>
+                            </dependency>
+                        </dependencies>
+                        <executions>
+                            <execution>
+                                <id>generate-jooq-sources</id>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                                <phase>generate-sources</phase>
+                                <configuration>
+                                    <database>
+                                        <type>POSTGRES</type>
+                                        <containerImage>postgis/postgis:16-3.4</containerImage>
+                                    </database>
+                                    <flyway>
+                                        <locations>filesystem:src/main/resources/db/migration</locations>
+                                    </flyway>
+                                    <jooq>
+                                        <generator>
+                                            <database>
+                                                <inputSchema>public</inputSchema>
+                                                <!-- Only our tables: not PostGIS' spatial_ref_sys, views and functions. -->
+                                                <includes>tours|tour_departure_summary|processed_events</includes>
+                                                <includeRoutines>false</includeRoutines>
+                                                <includeUDTs>false</includeUDTs>
+                                                <includeDomains>false</includeDomains>
+                                                <includeSequences>false</includeSequences>
+                                            </database>
+                                            <generate>
+                                                <javaTimeTypes>true</javaTimeTypes>
+                                                <records>true</records>
+                                                <pojos>false</pojos>
+                                                <daos>false</daos>
+                                            </generate>
+                                            <target>
+                                                <packageName>${jooq.codegen.package}</packageName>
+                                                <directory>src/main/generated</directory>
+                                            </target>
+                                        </generator>
+                                    </jooq>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
