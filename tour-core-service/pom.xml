@@ -24,6 +24,9 @@
         <resilience4j.version>2.4.0</resilience4j.version>
         <!-- ShedLock 7 targets Spring Framework 7. -->
         <shedlock.version>7.10.1</shedlock.version>
+        <!-- wiremock-standalone shades its own Jetty. wiremock-jetty12 3.13.2 is built against Jetty 12.0 and fails on
+             the Jetty 12.1 that Spring Boot 4.1 manages (NoSuchMethodError in Environment.ensure). -->
+        <wiremock.version>3.13.2</wiremock.version>
         <!-- Testcontainers 1.x for the codegen plugin's own classpath only (it uses the 1.x API).
              1.21.4 speaks the Docker Engine API versions Docker 29 still accepts. -->
         <testcontainers-codegen.version>1.21.4</testcontainers-codegen.version>
@@ -129,6 +132,12 @@
         </dependency>
 
         <!-- Tests -->
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>${wiremock.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
