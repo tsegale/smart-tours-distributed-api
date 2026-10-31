@@ -1,5 +1,7 @@
 package com.smarttours.core.common;
 
+import com.smarttours.core.fx.ExchangeRatesUnavailableException;
+import com.smarttours.core.fx.UnsupportedCurrencyException;
 import com.smarttours.core.search.InvalidSearchException;
 import com.smarttours.core.tour.PreconditionFailedException;
 import com.smarttours.core.tour.PreconditionRequiredException;
@@ -65,6 +67,28 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setProperty("errors", ex.getErrors());
         return problem;
     }
+
+    /** The supported currencies go back with the error, so a client can correct itself. */
+    @ExceptionHandler(UnsupportedCurrencyException.class)
+    ProblemDetail handleUnsupportedCurrency(UnsupportedCurrencyException ex) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "unsupported-currency", "Unsupported currency",
+                ex.getMessage());
+        problem.setProperty("supportedCurrencies", ex.getSupported());
+        return problem;
+    }
+
+    /**
+     * Price bounds in a display currency with no usable rate. Not retryable in seconds (rates refresh daily),
+     * so no Retry-After; searching in NAD always works.
+     */
+    @ExceptionHandler(ExchangeRatesUnavailableException.class)
+    ProblemDetail handleRatesUnavailable(ExchangeRatesUnavailableException ex) {
+        ProblemDetail problem = problem(HttpStatus.SERVICE_UNAVAILABLE, "exchange-rates-unavailable",
+                "Exchange rates unavailable", ex.getMessage() + "; give minPrice/maxPrice in NAD instead");
+        problem.setProperty("currency", ex.getCurrency());
+        return problem;
+    }
+
 
     static ProblemDetail problem(HttpStatus status, String slug, String title, String detail) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);

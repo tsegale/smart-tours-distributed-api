@@ -22,8 +22,10 @@ public record SearchParams(
                 + "the antimeridian.") List<Double> bbox,
         @Parameter(description = "Full-text query in web-search syntax: words, \"phrases\", -exclusions, OR.")
         String q,
-        @Parameter(description = "Lowest price in NAD") BigDecimal minPrice,
-        @Parameter(description = "Highest price in NAD") BigDecimal maxPrice,
+        @Parameter(description = "Lowest price, in NAD, or in the display currency when currency is given")
+        BigDecimal minPrice,
+        @Parameter(description = "Highest price, in NAD, or in the display currency when currency is given")
+        BigDecimal maxPrice,
         @Parameter(description = "One or more categories (any of them matches)") List<Category> category,
         @Parameter(description = "One or more difficulties (any of them matches)") List<Difficulty> difficulty,
         @Parameter(description = "Shortest duration in minutes") Integer minDuration,
@@ -39,4 +41,10 @@ public record SearchParams(
                 + "relevance with q, else distance with a point, else newest.") SearchSort sort,
         @Parameter(description = "Page size, 1 to 100 (default 20)") Integer size,
         @Parameter(description = "nextCursor from the previous page; send the same filters with it") String cursor) {
+
+    /** The same search with other price bounds: display-currency bounds converted to NAD. */
+    public SearchParams withPriceRange(BigDecimal min, BigDecimal max) {
+        return new SearchParams(lat, lon, radius, bbox, q, min, max, category, difficulty, minDuration, maxDuration,
+                minRating, from, to, minSlots, sort, size, cursor);
+    }
 }

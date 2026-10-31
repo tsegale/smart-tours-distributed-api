@@ -1,5 +1,8 @@
 package com.smarttours.core.tour.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.smarttours.core.fx.CurrencyConversion;
+import com.smarttours.core.fx.DisplayPrice;
 import com.smarttours.core.tour.Category;
 import com.smarttours.core.tour.Difficulty;
 import com.smarttours.core.tour.Tour;
@@ -7,7 +10,14 @@ import com.smarttours.core.tour.Tour;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** A tour as clients see it. {@code avgRating} is null until the first verified review. */
+/**
+ * A tour as clients see it. {@code avgRating} is null until the first verified review.
+ *
+ * <p>{@code price} is in {@code currency} (NAD), authoritative and what a booking charges. With
+ * {@code ?currency=}, {@code displayPrice} adds it converted for display only, or, when no usable rate
+ * exists, {@code displayPriceUnavailable} says why (ADR 0011). Both are absent otherwise, and always
+ * absent from the cached value: conversion happens after the cache.
+ */
 public record TourResponse(
         Long id,
         String name,
@@ -21,7 +31,9 @@ public record TourResponse(
         int durationMinutes,
         BigDecimal avgRating,
         int ratingCount,
-        Instant createdAt) {
+        Instant createdAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL) DisplayPrice displayPrice,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String displayPriceUnavailable) {
 
     public static TourResponse from(Tour tour) {
         return new TourResponse(
@@ -37,6 +49,17 @@ public record TourResponse(
                 tour.getDurationMinutes(),
                 tour.getRatingCount() == 0 ? null : tour.getAvgRating(),
                 tour.getRatingCount(),
-                tour.getCreatedAt());
+                tour.getCreatedAt(),
+                null,
+                null);
+    }
+
+    public TourResponse priced(CurrencyConversion conversion) {
+        if (!conversion.changesRepresentation()) {
+            return this;
+        }
+        return new TourResponse(id, name, description, price, currency, latitude, longitude, category, difficulty,
+                durationMinutes, avgRating, ratingCount, createdAt, conversion.display(price),
+                conversion.unavailableReason());
     }
 }

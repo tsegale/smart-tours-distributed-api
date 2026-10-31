@@ -5,6 +5,10 @@ import com.smarttours.core.tour.dto.PageResponse;
 import com.smarttours.core.tour.dto.TourRequest;
 import com.smarttours.core.tour.dto.TourResponse;
 import com.smarttours.core.tour.dto.VersionedTour;
+import com.smarttours.core.fx.CurrencyConversion;
+import com.smarttours.core.fx.DisplayPricing;
+import com.smarttours.core.fx.UnsupportedCurrencyException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -15,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Currency;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -37,13 +43,24 @@ class TourControllerTest {
     static final TourResponse SOSSUSVLEI = new TourResponse(
             1L, "Sossusvlei Sunrise Dunes", "Climb Dune 45 at dawn", new BigDecimal("1850.00"), "NAD",
             -24.7275, 15.3424, Category.DESERT, Difficulty.MODERATE, 300, new BigDecimal("4.60"), 12,
-            Instant.parse("2026-10-01T08:00:00Z"));
+            Instant.parse("2026-10-01T08:00:00Z"), null, null);
+
+    static final CurrencyConversion EUR = CurrencyConversion.at(Currency.getInstance("EUR"),
+            new BigDecimal("0.05382700"), LocalDate.parse("2026-10-30"), false);
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private TourService tourService;
+
+    @MockitoBean
+    private DisplayPricing displayPricing;
+
+    @BeforeEach
+    void noCurrencyByDefault() {
+        when(displayPricing.forCurrency(isNull())).thenReturn(CurrencyConversion.none());
+    }
 
     @Test
     void create_returns201WithLocationAndEtag() throws Exception {
@@ -130,6 +147,70 @@ class TourControllerTest {
         mockMvc.perform(get("/api/tours/1").header(HttpHeaders.IF_NONE_MATCH, "\"7\""))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ETAG, "\"8\""));
+    }
+
+    @Test
+    void get_withCurrency_addsDisplayPriceAndDropsTheEtag() throws Exception {
+        when(tourService.get(1L)).thenReturn(new VersionedTour(SOSSUSVLEI, 7));
+        when(displayPricing.forCurrency("EUR")).thenReturn(EUR);
+
+        mockMvc.perform(get("/api/tours/1").param("currency", "EUR"))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist(HttpHeaders.ETAG))
+                .andExpect(jsonPath("$.price").value(1850.00))
+                .andExpect(jsonPath("$.currency").value("NAD"))
+                .andExpect(jsonPath("$.displayPrice.amount").value(99.58))
+                .andExpect(jsonPath("$.displayPrice.currency").value("EUR"))
+                .andExpect(jsonPath("$.displayPrice.rate").value(0.053827))
+                .andExpect(jsonPath("$.displayPrice.rateAsOf").value("2026-10-30"))
+                .andExpect(jsonPath("$.displayPrice.stale").value(false))
+                .andExpect(jsonPath("$.displayPriceUnavailable").doesNotExist());
+    }
+
+    @Test
+    void get_withoutCurrency_hasNoDisplayPriceFields() throws Exception {
+        when(tourService.get(1L)).thenReturn(new VersionedTour(SOSSUSVLEI, 7));
+
+        mockMvc.perform(get("/api/tours/1"))
+                .andExpect(jsonPath("$.displayPrice").doesNotExist())
+                .andExpect(jsonPath("$.displayPriceUnavailable").doesNotExist());
+    }
+
+    @Test
+    void get_withRatesTooOld_omitsDisplayPriceAndSaysWhy() throws Exception {
+        when(tourService.get(1L)).thenReturn(new VersionedTour(SOSSUSVLEI, 7));
+        when(displayPricing.forCurrency("EUR")).thenReturn(
+                CurrencyConversion.unavailable(Currency.getInstance("EUR"), "The newest EUR rate is 20 days old"));
+
+        mockMvc.perform(get("/api/tours/1").param("currency", "EUR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price").value(1850.00))
+                .andExpect(jsonPath("$.displayPrice").doesNotExist())
+                .andExpect(jsonPath("$.displayPriceUnavailable").value("The newest EUR rate is 20 days old"));
+    }
+
+    @Test
+    void get_withUnsupportedCurrency_returns400ListingTheSupportedOnes() throws Exception {
+        when(displayPricing.forCurrency("XYZ")).thenThrow(
+                new UnsupportedCurrencyException("XYZ", List.of("NAD", "ZAR", "USD", "EUR", "GBP", "BWP")));
+
+        mockMvc.perform(get("/api/tours/1").param("currency", "XYZ"))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.type").value("https://smarttours.dev/problems/unsupported-currency"))
+                .andExpect(jsonPath("$.supportedCurrencies[5]").value("BWP"));
+        verifyNoInteractions(tourService);
+    }
+
+    @Test
+    void list_withCurrency_pricesEveryTour() throws Exception {
+        when(tourService.list(0, 20)).thenReturn(new PageResponse<>(List.of(SOSSUSVLEI), 0, 20, 1, 1));
+        when(displayPricing.forCurrency("eur")).thenReturn(EUR);
+
+        mockMvc.perform(get("/api/tours").param("currency", "eur"))
+                .andExpect(jsonPath("$.content[0].price").value(1850.00))
+                .andExpect(jsonPath("$.content[0].displayPrice.amount").value(99.58))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test

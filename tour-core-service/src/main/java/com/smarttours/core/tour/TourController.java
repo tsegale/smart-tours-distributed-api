@@ -1,9 +1,12 @@
 package com.smarttours.core.tour;
 
+import com.smarttours.core.fx.CurrencyConversion;
+import com.smarttours.core.fx.DisplayPricing;
 import com.smarttours.core.tour.dto.PageResponse;
 import com.smarttours.core.tour.dto.TourRequest;
 import com.smarttours.core.tour.dto.TourResponse;
 import com.smarttours.core.tour.dto.VersionedTour;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -39,10 +42,15 @@ public class TourController {
     /** Shared caches may keep a tour for a minute; If-None-Match revalidates it for free after that. */
     static final CacheControl TOUR_CACHE_CONTROL = CacheControl.maxAge(Duration.ofSeconds(60)).cachePublic();
 
-    private final TourService tourService;
+    static final String CURRENCY_DOC = "Display currency (NAD, ZAR, USD, EUR, GBP, BWP): adds displayPrice. "
+            + "Display only: bookings are charged in NAD.";
 
-    public TourController(TourService tourService) {
+    private final TourService tourService;
+    private final DisplayPricing displayPricing;
+
+    public TourController(TourService tourService, DisplayPricing displayPricing) {
         this.tourService = tourService;
+        this.displayPricing = displayPricing;
     }
 
     @PostMapping
@@ -57,21 +65,39 @@ public class TourController {
 
     @GetMapping
     public PageResponse<TourResponse> list(@RequestParam(defaultValue = "0") @Min(0) int page,
-                                           @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return tourService.list(page, size);
+                                           @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+                                           @Parameter(description = CURRENCY_DOC)
+                                           @RequestParam(required = false) String currency) {
+        CurrencyConversion conversion = displayPricing.forCurrency(currency);
+        PageResponse<TourResponse> tours = tourService.list(page, size);
+        if (!conversion.changesRepresentation()) {
+            return tours;
+        }
+        return new PageResponse<>(tours.content().stream().map(tour -> tour.priced(conversion)).toList(),
+                tours.page(), tours.size(), tours.totalElements(), tours.totalPages());
     }
 
     /**
      * The tour with its version as a strong ETag. A matching If-None-Match gets 304 with no body:
      * Spring compares it, because the ETag is set on a 200 ResponseEntity for a GET.
+     *
+     * <p>With {@code currency} the body also depends on exchange rates, which the version doesn't capture, so
+     * those responses carry no ETag (a 304 would serve an old rate). The plain tour, which the If-Match of a
+     * PUT refers to, keeps it.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<TourResponse> get(@PathVariable long id) {
+    public ResponseEntity<TourResponse> get(@PathVariable long id,
+                                            @Parameter(description = CURRENCY_DOC)
+                                            @RequestParam(required = false) String currency) {
+        CurrencyConversion conversion = displayPricing.forCurrency(currency);
         VersionedTour found = tourService.get(id);
-        return ResponseEntity.ok()
-                .eTag(found.etag())
-                .cacheControl(TOUR_CACHE_CONTROL)
-                .body(found.tour());
+        if (!conversion.changesRepresentation()) {
+            return ResponseEntity.ok()
+                    .eTag(found.etag())
+                    .cacheControl(TOUR_CACHE_CONTROL)
+                    .body(found.tour());
+        }
+        return ResponseEntity.ok().cacheControl(TOUR_CACHE_CONTROL).body(found.tour().priced(conversion));
     }
 
     /**

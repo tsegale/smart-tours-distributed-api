@@ -198,7 +198,9 @@ public class TourSearchRepository {
                 ratingCount == 0 ? null : r.get("avg_rating", BigDecimal.class),
                 ratingCount,
                 r.get("created_at", OffsetDateTime.class).toInstant(),
-                distance == null ? null : Math.round(distance * 10) / 10.0);
+                distance == null ? null : Math.round(distance * 10) / 10.0,
+                null,
+                null);
     }
 
     /** The per-request expressions: the search point, the full-text query and what derives from them. */
