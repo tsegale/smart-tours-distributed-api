@@ -54,6 +54,21 @@ smarttours:
     # Search dates (from/to) are calendar days in this zone. Namibia is UTC+2 all year.
     zone: Africa/Windhoek
 
+  # Display prices (ADR 0011). Prices are stored and charged in NAD; these rates only convert them for display.
+  fx:
+    base: NAD
+    display-currencies: NAD,ZAR,USD,EUR,GBP,BWP
+    fresh-days: ${FX_FRESH_DAYS:4}
+    max-age-days: ${FX_MAX_AGE_DAYS:14}
+    max-move-percent: ${FX_MAX_MOVE_PERCENT:10}
+    peg-currency: ZAR
+    peg-tolerance-percent: ${FX_PEG_TOLERANCE_PERCENT:0.5}
+    # Daily, after the central banks in the blend have published (the ECB at about 16:00 CET = 17:00 here).
+    refresh-cron: ${FX_REFRESH_CRON:0 15 18 * * *}
+    refresh-on-startup: ${FX_REFRESH_ON_STARTUP:true}
+    local-ttl: 60s
+    zone: Africa/Windhoek
+
   # Outbound providers: timeouts and resilience policy per provider. The reasons for each value are in ADR 0012.
   # Base URLs are configurable so tests and the chaos compose profile can point them at WireMock.
   integrations:
