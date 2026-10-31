@@ -3,6 +3,11 @@ package com.smarttours.core.availability;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.Optional;
+
 /** Writes the departure read model. Owned by tour-core; fed only by availability.changed events. */
 @Repository
 public class DepartureSummaryRepository {
@@ -30,6 +35,18 @@ public class DepartureSummaryRepository {
 
     public DepartureSummaryRepository(JdbcClient jdbc) {
         this.jdbc = jdbc;
+    }
+
+    /** The date ({@code zone}) of the tour's next departure that still has seats, per the read model. */
+    public Optional<LocalDate> nextDepartureDate(long tourId, ZoneId zone) {
+        return jdbc.sql("""
+                        SELECT min(starts_at) FROM tour_departure_summary
+                         WHERE tour_id = :tourId AND starts_at >= now() AND slots_left > 0
+                        """)
+                .param("tourId", tourId)
+                .query((rs, row) -> rs.getObject(1, OffsetDateTime.class))
+                .optional()
+                .map(startsAt -> startsAt.atZoneSameInstant(zone).toLocalDate());
     }
 
     /** True if the event was applied; false if the stored version was already as new or newer. */

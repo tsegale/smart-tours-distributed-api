@@ -89,6 +89,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(InvalidParameterException.class)
+    ProblemDetail handleInvalidParameter(InvalidParameterException ex) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "invalid-parameter", "Invalid parameter",
+                ex.getMessage());
+        problem.setProperty("param", ex.getParam());
+        return problem;
+    }
 
     static ProblemDetail problem(HttpStatus status, String slug, String title, String detail) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);

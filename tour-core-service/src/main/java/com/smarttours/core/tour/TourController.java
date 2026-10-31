@@ -1,11 +1,14 @@
 package com.smarttours.core.tour;
 
+import com.smarttours.core.common.InvalidParameterException;
 import com.smarttours.core.fx.CurrencyConversion;
 import com.smarttours.core.fx.DisplayPricing;
 import com.smarttours.core.tour.dto.PageResponse;
+import com.smarttours.core.tour.dto.TourDetailResponse;
 import com.smarttours.core.tour.dto.TourRequest;
 import com.smarttours.core.tour.dto.TourResponse;
 import com.smarttours.core.tour.dto.VersionedTour;
+import com.smarttours.core.weather.DepartureWeather;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -13,6 +16,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -45,12 +50,16 @@ public class TourController {
     static final String CURRENCY_DOC = "Display currency (NAD, ZAR, USD, EUR, GBP, BWP): adds displayPrice. "
             + "Display only: bookings are charged in NAD.";
 
+    static final String INCLUDE_WEATHER = "weather";
+
     private final TourService tourService;
     private final DisplayPricing displayPricing;
+    private final DepartureWeather departureWeather;
 
-    public TourController(TourService tourService, DisplayPricing displayPricing) {
+    public TourController(TourService tourService, DisplayPricing displayPricing, DepartureWeather departureWeather) {
         this.tourService = tourService;
         this.displayPricing = displayPricing;
+        this.departureWeather = departureWeather;
     }
 
     @PostMapping
@@ -81,23 +90,44 @@ public class TourController {
      * The tour with its version as a strong ETag. A matching If-None-Match gets 304 with no body:
      * Spring compares it, because the ETag is set on a 200 ResponseEntity for a GET.
      *
-     * <p>With {@code currency} the body also depends on exchange rates, which the version doesn't capture, so
-     * those responses carry no ETag (a 304 would serve an old rate). The plain tour, which the If-Match of a
-     * PUT refers to, keeps it.
+     * <p>With {@code currency} or {@code include=weather} the body also depends on exchange rates or weather,
+     * which the version doesn't capture, so those responses carry no ETag (a 304 would serve an old rate or
+     * forecast). The plain tour, which the If-Match of a PUT refers to, keeps it.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<TourResponse> get(@PathVariable long id,
-                                            @Parameter(description = CURRENCY_DOC)
-                                            @RequestParam(required = false) String currency) {
+    public ResponseEntity<?> get(@PathVariable long id,
+                                 @Parameter(description = CURRENCY_DOC)
+                                 @RequestParam(required = false) String currency,
+                                 @Parameter(description = "weather: embed the weather for the departure date")
+                                 @RequestParam(required = false) String include,
+                                 @Parameter(description = "With include=weather: the departure date (default: the "
+                                         + "tour's next departure with seats)")
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                 LocalDate date) {
+        boolean withWeather = includesWeather(include);
         CurrencyConversion conversion = displayPricing.forCurrency(currency);
         VersionedTour found = tourService.get(id);
-        if (!conversion.changesRepresentation()) {
+        if (!withWeather && !conversion.changesRepresentation()) {
             return ResponseEntity.ok()
                     .eTag(found.etag())
                     .cacheControl(TOUR_CACHE_CONTROL)
                     .body(found.tour());
         }
-        return ResponseEntity.ok().cacheControl(TOUR_CACHE_CONTROL).body(found.tour().priced(conversion));
+        TourResponse tour = found.tour().priced(conversion);
+        Object body = withWeather
+                ? TourDetailResponse.of(tour, departureWeather.forTour(id, tour.latitude(), tour.longitude(), date))
+                : tour;
+        return ResponseEntity.ok().cacheControl(TOUR_CACHE_CONTROL).body(body);
+    }
+
+    private static boolean includesWeather(String include) {
+        if (include == null || include.isBlank()) {
+            return false;
+        }
+        if (!INCLUDE_WEATHER.equalsIgnoreCase(include.trim())) {
+            throw new InvalidParameterException("include", "include supports only '" + INCLUDE_WEATHER + "'");
+        }
+        return true;
     }
 
     /**

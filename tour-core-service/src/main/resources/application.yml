@@ -69,6 +69,21 @@ smarttours:
     local-ttl: 60s
     zone: Africa/Windhoek
 
+  # Departure weather from Open-Meteo.
+  weather:
+    forecast-horizon-days: 15     # forecast_days is at most 16: today + 15
+    climate-years: 10
+    climate-window-days: 7        # the same calendar week
+    archive-delay-days: 7         # the archive trails real time by about 5 days
+    forecast-ttl: 1h
+    forecast-retention: 24h       # served stale for up to a day while the provider is down
+    climate-ttl: 30d
+    climate-retention: 90d
+    ttl-jitter: 0.1
+    include-budget: ${WEATHER_INCLUDE_BUDGET:400ms}   # tour detail never waits longer for weather
+    request-budget: ${WEATHER_REQUEST_BUDGET:3500ms}  # GET /weather: one full forecast policy (2 attempts)
+    zone: Africa/Windhoek
+
   # Outbound providers: timeouts and resilience policy per provider. The reasons for each value are in ADR 0012.
   # Base URLs are configurable so tests and the chaos compose profile can point them at WireMock.
   integrations:

@@ -8,6 +8,9 @@ import com.smarttours.core.tour.dto.VersionedTour;
 import com.smarttours.core.fx.CurrencyConversion;
 import com.smarttours.core.fx.DisplayPricing;
 import com.smarttours.core.fx.UnsupportedCurrencyException;
+import com.smarttours.core.weather.DepartureWeather;
+import com.smarttours.core.weather.WeatherLookup;
+import com.smarttours.core.weather.WeatherReport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,9 +23,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Currency;
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,6 +53,10 @@ class TourControllerTest {
     static final CurrencyConversion EUR = CurrencyConversion.at(Currency.getInstance("EUR"),
             new BigDecimal("0.05382700"), LocalDate.parse("2026-10-30"), false);
 
+    static final WeatherReport CLEAR_DAY = new WeatherReport(WeatherReport.Type.FORECAST, LocalDate.parse("2026-11-05"),
+            -24.7, 15.3, "Africa/Windhoek", 34.4, 18.9, 0, 0.0, 35.1, 0, "Clear sky", LocalTime.parse("06:08"),
+            LocalTime.parse("19:16"), null, Instant.parse("2026-10-31T10:00:00Z"), false);
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -56,6 +65,9 @@ class TourControllerTest {
 
     @MockitoBean
     private DisplayPricing displayPricing;
+
+    @MockitoBean
+    private DepartureWeather departureWeather;
 
     @BeforeEach
     void noCurrencyByDefault() {
@@ -199,6 +211,48 @@ class TourControllerTest {
                 .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
                 .andExpect(jsonPath("$.type").value("https://smarttours.dev/problems/unsupported-currency"))
                 .andExpect(jsonPath("$.supportedCurrencies[5]").value("BWP"));
+        verifyNoInteractions(tourService);
+    }
+
+    @Test
+    void get_includeWeather_embedsItNextToTheTourFields() throws Exception {
+        when(tourService.get(1L)).thenReturn(new VersionedTour(SOSSUSVLEI, 7));
+        when(departureWeather.forTour(1L, -24.7275, 15.3424, LocalDate.parse("2026-11-05")))
+                .thenReturn(WeatherLookup.ok(CLEAR_DAY));
+
+        mockMvc.perform(get("/api/tours/1").param("include", "weather").param("date", "2026-11-05"))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist(HttpHeaders.ETAG))
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Sossusvlei Sunrise Dunes"))
+                .andExpect(jsonPath("$.tour").doesNotExist())
+                .andExpect(jsonPath("$.weatherStatus").value("ok"))
+                .andExpect(jsonPath("$.weather.type").value("forecast"))
+                .andExpect(jsonPath("$.weather.description").value("Clear sky"))
+                .andExpect(jsonPath("$.weather.sunrise").value("06:08:00"))
+                .andExpect(jsonPath("$.weather.years").doesNotExist())
+                .andExpect(jsonPath("$.weatherAttribution.url").value("https://open-meteo.com/"))
+                .andExpect(jsonPath("$.weatherAttribution.licence").value("CC BY 4.0"));
+    }
+
+    @Test
+    void get_includeWeather_whenUnavailable_isStill200WithNullWeather() throws Exception {
+        when(tourService.get(1L)).thenReturn(new VersionedTour(SOSSUSVLEI, 7));
+        when(departureWeather.forTour(1L, -24.7275, 15.3424, null)).thenReturn(WeatherLookup.unavailable());
+
+        mockMvc.perform(get("/api/tours/1").param("include", "weather"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Sossusvlei Sunrise Dunes"))
+                // Written out as null, not omitted: clients can rely on the key (jsonPath's exists() rejects null)
+                .andExpect(content().string(containsString("\"weather\":null")))
+                .andExpect(jsonPath("$.weatherStatus").value("unavailable"));
+    }
+
+    @Test
+    void get_includeSomethingElse_returns400() throws Exception {
+        mockMvc.perform(get("/api/tours/1").param("include", "reviews"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.param").value("include"));
         verifyNoInteractions(tourService);
     }
 
