@@ -20,6 +20,8 @@
     <properties>
         <java.version>21</java.version>
         <springdoc.version>3.1.1</springdoc.version>
+        <!-- resilience4j-spring-boot4 is the module built for Spring Boot 4 / Spring Framework 7 (ADR 0012). -->
+        <resilience4j.version>2.4.0</resilience4j.version>
         <!-- Testcontainers 1.x for the codegen plugin's own classpath only (it uses the 1.x API).
              1.21.4 speaks the Docker Engine API versions Docker 29 still accepts. -->
         <testcontainers-codegen.version>1.21.4</testcontainers-codegen.version>
@@ -95,6 +97,22 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Outbound providers (exchange rates, weather): resilience policies (ADR 0012) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot4</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-micrometer</artifactId>
+            <version>${resilience4j.version}</version>
         </dependency>
 
         <!-- Tests -->

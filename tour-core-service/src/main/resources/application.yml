@@ -54,6 +54,41 @@ smarttours:
     # Search dates (from/to) are calendar days in this zone. Namibia is UTC+2 all year.
     zone: Africa/Windhoek
 
+  # Outbound providers: timeouts and resilience policy per provider. The reasons for each value are in ADR 0012.
+  # Base URLs are configurable so tests and the chaos compose profile can point them at WireMock.
+  integrations:
+    user-agent: "SmartTours/1.0 (tour-core-service; +https://github.com/tsegale/smart-tours-distributed-api)"
+    # Daily background refresh, off the request path: patient timeouts and retries are cheap here.
+    frankfurter:
+      base-url: ${FRANKFURTER_BASE_URL:https://api.frankfurter.dev}
+      connect-timeout: 2s
+      read-timeout: 5s
+      time-limit: 6s
+      retry: { max-attempts: 4, initial-backoff: 2s, multiplier: 2, jitter: 0.5, max-backoff: 30s, max-retry-after: 60s }
+      circuit-breaker: { sliding-window-size: 10, minimum-calls: 4, failure-rate-percent: 50, slow-call-threshold: 5s,
+                         slow-call-rate-percent: 100, wait-in-open-state: 5m, permitted-calls-in-half-open-state: 1 }
+      bulkhead: { max-threads: 1, queue-capacity: 2 }
+    # On the request path (tour page): tight timeouts, one retry, a breaker that trips fast.
+    open-meteo-forecast:
+      base-url: ${OPEN_METEO_FORECAST_BASE_URL:https://api.open-meteo.com}
+      connect-timeout: 500ms
+      read-timeout: 1200ms
+      time-limit: 1500ms
+      retry: { max-attempts: 2, initial-backoff: 200ms, multiplier: 2, jitter: 0.5, max-backoff: 1s, max-retry-after: 1s }
+      circuit-breaker: { sliding-window-size: 20, minimum-calls: 10, failure-rate-percent: 50, slow-call-threshold: 1s,
+                         slow-call-rate-percent: 50, wait-in-open-state: 30s, permitted-calls-in-half-open-state: 3 }
+      bulkhead: { max-threads: 8, queue-capacity: 16 }
+    # Climate normals: ten small calls per miss, cached for 30 days, so rarely on the request path.
+    open-meteo-archive:
+      base-url: ${OPEN_METEO_ARCHIVE_BASE_URL:https://archive-api.open-meteo.com}
+      connect-timeout: 500ms
+      read-timeout: 2500ms
+      time-limit: 3s
+      retry: { max-attempts: 2, initial-backoff: 200ms, multiplier: 2, jitter: 0.5, max-backoff: 1s, max-retry-after: 1s }
+      circuit-breaker: { sliding-window-size: 30, minimum-calls: 10, failure-rate-percent: 50, slow-call-threshold: 2s,
+                         slow-call-rate-percent: 50, wait-in-open-state: 60s, permitted-calls-in-half-open-state: 3 }
+      bulkhead: { max-threads: 4, queue-capacity: 40 }
+
 # OpenAPI document and Swagger UI, served under the path the gateway publishes them at (route tour-docs),
 # so every link in Swagger UI works through the gateway without path rewriting.
 springdoc:
@@ -73,7 +108,7 @@ management:
     web:
       exposure:
         # prometheus is for scraping on the internal network: the gateway routes no /actuator path here.
-        include: health,info,prometheus
+        include: health,info,prometheus,circuitbreakers
   endpoint:
     health:
       probes:

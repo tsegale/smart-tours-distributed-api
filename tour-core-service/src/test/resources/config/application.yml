@@ -1,0 +1,14 @@
+# Test overrides, layered on top of src/main/resources/application.yml (Spring Boot reads classpath:/config/
+# after classpath:/). Tests never reach a real provider: every base URL points at a closed local port unless
+# a test points it at its own WireMock, and nothing refreshes rates unless a test asks for it.
+smarttours:
+  fx:
+    refresh-cron: "-"
+    refresh-on-startup: false
+  integrations:
+    frankfurter:
+      base-url: http://127.0.0.1:9
+    open-meteo-forecast:
+      base-url: http://127.0.0.1:9
+    open-meteo-archive:
+      base-url: http://127.0.0.1:9
