@@ -67,6 +67,19 @@ class TestBookingHold:
         )
         assert body["payment"] == {"provider": "fake", "status": "PENDING", "amount_minor": 370000, "currency": "NAD"}
 
+    def test_booking_states_that_converted_prices_are_display_only(self, client, departure):
+        availability_id = departure()
+
+        created = client.post("/api/bookings", json={"availability_id": availability_id, "slots": 1}, headers=ALICE)
+        listed = client.get("/api/bookings/me", headers=ALICE).json()
+
+        notice = (
+            "Charged in NAD. Prices shown in other currencies are estimates from daily reference rates, "
+            "for display only."
+        )
+        assert created.json()["currency_notice"] == notice
+        assert listed[0]["currency_notice"] == notice
+
     def test_checkout_matches_the_hold(self, client, departure, payments):
         availability_id = departure()
 

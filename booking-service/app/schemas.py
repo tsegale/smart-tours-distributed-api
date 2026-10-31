@@ -68,6 +68,15 @@ class BookingResponse(BaseModel):
     cancelled_at: datetime | None = None
     cancellation: CancellationSummary | None = None
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def currency_notice(self) -> str:
+        """tour-core can show prices in other currencies (ADR 0011); the charge is always in this one."""
+        return (
+            f"Charged in {self.currency}. Prices shown in other currencies are estimates from daily reference "
+            "rates, for display only."
+        )
+
 
 class ReviewCreate(BaseModel):
     rating: int = Field(ge=1, le=5)
