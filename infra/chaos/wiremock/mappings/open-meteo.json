@@ -1,0 +1,64 @@
+{
+  "mappings": [
+    {
+      "name": "forecast healthy",
+      "scenarioName": "weather",
+      "requiredScenarioState": "Started",
+      "request": { "method": "GET", "urlPath": "/v1/forecast" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "bodyFileName": "open-meteo-forecast.json" }
+    },
+    {
+      "name": "forecast slow",
+      "scenarioName": "weather",
+      "requiredScenarioState": "slow",
+      "request": { "method": "GET", "urlPath": "/v1/forecast" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "bodyFileName": "open-meteo-forecast.json",
+                    "fixedDelayMilliseconds": 2000 }
+    },
+    {
+      "name": "forecast errors",
+      "scenarioName": "weather",
+      "requiredScenarioState": "errors",
+      "request": { "method": "GET", "urlPath": "/v1/forecast" },
+      "response": { "status": 500, "headers": { "Content-Type": "application/json" },
+                    "body": "{\"error\":true,\"reason\":\"internal error (chaos)\"}" }
+    },
+    {
+      "name": "forecast dead",
+      "scenarioName": "weather",
+      "requiredScenarioState": "dead",
+      "request": { "method": "GET", "urlPath": "/v1/forecast" },
+      "response": { "fault": "CONNECTION_RESET_BY_PEER" }
+    },
+    {
+      "name": "archive healthy",
+      "scenarioName": "weather",
+      "requiredScenarioState": "Started",
+      "request": { "method": "GET", "urlPath": "/v1/archive" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "bodyFileName": "open-meteo-archive.json" }
+    },
+    {
+      "name": "archive slow",
+      "scenarioName": "weather",
+      "requiredScenarioState": "slow",
+      "request": { "method": "GET", "urlPath": "/v1/archive" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "bodyFileName": "open-meteo-archive.json",
+                    "fixedDelayMilliseconds": 2000 }
+    },
+    {
+      "name": "archive errors",
+      "scenarioName": "weather",
+      "requiredScenarioState": "errors",
+      "request": { "method": "GET", "urlPath": "/v1/archive" },
+      "response": { "status": 500, "headers": { "Content-Type": "application/json" },
+                    "body": "{\"error\":true,\"reason\":\"internal error (chaos)\"}" }
+    },
+    {
+      "name": "archive dead",
+      "scenarioName": "weather",
+      "requiredScenarioState": "dead",
+      "request": { "method": "GET", "urlPath": "/v1/archive" },
+      "response": { "fault": "CONNECTION_RESET_BY_PEER" }
+    }
+  ]
+}

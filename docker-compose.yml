@@ -134,6 +134,18 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       # Catalogue cache (ADR 0009). Optional at runtime: without Redis, reads go to the database.
       REDIS_HOST: redis-cache
+      # Outbound providers (ADRs 0011, 0012). The chaos profile points these at provider-stubs.
+      FRANKFURTER_BASE_URL: ${FRANKFURTER_BASE_URL:-https://api.frankfurter.dev}
+      OPEN_METEO_FORECAST_BASE_URL: ${OPEN_METEO_FORECAST_BASE_URL:-https://api.open-meteo.com}
+      OPEN_METEO_ARCHIVE_BASE_URL: ${OPEN_METEO_ARCHIVE_BASE_URL:-https://archive-api.open-meteo.com}
+      FX_FRESH_DAYS: ${FX_FRESH_DAYS:-4}
+      FX_MAX_AGE_DAYS: ${FX_MAX_AGE_DAYS:-14}
+      FX_MAX_MOVE_PERCENT: ${FX_MAX_MOVE_PERCENT:-10}
+      FX_PEG_TOLERANCE_PERCENT: ${FX_PEG_TOLERANCE_PERCENT:-0.5}
+      FX_REFRESH_CRON: ${FX_REFRESH_CRON:-0 15 18 * * *}
+      FX_REFRESH_ON_STARTUP: ${FX_REFRESH_ON_STARTUP:-true}
+      WEATHER_INCLUDE_BUDGET: ${WEATHER_INCLUDE_BUDGET:-400ms}
+      WEATHER_REQUEST_BUDGET: ${WEATHER_REQUEST_BUDGET:-3500ms}
     depends_on:
       tours-db: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
@@ -233,6 +245,21 @@ services:
       - --events=checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired
     depends_on:
       booking-service: { condition: service_healthy }
+    restart: unless-stopped
+
+  # Chaos testing only: docker compose --profile chaos --env-file .env --env-file infra/chaos/chaos.env up -d
+  # WireMock standing in for Frankfurter and Open-Meteo, with a switchable fault per provider
+  # (python scripts/chaos.py <fx|weather|all> <healthy|slow|errors|dead>). docs/smoke-test.md section 9.
+  provider-stubs:
+    image: wiremock/wiremock:3.13.2
+    profiles: [chaos]
+    command: ["--global-response-templating", "--max-request-journal-entries", "1000", "--disable-banner"]
+    volumes: ["./infra/chaos/wiremock:/home/wiremock:ro"]
+    ports: ["127.0.0.1:8090:8080"] # admin API for scripts/chaos.py
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     restart: unless-stopped
 
   ai-service:
