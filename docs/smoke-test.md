@@ -265,6 +265,90 @@ Section 8: nearest result 368.8 m away; contradictions gave 400 with
 and search dropped the tour; the review gave rating 5 and the tour `5.0 1`, a second review 409; 40 concurrent
 anonymous searches gave 21 x 200 and 19 x 429 in one run, 34 and 6 in another.
 
+## 9. Display currencies, departure weather and provider faults (chaos profile)
+
+Runs after sections 0 to 2 (uses `$T1`, Sossusvlei). The chaos profile adds `provider-stubs`, a WireMock
+container standing in for Frankfurter and Open-Meteo, and the second env file points tour-core at it. Each
+provider's fault is switched at runtime with `scripts/chaos.py`; nothing restarts.
+
+```bash
+docker compose --profile chaos --env-file .env --env-file infra/chaos/chaos.env up -d --wait
+python scripts/chaos.py status            # fx healthy, weather healthy
+CUST="Authorization: Bearer $CUSTOMER"    # signed in: a budget of 10 requests/s instead of 5 (ADR 0010)
+
+# Rates were fetched from the stub at start-up (ShedLock: one instance, in the background)
+docker compose exec -T tours-db psql -U "$TOURS_DB_USER" -d tours -c \
+  "SELECT quote, rate, as_of, source FROM fx_rates ORDER BY quote"     # 5 rows, as_of today, frankfurter:blended
+curl -s "$GW/api/tours/$T1?currency=EUR" -H "$CUST" | json "d['price'], d['currency'], d['displayPrice']"
+# expect 1850.0 NAD {'amount': 99.58, 'currency': 'EUR', 'rate': 0.053827, 'rateAsOf': <today>, 'stale': False}
+curl -s "$GW/api/tours/$T1?currency=JPY" -H "$CUST" | json "d['status'], d['supportedCurrencies']"
+# expect 400 ['NAD', 'ZAR', 'USD', 'EUR', 'GBP', 'BWP']
+# Price bounds in EUR: 99 to 100 EUR is read as 1839.22 to 1857.81 NAD, so the 1850 NAD tour is in
+curl -s "$GW/api/tours/search?lat=-24.7275&lon=15.3424&radius=1000&currency=EUR&minPrice=99&maxPrice=100" -H "$CUST" \
+  | json "[(i['price'], i['displayPrice']['amount']) for i in d['items'] if i['id'] == $T1]"
+# expect [(1850.0, 99.58)]
+curl -s $GW/api/bookings/me -H "$CUST" | json "d[0]['currency'], d[0]['currency_notice']"
+# expect NAD 'Charged in NAD. Prices shown in other currencies are estimates ... for display only.'
+
+# Start from an empty weather cache and closed breakers, so a rerun sees the same as the first run
+docker compose exec -T redis-cache sh -c "redis-cli --scan --pattern 'weather:*' | xargs -r redis-cli del" >/dev/null
+for b in open-meteo-forecast open-meteo-archive; do docker compose exec -T tour-core-service wget -qO- \
+  --header 'Content-Type: application/json' --post-data '{"updateState":"CLOSE"}' \
+  localhost:8081/actuator/circuitbreakers/$b >/dev/null; done
+breakers() { docker compose exec -T tour-core-service wget -qO- localhost:8081/actuator/circuitbreakers \
+  | json "{k: v['state'] for k, v in d['circuitBreakers'].items()}"; }
+
+# Weather for a departure in 5 days (forecast) and in a year (climate normal)
+day() { python -c "import datetime as d; print(d.date.today() + d.timedelta(days=$1))"; }
+D5=$(day 5)
+curl -s "$GW/api/tours/$T1/weather?date=$D5" -H "$CUST" \
+  | json "d['weatherStatus'], d['weather']['type'], d['weather']['temperatureMaxC'], d['attribution']['text']"
+# expect ok forecast 34.4 Weather data by Open-Meteo.com
+curl -s "$GW/api/tours/$T1/weather?date=$(day 365)" -H "$CUST" | json "d['weatherStatus'], d['weather']['type'], d['weather']['years']"
+# expect ok climate_normal {'from': ..., 'to': ..., 'count': 10}
+echo "past date: $(code "$GW/api/tours/$T1/weather?date=2020-01-01" -H "$CUST")  (expect 400)"
+
+# The tour page with weather, through each fault. A fresh date per probe, so nothing is cached for it.
+page() {  # $1 = date: time taken, weatherStatus, stale flag, EUR price
+  curl -s -w ' %{time_total}' "$GW/api/tours/$T1?currency=EUR&include=weather&date=$1" -H "$CUST" | python -c "
+import sys, json
+body, took = sys.stdin.read().rsplit(' ', 1)
+d = json.loads(body)
+print(f'{float(took):.3f}s', d['weatherStatus'], 'stale' if (d['weather'] or {}).get('stale') else '-', d['displayPrice']['amount'])"
+}
+python scripts/chaos.py weather slow;   echo "slow:    $(page $(day 6))"   # ~0.4 s (the include budget): unavailable
+python scripts/chaos.py weather errors; echo "errors:  $(page $(day 7))"   # fast: unavailable
+python scripts/chaos.py all dead;       echo "dead:    $(page $(day 8))"   # fast: unavailable, EUR price still there
+# A date cached earlier, now expired, is served stale while the provider is dead (expire it by hand):
+KEY=$(docker compose exec -T redis-cache redis-cli --scan --pattern "weather:forecast:*:$D5")
+docker compose exec -T redis-cache redis-cli eval \
+  "local v = cjson.decode(redis.call('GET', KEYS[1])); v.freshUntil = '2000-01-01T00:00:00Z'; return redis.call('SET', KEYS[1], cjson.encode(v), 'KEEPTTL')" \
+  1 "$KEY"                                                                 # OK
+echo "expired: $(page $D5)"                                                # stale stale: the last value, marked
+
+# Enough failures open the forecast breaker (10 calls, 50%); then no call is made at all
+for n in 10 11 12 13 14; do page $(day $n) >/dev/null; done              # 5 pages x 2 attempts
+breakers                                                                   # open-meteo-forecast OPEN
+echo "open:    $(page $(day 15))"                                          # unavailable: the provider is not called
+python scripts/chaos.py all healthy
+sleep 31                                                                   # the breaker's 30 s in the open state
+for n in 9 10 11; do echo "healthy: $(page $(day $n))"; done              # 3 trial calls succeed: ok, then fresh
+breakers                                                                   # open-meteo-forecast CLOSED
+docker compose exec -T tour-core-service wget -qO- localhost:8081/actuator/prometheus | grep '^weather_lookups_total'
+```
+
+Last run 2026-11-03, with the 100k seed: every expectation met. Rates as of that day from the stub; EUR 99.58 for
+1850 NAD; JPY refused with the six supported currencies; the 99 to 100 EUR bounds found the tour; a climate
+normal over 2016 to 2025 (10 years). Through the faults the page answered in 0.51 s (slow: the 400 ms budget
+plus the round trip), 0.26 s (errors) and 0.36 s (dead), always with the EUR price; the expired entry came back
+`stale`; after five dead pages the forecast breaker was OPEN and the next page took 0.08 s without calling the
+provider; 31 s later three trial calls closed it again.
+
+The first request after a pause of half a minute or more is about 0.4 s slower on this laptop, for any page:
+a plain tour without weather or currency took 0.49 s through the gateway after 31 s idle, against 0.14 s straight
+from tour-core. So the first page after the breaker's 30 s open state took 0.75 to 1.26 s in three runs, and the
+next ones 0.06 to 0.52 s.
+
 ## Reset
 
 ```bash

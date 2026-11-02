@@ -15,3 +15,5 @@ Format: [Michael Nygard's template](https://cognitect.com/blog/2011/11/15/docume
 | [0008](0008-outbox-and-cqrs-availability-read-model.md) | Transactional outbox in booking-service, event-fed availability read model | Accepted |
 | [0009](0009-catalogue-caching-strategy.md) | Catalogue caching: generation keys, jitter, single-flight, fail-open | Accepted |
 | [0010](0010-rate-limiting-at-the-gateway.md) | Rate limiting at the gateway: Redis token buckets, fail mode per route | Accepted |
+| [0011](0011-display-only-currency-conversion.md) | Display-only currency conversion from daily reference rates | Accepted |
+| [0012](0012-resilience-policy-for-outbound-calls.md) | Resilience policy for outbound calls | Accepted |

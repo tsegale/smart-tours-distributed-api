@@ -17,6 +17,8 @@ flowchart LR
     psp([Stripe]) -->|signed webhooks| gw
     gw --> ai[ai-service<br/>FastAPI]
     tour <-->|tour + search cache| cache[(Redis<br/>cache)]
+    tour -->|daily rates| fx([Frankfurter])
+    tour -->|forecast, archive| meteo([Open-Meteo])
     book -->|price snapshot| tour
     book -->|Checkout, refunds| psp
     tour --> toursdb[(PostgreSQL + PostGIS<br/>tours, departure read model)]
@@ -33,7 +35,7 @@ flowchart LR
 | Service | Stack | Responsibility |
 | --- | --- | --- |
 | **api-gateway** | Java 21, Spring Boot 4, Spring Cloud Gateway, Spring Security, Redis | Single entry point. Verifies JWTs, enforces roles per route, strips spoofed identity headers and forwards `X-User-Id` / `X-User-Roles`. Rate limits per user or IP with Redis token buckets. |
-| **tour-core-service** | Java 21, Spring Boot 4, JPA + jOOQ, PostGIS, Flyway, Redis | Catalogue with optimistic concurrency (ETag / If-Match) and one search endpoint (geo, full text, facets, ratings, date availability) with keyset pagination and Redis caching. Keeps a read model of departures and ratings fed by booking events. |
+| **tour-core-service** | Java 21, Spring Boot 4, JPA + jOOQ, PostGIS, Flyway, Redis, Resilience4j | Catalogue with optimistic concurrency (ETag / If-Match) and one search endpoint (geo, full text, facets, ratings, date availability) with keyset pagination and Redis caching. Keeps a read model of departures and ratings fed by booking events. Display prices in five currencies and departure weather from external APIs, behind per-provider resilience policies. |
 | **booking-service** | Python 3.12, FastAPI, SQLAlchemy 2, Alembic, Stripe SDK | Departures with price snapshots, seat holds, Stripe Checkout, signed webhooks, cancellation, refunds and verified reviews. Every seat change writes an event to a transactional outbox; separate processes expire holds and relay the outbox. |
 | **ai-recommendation-service** | Python 3.12, FastAPI, sentence-transformers, pgvector | Embeds tours from events (separate worker process). "Similar tours" and natural-language search. |
 
@@ -74,6 +76,43 @@ Contradictory or out-of-range parameters get one 400 Problem Details listing eve
 [OpenAPI document and Swagger UI](http://localhost:8080/docs/tours/swagger-ui.html) describe all of tour-core's
 endpoints. Departure availability comes from an event-fed read model and may lag booking-service by a moment;
 a booking always checks seats in booking-service itself ([ADR 0008](docs/adr/0008-outbox-and-cqrs-availability-read-model.md)).
+
+## Prices in your currency, weather for your departure
+
+Prices are stored and charged in NAD. Any tour, list or search response can add a display price in ZAR, USD,
+EUR, GBP or BWP, and tour detail can embed the weather for a departure. Both come from free public APIs
+(Frankfurter, Open-Meteo) and neither can slow down or break the tour page.
+
+```bash
+# Display price (display only: bookings are charged in NAD, and every booking response says so)
+curl -s "localhost:8080/api/tours/1?currency=EUR"
+#  "price": 1850.00, "currency": "NAD",
+#  "displayPrice": {"amount": 99.58, "currency": "EUR", "rate": 0.053827, "rateAsOf": "2026-11-03", "stale": false}
+
+# Price bounds in the display currency: 99 to 100 EUR is searched as 1839.22 to 1857.81 NAD
+curl -s "localhost:8080/api/tours/search?category=DESERT&currency=EUR&minPrice=99&maxPrice=100"
+
+# Weather for a departure: a forecast up to 15 days ahead, else the same week averaged over the last 10 years
+curl -s "localhost:8080/api/tours/1/weather?date=2026-11-08"
+#  "weather": {"type": "forecast", "temperatureMaxC": 34.4, "description": "Clear sky", "sunrise": "06:08:00", ...},
+#  "weatherStatus": "ok", "attribution": {"text": "Weather data by Open-Meteo.com", ...}
+curl -s "localhost:8080/api/tours/1?include=weather"     # date defaults to the next departure with seats
+```
+
+| When | `displayPrice` | `weather` / `weatherStatus` | HTTP |
+| --- | --- | --- | --- |
+| everything healthy | present, `stale: false` | the forecast or climate normal / `ok` | 200 |
+| rates 5 to 14 days old (missed refreshes) | present, `stale: true` | | 200 |
+| rates older than 14 days | absent, `displayPriceUnavailable` says why | | 200 |
+| weather provider slow, failing or its circuit open | unaffected | last cached value with `stale: true` / `stale`, else `null` / `unavailable` | 200 |
+| unsupported currency, past date | | | 400 Problem Details |
+
+Rates are fetched once a day on one instance (ShedLock), checked (no quote may move more than 10%, NAD/ZAR must
+hold its 1:1 peg within 0.5%) and read from memory, so they are never on the request path. The tour page waits
+at most 400 ms for weather; every outbound call has a time limit, retries with jittered backoff (honouring
+Retry-After), a circuit breaker and a thread-pool bulkhead. Decisions: [ADR 0011](docs/adr/0011-display-only-currency-conversion.md)
+(currency) and [ADR 0012](docs/adr/0012-resilience-policy-for-outbound-calls.md) (resilience). Open-Meteo's free
+API is for non-commercial use; ADR 0012 lists what changes for a commercial launch.
 
 ## Booking flow
 
@@ -142,6 +181,13 @@ sequenceDiagram
   single-flight on misses, and Redis down costs latency, not availability (tested by stopping Redis mid-test).
   On a laptop, a realistic search mix through the gateway runs at a median of 15 to 19 ms at 20 req/s and
   tops out around 80 req/s ([load test](docs/benchmarks/search.md#load-test-k6-through-the-gateway)).
+- **Designed for failure, measured.** Exchange rates and weather come from free APIs behind Resilience4j
+  (time limit, retry with jitter and Retry-After, circuit breaker, thread-pool bulkhead per provider) and a
+  stale-if-error cache. Under k6 at 40 req/s with every provider dead, the tour page's p95 was 11 ms, against
+  118 ms with a warm cache in the same round; with a provider answering in 2 s it was bounded by the 400 ms weather
+  budget (p95 407 to 411 ms in three runs), and 10 ms once the breaker opened. One clean round so far, not yet the
+  three-round table: memory on the benchmark laptop interfered, as the report explains
+  ([results](docs/benchmarks/integrations.md)). Every failure mode also has a WireMock test.
 - **Rate limits per caller.** Redis token buckets at the gateway keyed by JWT subject or a proxy-aware client IP,
   429 Problem Details with `Retry-After`, fail-open for reads and fail-closed for seat holds
   ([ADR 0010](docs/adr/0010-rate-limiting-at-the-gateway.md)).
@@ -218,6 +264,11 @@ payments see [docs/smoke-test.md](docs/smoke-test.md#7-stripe-test-mode).
 | `BOOKING_WEB_CONCURRENCY` | `4` | uvicorn worker processes for booking-service |
 | `RATE_LIMIT_*` | see `.env.example` | Token-bucket budgets per route ([ADR 0010](docs/adr/0010-rate-limiting-at-the-gateway.md)) |
 | `RATE_LIMIT_TRUSTED_PROXIES` | empty | CIDRs of load balancers whose `X-Forwarded-For` is believed |
+| `FX_FRESH_DAYS`, `FX_MAX_AGE_DAYS` | `4`, `14` | Rates up to this old are fresh, then stale, then not used ([ADR 0011](docs/adr/0011-display-only-currency-conversion.md)) |
+| `FX_MAX_MOVE_PERCENT`, `FX_PEG_TOLERANCE_PERCENT` | `10`, `0.5` | Sanity checks a fetch must pass to replace the rates in use |
+| `FX_REFRESH_CRON`, `FX_REFRESH_ON_STARTUP` | `0 15 18 * * *`, `true` | Daily refresh (Africa/Windhoek, one instance via ShedLock), and at start-up if none today |
+| `WEATHER_INCLUDE_BUDGET`, `WEATHER_REQUEST_BUDGET` | `400ms`, `3s` | How long tour detail and `/weather` wait for Open-Meteo ([ADR 0012](docs/adr/0012-resilience-policy-for-outbound-calls.md)) |
+| `FRANKFURTER_BASE_URL`, `OPEN_METEO_*_BASE_URL` | the public APIs | Provider endpoints; `infra/chaos/chaos.env` points them at the WireMock stubs |
 
 ## Running the tests
 
@@ -239,6 +290,10 @@ changing a migration, regenerate them (needs Docker) and commit the result. CI f
 cd tour-core-service && ./mvnw -Pjooq-codegen generate-sources
 ```
 
+No test calls Frankfurter or Open-Meteo either: tour-core's adapters are tested against WireMock with responses
+recorded from the real APIs (`src/test/resources/fixtures`), including timeouts, 5xx, 429 with Retry-After,
+connection resets, malformed JSON, circuit opening and half-open recovery, and bulkhead rejection.
+
 No test calls Stripe or tour-core: payments use the fake provider, tour-core and Stripe's HTTP API are
 mocked with respx, and webhooks are signed in the tests with a test secret. CI needs no Stripe secrets.
 
@@ -247,6 +302,7 @@ Benchmark the reservation strategies (needs the stack running; k6 runs in Docker
 ```bash
 python benchmarks/run_booking_contention.py        # writes docs/benchmarks/booking-locking.md
 python benchmarks/run_search_benchmark.py --seed   # 100k tours; cold vs warm cache; a rate-limit burst
+python benchmarks/run_integrations_benchmark.py    # tour page while providers are slow or dead (chaos profile)
 ```
 
 CI runs all of this on every push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
@@ -258,7 +314,7 @@ CI runs all of this on every push: [`.github/workflows/ci.yml`](.github/workflow
 | 0 | Make it run: fixes, per-service databases, migrations, Dockerfiles, CI, ADRs | Done |
 | 1 | Booking core: payment hold → Stripe Checkout → signed webhooks → confirm/expire; locking benchmark with k6 | Done |
 | 2 | Search and caching: dynamic filters, distance sort, keyset pagination, CQRS availability, Redis, rate limiting | Done |
-| 3 | Integrations: currency (Frankfurter, NAD base) and weather (Open-Meteo) behind Resilience4j | |
+| 3 | Integrations: currency (Frankfurter, NAD base) and weather (Open-Meteo) behind Resilience4j, chaos profile | Done (benchmark: one clean round, rerun pending) |
 | 4 | Async workers: tour-core outbox (booking-service's landed in Phase 2), notification-service (Celery), PDF tickets, Mailpit | |
 | 5 | Production ops: Keycloak, OpenTelemetry + Grafana, live deployment with TLS | |
 | 6 | AI: hybrid pgvector + PostGIS search, RAG itinerary generation | |
@@ -272,9 +328,11 @@ booking-service/             FastAPI, SQLAlchemy, Alembic, payments, reviews, ho
 ai-recommendation-service/   FastAPI API + RabbitMQ worker, pgvector
 docs/adr/                    Architecture decision records
 docs/benchmarks/             Measured results: locking under contention, search plans and load tests
-benchmarks/                  k6 scenarios (booking contention, search) and the scripts that run them
+benchmarks/                  k6 scenarios (booking contention, search, integrations) and the scripts that run them
+infra/chaos/                 WireMock stubs for Frankfurter and Open-Meteo with switchable faults (compose profile chaos)
 scripts/seed_tours.sql       100k realistic tours and departures for search benchmarks (dev only)
 scripts/dev_token.py         Mint local JWTs (until Keycloak)
 scripts/fake_webhook.py      Send a signed Stripe-format webhook (fake provider)
+scripts/chaos.py             Switch the provider stubs between healthy, slow, errors and dead
 docker-compose.yml           Full local stack
 ```
