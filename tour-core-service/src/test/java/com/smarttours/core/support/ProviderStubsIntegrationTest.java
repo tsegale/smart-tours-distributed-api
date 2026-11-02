@@ -29,6 +29,10 @@ public abstract class ProviderStubsIntegrationTest extends IntegrationTest {
         registry.add("smarttours.integrations.frankfurter.base-url", PROVIDERS::baseUrl);
         registry.add("smarttours.integrations.open-meteo-forecast.base-url", PROVIDERS::baseUrl);
         registry.add("smarttours.integrations.open-meteo-archive.base-url", PROVIDERS::baseUrl);
+        // GET /weather waits this long. The first outbound call of a fresh JVM loads the HTTP and JSON stacks
+        // and took 3 s and more on a loaded laptop (ADR 0012); these tests check what a fetch returns, not
+        // warm-up. The include budget (tour detail) stays at its production value.
+        registry.add("smarttours.weather.request-budget", () -> "15s");
     }
 
     @Autowired

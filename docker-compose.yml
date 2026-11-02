@@ -145,7 +145,7 @@ services:
       FX_REFRESH_CRON: ${FX_REFRESH_CRON:-0 15 18 * * *}
       FX_REFRESH_ON_STARTUP: ${FX_REFRESH_ON_STARTUP:-true}
       WEATHER_INCLUDE_BUDGET: ${WEATHER_INCLUDE_BUDGET:-400ms}
-      WEATHER_REQUEST_BUDGET: ${WEATHER_REQUEST_BUDGET:-3500ms}
+      WEATHER_REQUEST_BUDGET: ${WEATHER_REQUEST_BUDGET:-3s}
     depends_on:
       tours-db: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }

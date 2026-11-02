@@ -81,7 +81,7 @@ smarttours:
     climate-retention: 90d
     ttl-jitter: 0.1
     include-budget: ${WEATHER_INCLUDE_BUDGET:400ms}   # tour detail never waits longer for weather
-    request-budget: ${WEATHER_REQUEST_BUDGET:3500ms}  # GET /weather: one full forecast policy (2 attempts)
+    request-budget: ${WEATHER_REQUEST_BUDGET:3s}      # GET /weather: one attempt and the start of a retry
     zone: Africa/Windhoek
 
   # Outbound providers: timeouts and resilience policy per provider. The reasons for each value are in ADR 0012.
@@ -102,10 +102,11 @@ smarttours:
     open-meteo-forecast:
       base-url: ${OPEN_METEO_FORECAST_BASE_URL:https://api.open-meteo.com}
       connect-timeout: 500ms
-      read-timeout: 1200ms
-      time-limit: 1500ms
+      # Measured from Windhoek on an idle line: 0.96 to 1.16 s per call including TLS set-up (ADR 0012).
+      read-timeout: 2s
+      time-limit: 2500ms
       retry: { max-attempts: 2, initial-backoff: 200ms, multiplier: 2, jitter: 0.5, max-backoff: 1s, max-retry-after: 1s }
-      circuit-breaker: { sliding-window-size: 20, minimum-calls: 10, failure-rate-percent: 50, slow-call-threshold: 1s,
+      circuit-breaker: { sliding-window-size: 20, minimum-calls: 10, failure-rate-percent: 50, slow-call-threshold: 1500ms,
                          slow-call-rate-percent: 50, wait-in-open-state: 30s, permitted-calls-in-half-open-state: 3 }
       bulkhead: { max-threads: 8, queue-capacity: 16 }
     # Climate normals: ten small calls per miss, cached for 30 days, so rarely on the request path.
