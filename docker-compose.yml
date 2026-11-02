@@ -253,13 +253,17 @@ services:
   provider-stubs:
     image: wiremock/wiremock:3.13.2
     profiles: [chaos]
-    command: ["--global-response-templating", "--max-request-journal-entries", "1000", "--disable-banner"]
+    command: ["--global-response-templating", "--no-request-journal", "--disable-banner"]
+    # An explicit heap: at a 256M limit and the JVM's default heap the container hit its limit hundreds of times
+    # under the integrations benchmark and thrashed (memory.events), so the stand-in provider became the slow one.
+    environment:
+      JAVA_OPTS: "-Xmx192m -XX:MaxMetaspaceSize=96m"
     volumes: ["./infra/chaos/wiremock:/home/wiremock:ro"]
     ports: ["127.0.0.1:8090:8080"] # admin API for scripts/chaos.py
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
     restart: unless-stopped
 
   ai-service:

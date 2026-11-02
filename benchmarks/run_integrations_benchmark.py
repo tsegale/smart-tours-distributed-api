@@ -23,6 +23,11 @@ Per run it records k6's latency percentiles and error count, how tour-core answe
 weather_lookups_total by outcome) and the breaker's state afterwards. Each scenario runs --rounds times;
 the report shows the median of each figure and the range. Writes docs/benchmarks/integrations.md between
 the k6 markers. Standard library only.
+
+Memory: on an 8 GB laptop the Docker VM (3.7 GiB) swaps with the whole stack up, and a swapping VM measures
+paging, not the code (the first attempt saw p50 17 s on healthy stubs). Stop what this path doesn't use first:
+    docker compose stop ai-service ai-worker booking-service booking-sweeper booking-outbox-relay
+The report records the VM's free memory and swap in use before and after the runs.
 """
 
 from __future__ import annotations
@@ -100,6 +105,14 @@ def weather_lookups() -> dict[str, float]:
             outcome = re.search(r'outcome="([^"]+)"', line).group(1)
             totals[outcome] = totals.get(outcome, 0.0) + float(line.rsplit(" ", 1)[1])
     return totals
+
+
+def vm_memory() -> str:
+    """Free memory and swap in use inside the Docker VM, as `free -m` reports them."""
+    lines = sh("docker", "run", "--rm", "alpine:3.20", "free", "-m").splitlines()
+    mem = lines[1].split()
+    swap = lines[2].split()
+    return f"{mem[3]} MiB free, {swap[2]} MiB swap in use"
 
 
 def check_stack() -> None:
@@ -211,7 +224,13 @@ def cell(rows: list[dict], key: str, fmt: str = "{:.1f}") -> str:
 
 
 def write_report(
-    results: dict[str, list[dict]], args: argparse.Namespace, day: date, cells: int, tours: int, host: dict[str, str]
+    results: dict[str, list[dict]],
+    args: argparse.Namespace,
+    day: date,
+    cells: int,
+    tours: int,
+    host: dict[str, str],
+    memory: tuple[str, str],
 ) -> None:
     lines = [
         START,
@@ -259,6 +278,7 @@ def write_report(
         f"| Host OS | {host['host_os']} |",
         f"| Docker | {host['docker']} |",
         f"| Docker VM | {host['docker_vm']} (shared by every container and k6) |",
+        f"| VM memory | before the runs {memory[0]}; after {memory[1]} |",
         f"| k6 | `{K6_IMAGE}` |",
         "",
         "Raw k6 summaries: `benchmarks/out/integrations-*.json` (not committed).",
@@ -309,6 +329,8 @@ def main() -> None:
     probe = detail(ids[0], tokens[0], day)
     if not probe.get("displayPrice"):
         raise SystemExit(f"no EUR display price ({probe.get('displayPriceUnavailable')}): are rates loaded?")
+    memory_before = vm_memory()
+    print(f"Docker VM: {memory_before}")
     print(f"{len(ids)} tours in {cells} weather cells, date {day}; warming up for {args.warmup}")
     run_k6(network, args.rate, args.warmup, day, "integrations-warmup")
 
@@ -325,7 +347,7 @@ def main() -> None:
             time.sleep(2)
     stubs("all", "Started")
     breaker("CLOSE")
-    write_report(results, args, day, cells, len(ids), machine())
+    write_report(results, args, day, cells, len(ids), machine(), (memory_before, vm_memory()))
 
 
 if __name__ == "__main__":
