@@ -2,6 +2,10 @@
 # after classpath:/). Tests never reach a real provider: every base URL points at a closed local port unless
 # a test points it at its own WireMock, and nothing refreshes rates unless a test asks for it.
 smarttours:
+  # Tests drive the relay themselves (OutboxRelay.relay()), so no scheduled run races them.
+  outbox:
+    poll-interval: 1h
+    confirm-timeout: 3s
   fx:
     refresh-cron: "-"
     refresh-on-startup: false

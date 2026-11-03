@@ -8,15 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -31,6 +27,9 @@ class TourConditionalRequestsIntegrationTest extends IntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private JdbcClient jdbc;
+
     private String location;
     private String etag;
 
@@ -42,7 +41,6 @@ class TourConditionalRequestsIntegrationTest extends IntegrationTest {
                 .andReturn();
         location = created.getResponse().getHeader(HttpHeaders.LOCATION);
         etag = created.getResponse().getHeader(HttpHeaders.ETAG);
-        clearInvocations(rabbitTemplate);
     }
 
     @Test
@@ -62,11 +60,11 @@ class TourConditionalRequestsIntegrationTest extends IntegrationTest {
                 .andExpect(status().isPreconditionRequired());
 
         mockMvc.perform(get(location)).andExpect(jsonPath("$.name").value("Sossusvlei Sunrise Dunes"));
-        verify(rabbitTemplate, never()).convertAndSend(any(String.class), any(String.class), any(Object.class));
+        assertThat(updateEvents()).isZero();
     }
 
     @Test
-    void put_withCurrentEtag_updatesBumpsTheEtagAndPublishesAfterCommit() throws Exception {
+    void put_withCurrentEtag_updatesBumpsTheEtagAndWritesTheEventToTheOutbox() throws Exception {
         String newEtag = mockMvc.perform(put(location).header(HttpHeaders.IF_MATCH, etag)
                         .contentType(MediaType.APPLICATION_JSON).content(renamed("Sossusvlei at Dawn")))
                 .andExpect(status().isOk())
@@ -79,7 +77,13 @@ class TourConditionalRequestsIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.name").value("Sossusvlei at Dawn"));
         // The old ETag no longer revalidates.
         mockMvc.perform(get(location).header(HttpHeaders.IF_NONE_MATCH, etag)).andExpect(status().isOk());
-        verify(rabbitTemplate).convertAndSend(eq("smarttours.events"), eq("tour.updated"), any(Object.class));
+        assertThat(updateEvents()).isEqualTo(1);
+    }
+
+    private long updateEvents() {
+        String tourId = location.substring(location.lastIndexOf('/') + 1);
+        return jdbc.sql("SELECT count(*) FROM outbox WHERE event_type = 'tour.updated' AND aggregate_id = :id")
+                .param("id", tourId).query(Long.class).single();
     }
 
     @Test

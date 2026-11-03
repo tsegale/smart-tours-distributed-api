@@ -4,6 +4,7 @@ import com.smarttours.core.cache.CatalogueCache;
 import com.smarttours.core.common.ETags;
 import com.smarttours.core.events.TourCreatedEvent;
 import com.smarttours.core.events.TourUpdatedEvent;
+import com.smarttours.core.outbox.Outbox;
 import com.smarttours.core.tour.dto.PageResponse;
 import com.smarttours.core.tour.dto.TourRequest;
 import com.smarttours.core.tour.dto.TourResponse;
@@ -25,6 +26,8 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class TourService {
 
+    static final String AGGREGATE = "tour";
+
     /** WGS 84, the coordinate system GPS uses. */
     static final int SRID_WGS84 = 4326;
     static final int MAX_NEARBY_RESULTS = 100;
@@ -34,11 +37,13 @@ public class TourService {
     private final TourRepository tours;
     private final ApplicationEventPublisher events;
     private final CatalogueCache cache;
+    private final Outbox outbox;
 
-    public TourService(TourRepository tours, ApplicationEventPublisher events, CatalogueCache cache) {
+    public TourService(TourRepository tours, ApplicationEventPublisher events, CatalogueCache cache, Outbox outbox) {
         this.tours = tours;
         this.events = events;
         this.cache = cache;
+        this.outbox = outbox;
     }
 
     @Transactional
@@ -46,8 +51,11 @@ public class TourService {
         Tour saved = tours.saveAndFlush(new Tour(request.name(), request.description(), request.price(),
                 point(request), request.category(), request.difficulty(), request.durationMinutes()));
 
-        // Published to RabbitMQ only after this transaction commits (see TourEventPublisher).
-        events.publishEvent(TourCreatedEvent.of(saved));
+        // In this transaction: the event commits or rolls back with the tour; OutboxRelay publishes it.
+        TourCreatedEvent event = TourCreatedEvent.of(saved);
+        outbox.record(AGGREGATE, saved.getId(), event);
+        // In-process, after commit: the catalogue cache (CatalogueCacheInvalidator).
+        events.publishEvent(event);
         return versioned(saved);
     }
 
@@ -70,7 +78,9 @@ public class TourService {
                 request.category(), request.difficulty(), request.durationMinutes());
         tours.flush(); // version check and bump happen now, so the response carries the new ETag
 
-        events.publishEvent(TourUpdatedEvent.of(tour));
+        TourUpdatedEvent event = TourUpdatedEvent.of(tour);
+        outbox.record(AGGREGATE, id, event);
+        events.publishEvent(event);
         return versioned(tour);
     }
 

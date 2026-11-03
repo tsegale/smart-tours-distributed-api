@@ -3,6 +3,7 @@ package com.smarttours.core.tour;
 import com.smarttours.core.cache.CatalogueCache;
 import com.smarttours.core.events.TourCreatedEvent;
 import com.smarttours.core.events.TourUpdatedEvent;
+import com.smarttours.core.outbox.Outbox;
 import com.smarttours.core.tour.dto.TourRequest;
 import com.smarttours.core.tour.dto.VersionedTour;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,9 @@ class TourServiceTest {
     @Mock
     private CatalogueCache cache;
 
+    @Mock
+    private Outbox outbox;
+
     @InjectMocks
     private TourService service;
 
@@ -72,6 +76,7 @@ class TourServiceTest {
         assertThat(event.getValue().tourId()).isEqualTo(7L);
         assertThat(event.getValue().description()).isEqualTo("Big five at the waterholes");
         assertThat(event.getValue().eventId()).isNotNull();
+        verify(outbox).record("tour", 7L, event.getValue());
 
         assertThat(response.tour().id()).isEqualTo(7L);
         assertThat(response.tour().latitude()).isEqualTo(-18.8556);
@@ -129,6 +134,7 @@ class TourServiceTest {
         verify(events).publishEvent(event.capture());
         assertThat(event.getValue().eventType()).isEqualTo("tour.updated");
         assertThat(event.getValue().tourId()).isEqualTo(7L);
+        verify(outbox).record("tour", 7L, event.getValue());
     }
 
     @Test
