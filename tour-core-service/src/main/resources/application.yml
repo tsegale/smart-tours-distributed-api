@@ -69,6 +69,13 @@ smarttours:
     local-ttl: 60s
     zone: Africa/Windhoek
 
+  # Warm-up before readiness: the service sends its own hot requests to itself, then reports ready.
+  warm-up:
+    enabled: ${WARM_UP_ENABLED:true}
+    rounds: 3
+    request-timeout: 10s
+    timeout: 45s
+
   # Departure weather from Open-Meteo.
   weather:
     forecast-horizon-days: 15     # forecast_days is at most 16: today + 15
