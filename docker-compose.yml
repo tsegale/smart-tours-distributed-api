@@ -375,7 +375,7 @@ services:
     environment:
       POSTGRES_DB: notifications
       POSTGRES_USER: ${NOTIFICATIONS_DB_USER:-notifications}
-      POSTGRES_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD:?set NOTIFICATIONS_DB_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD:-}
     ports: ["127.0.0.1:5436:5432"]
     volumes: [notifications_data:/var/lib/postgresql/data]
     healthcheck:
@@ -415,7 +415,7 @@ services:
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-smarttours-admin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
     # 9000: presigned ticket downloads go straight from the browser to here. 9001: the MinIO console.
     ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
     volumes: [minio_data:/data]
@@ -439,8 +439,8 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-smarttours-admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
-      TICKETS_WRITER_SECRET_KEY: ${TICKETS_WRITER_SECRET_KEY:?set TICKETS_WRITER_SECRET_KEY in .env}
-      TICKETS_READER_SECRET_KEY: ${TICKETS_READER_SECRET_KEY:?set TICKETS_READER_SECRET_KEY in .env}
+      TICKETS_WRITER_SECRET_KEY: ${TICKETS_WRITER_SECRET_KEY:-}
+      TICKETS_READER_SECRET_KEY: ${TICKETS_READER_SECRET_KEY:-}
     volumes: ["./infra/minio:/setup:ro"]
     depends_on:
       minio: { condition: service_healthy }
@@ -554,7 +554,7 @@ services:
       <<: *notification-env
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:?set FLOWER_BASIC_AUTH (user:password) in .env}
+      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:-}
     ports: ["127.0.0.1:5555:5555"]
     depends_on:
       rabbitmq-setup: { condition: service_completed_successfully }
