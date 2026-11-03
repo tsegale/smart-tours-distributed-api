@@ -18,12 +18,19 @@ import java.util.stream.Collectors;
  *
  * <p>Any client-supplied X-User-* header is stripped first. Without that, a caller could send
  * {@code X-User-Id: someone-else} and act as another user (an IDOR / header spoofing hole).
+ *
+ * <p>{@code X-User-Email} carries the token's {@code email} claim when it has a usable one (booking-service
+ * snapshots it as the contact address for notifications). A token without one simply sends no header.
  */
 @Component
 public class UserContextHeadersFilter implements GlobalFilter, Ordered {
 
     public static final String USER_ID = "X-User-Id";
     public static final String USER_ROLES = "X-User-Roles";
+    public static final String USER_EMAIL = "X-User-Email";
+    static final String EMAIL_CLAIM = "email";
+    /** RFC 5321's limit on a forward path; anything longer isn't a deliverable address. */
+    static final int MAX_EMAIL_LENGTH = 320;
     public static final String IDENTITY_PROPAGATION = "identity-propagation";
 
     @Override
@@ -32,6 +39,7 @@ public class UserContextHeadersFilter implements GlobalFilter, Ordered {
                 .request(request -> request.headers(headers -> {
                     headers.remove(USER_ID);
                     headers.remove(USER_ROLES);
+                    headers.remove(USER_EMAIL);
                 }))
                 .build();
 
@@ -46,6 +54,10 @@ public class UserContextHeadersFilter implements GlobalFilter, Ordered {
                         .request(request -> request.headers(headers -> {
                             headers.set(USER_ID, auth.getToken().getSubject());
                             headers.set(USER_ROLES, roles(auth));
+                            String email = email(auth);
+                            if (email != null) {
+                                headers.set(USER_EMAIL, email);
+                            }
                         }))
                         .build())
                 .defaultIfEmpty(sanitized)
@@ -63,6 +75,20 @@ public class UserContextHeadersFilter implements GlobalFilter, Ordered {
         }
         Object flag = route.getMetadata().get(IDENTITY_PROPAGATION);
         return flag == null || Boolean.parseBoolean(flag.toString());
+    }
+
+    /** The email claim if it is a plausible address: one '@', no whitespace or control characters, not too long. */
+    static String email(JwtAuthenticationToken auth) {
+        Object claim = auth.getToken().getClaims().get(EMAIL_CLAIM);
+        if (!(claim instanceof String email)) {
+            return null;
+        }
+        String trimmed = email.strip();
+        int at = trimmed.indexOf('@');
+        boolean plausible = !trimmed.isEmpty() && trimmed.length() <= MAX_EMAIL_LENGTH
+                && at > 0 && at == trimmed.lastIndexOf('@') && at < trimmed.length() - 1
+                && trimmed.chars().noneMatch(c -> Character.isWhitespace(c) || Character.isISOControl(c));
+        return plausible ? trimmed : null;
     }
 
     private static String roles(JwtAuthenticationToken auth) {

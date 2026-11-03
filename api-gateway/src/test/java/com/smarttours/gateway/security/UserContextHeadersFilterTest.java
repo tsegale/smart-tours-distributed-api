@@ -38,15 +38,46 @@ class UserContextHeadersFilterTest {
     }
 
     @Test
+    void emailClaim_isForwardedAndASpoofedEmailHeaderIsReplaced() {
+        MockServerWebExchange original = MockServerWebExchange.from(MockServerHttpRequest.post("/api/bookings")
+                .header(UserContextHeadersFilter.USER_EMAIL, "victim@example.com"));
+        ServerWebExchange exchange = original.mutate()
+                .principal(Mono.just(token("alice", "CUSTOMER", "alice@example.com"))).build();
+
+        ServerWebExchange forwarded = run(exchange);
+
+        assertThat(forwarded.getRequest().getHeaders().get(UserContextHeadersFilter.USER_EMAIL))
+                .containsExactly("alice@example.com");
+    }
+
+    @Test
+    void tokenWithoutAUsableEmail_sendsNoEmailHeader_evenIfTheClientSentOne() {
+        for (String claim : new String[] {null, "", "not-an-address", "a@b@c", "eve@example.com\r\nX-User-Id: x",
+                "two words@example.com"}) {
+            MockServerWebExchange original = MockServerWebExchange.from(MockServerHttpRequest.post("/api/bookings")
+                    .header(UserContextHeadersFilter.USER_EMAIL, "victim@example.com"));
+            ServerWebExchange exchange = original.mutate()
+                    .principal(Mono.just(token("alice", "CUSTOMER", claim))).build();
+
+            ServerWebExchange forwarded = run(exchange);
+
+            assertThat(forwarded.getRequest().getHeaders().containsHeader(UserContextHeadersFilter.USER_EMAIL))
+                    .as("claim %s", claim).isFalse();
+        }
+    }
+
+    @Test
     void anonymousRequest_hasClientSuppliedIdentityHeadersStripped() {
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/tours")
                 .header(UserContextHeadersFilter.USER_ID, "victim-user")
-                .header(UserContextHeadersFilter.USER_ROLES, "ADMIN"));
+                .header(UserContextHeadersFilter.USER_ROLES, "ADMIN")
+                .header(UserContextHeadersFilter.USER_EMAIL, "victim@example.com"));
 
         ServerWebExchange forwarded = run(exchange);
 
         assertThat(forwarded.getRequest().getHeaders().containsHeader(UserContextHeadersFilter.USER_ID)).isFalse();
         assertThat(forwarded.getRequest().getHeaders().containsHeader(UserContextHeadersFilter.USER_ROLES)).isFalse();
+        assertThat(forwarded.getRequest().getHeaders().containsHeader(UserContextHeadersFilter.USER_EMAIL)).isFalse();
     }
 
     @Test
@@ -95,7 +126,14 @@ class UserContextHeadersFilterTest {
     }
 
     private static JwtAuthenticationToken token(String subject, String role) {
-        Jwt jwt = Jwt.withTokenValue("test-token").header("alg", "HS256").subject(subject).build();
-        return new JwtAuthenticationToken(jwt, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+        return token(subject, role, null);
+    }
+
+    private static JwtAuthenticationToken token(String subject, String role, String email) {
+        Jwt.Builder jwt = Jwt.withTokenValue("test-token").header("alg", "HS256").subject(subject);
+        if (email != null) {
+            jwt.claim("email", email);
+        }
+        return new JwtAuthenticationToken(jwt.build(), List.of(new SimpleGrantedAuthority("ROLE_" + role)));
     }
 }
