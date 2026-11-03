@@ -101,6 +101,30 @@ class OpenMeteoWeatherProviderTest {
     }
 
     @Test
+    void withAnApiKeyEveryRequestCarriesItAndNoFailureMessageShowsIt() {
+        String key = "test-key-7f3a";
+        wireMock.stubFor(get(urlPathEqualTo("/v1/archive"))
+                .willReturn(okJson(ProviderTestSupport.fixture("open-meteo/archive-sossusvlei-2025-12-01.json"))));
+        stubForecast(okJson(ProviderTestSupport.fixture("open-meteo/forecast-sossusvlei-2026-11-05.json")));
+        OpenMeteoWeatherProvider provider = provider(ProviderTestSupport.provider(wireMock.baseUrl()), key);
+
+        provider.forecast(SOSSUSVLEI, DAY).join();
+        provider.history(SOSSUSVLEI, LocalDate.parse("2025-12-01"), LocalDate.parse("2025-12-07")).join();
+
+        wireMock.verify(1, getRequestedFor(urlPathEqualTo(FORECAST)).withQueryParam("apikey", equalTo(key))
+                .withQueryParam("latitude", equalTo("-24.7")));
+        wireMock.verify(1, getRequestedFor(urlPathEqualTo("/v1/archive")).withQueryParam("apikey", equalTo(key)));
+
+        stubForecast(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER));
+        Throwable failure = failureOf(provider.forecast(SOSSUSVLEI, DAY));
+
+        assertThat(failure).isInstanceOf(ResourceAccessException.class);
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            assertThat(String.valueOf(cause.getMessage())).doesNotContain(key);
+        }
+    }
+
+    @Test
     void malformedJsonFailsAtOnceAndCountsAgainstTheProvider() {
         stubForecast(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody("{\"daily\": [tru"));
         OpenMeteoWeatherProvider provider = provider(ProviderTestSupport.provider(wireMock.baseUrl()));
@@ -281,7 +305,12 @@ class OpenMeteoWeatherProviderTest {
     }
 
     private static OpenMeteoWeatherProvider provider(ProviderProperties settings) {
-        var integrations = ProviderTestSupport.integrations(settings, settings, settings);
+        return provider(settings, null);
+    }
+
+    private static OpenMeteoWeatherProvider provider(ProviderProperties settings, String apiKey) {
+        var integrations = ProviderTestSupport.withOpenMeteoKey(
+                ProviderTestSupport.integrations(settings, settings, settings), apiKey);
         return new OpenMeteoWeatherProvider(ProviderTestSupport.clients(integrations), ProviderTestSupport.policies(),
                 integrations);
     }

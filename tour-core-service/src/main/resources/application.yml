@@ -95,6 +95,9 @@ smarttours:
   # Base URLs are configurable so tests and the chaos compose profile can point them at WireMock.
   integrations:
     user-agent: "SmartTours/1.0 (tour-core-service; +https://github.com/tsegale/smart-tours-distributed-api)"
+    # Commercial Open-Meteo: with a key, the free hosts become customer-api / customer-archive-api and every
+    # request carries apikey=. Without one, the free API (non-commercial use only). ADR 0012.
+    open-meteo-api-key: ${OPEN_METEO_API_KEY:}
     # Daily background refresh, off the request path: patient timeouts and retries are cheap here.
     frankfurter:
       base-url: ${FRANKFURTER_BASE_URL:https://api.frankfurter.dev}

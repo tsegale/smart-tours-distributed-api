@@ -54,7 +54,12 @@ public final class ProviderTestSupport {
 
     public static IntegrationProperties integrations(ProviderProperties frankfurter, ProviderProperties forecast,
                                                      ProviderProperties archive) {
-        return new IntegrationProperties(USER_AGENT, frankfurter, forecast, archive);
+        return new IntegrationProperties(USER_AGENT, frankfurter, forecast, archive, null);
+    }
+
+    public static IntegrationProperties withOpenMeteoKey(IntegrationProperties properties, String key) {
+        return new IntegrationProperties(properties.userAgent(), properties.frankfurter(),
+                properties.openMeteoForecast(), properties.openMeteoArchive(), key);
     }
 
     public static OutboundClients clients(IntegrationProperties properties) {

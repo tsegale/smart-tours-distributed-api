@@ -103,10 +103,11 @@ Open-Meteo's free API is for **non-commercial use only** (open-meteo.com/en/term
 5,000 an hour, 10,000 a day. Its data is CC BY 4.0, and the licence asks for a link next to wherever the data
 is shown, so every weather answer carries `attribution` ("Weather data by Open-Meteo.com", the link and the
 licence). For a commercial launch:
-- subscribe to a paid plan (Standard: 1 million calls a month, a fixed monthly price) and switch the base URLs
-  to `customer-api.open-meteo.com`, sending the key as an `apikey` query parameter; the API is otherwise
-  identical (open-meteo.com/en/pricing). The base URLs are configuration already (`OPEN_METEO_*_BASE_URL`); the
-  key needs one new property and a default query parameter in `OutboundClients`;
+- subscribe to a paid plan (Standard: 1 million calls a month, a fixed monthly price) and set
+  `OPEN_METEO_API_KEY`. With a key, tour-core moves the free hosts to `customer-api.open-meteo.com` and
+  `customer-archive-api.open-meteo.com` and sends the key as an `apikey` query parameter on every request; the
+  API is otherwise identical (open-meteo.com/en/pricing). Spring leaves query strings out of its I/O error
+  messages, so the key doesn't reach the logs that way (tested). Added in Phase 4;
 - keep the attribution: CC BY applies to paid use too;
 - revisit the bulkhead and breaker numbers against the plan's rate limits.
 Frankfurter's terms allow commercial use; each source behind its blend keeps its own terms.

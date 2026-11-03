@@ -7,6 +7,8 @@ import com.smarttours.core.integration.ProviderPolicy;
 import com.smarttours.core.weather.DailyWeather;
 import com.smarttours.core.weather.GeoCell;
 import com.smarttours.core.weather.WeatherProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -33,16 +35,24 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
     static final String ARCHIVE_DAILY = "temperature_2m_max,temperature_2m_min,precipitation_sum,"
             + "wind_speed_10m_max,weather_code,sunrise,sunset";
 
+    private static final Logger log = LoggerFactory.getLogger(OpenMeteoWeatherProvider.class);
+
     private final OpenMeteoForecastClient forecastClient;
     private final OpenMeteoArchiveClient archiveClient;
     private final ProviderPolicy forecastPolicy;
     private final ProviderPolicy archivePolicy;
 
     public OpenMeteoWeatherProvider(OutboundClients clients, ProviderPolicies policies, IntegrationProperties properties) {
-        this.forecastClient = clients.create(OpenMeteoForecastClient.class, FORECAST, properties.openMeteoForecast());
-        this.archiveClient = clients.create(OpenMeteoArchiveClient.class, ARCHIVE, properties.openMeteoArchive());
+        OutboundClients.QueryKey key = OpenMeteoAccess.key(properties);
+        this.forecastClient = clients.create(OpenMeteoForecastClient.class, FORECAST,
+                OpenMeteoAccess.baseUrl(properties.openMeteoForecast().baseUrl(), key), properties.openMeteoForecast(),
+                key);
+        this.archiveClient = clients.create(OpenMeteoArchiveClient.class, ARCHIVE,
+                OpenMeteoAccess.baseUrl(properties.openMeteoArchive().baseUrl(), key), properties.openMeteoArchive(),
+                key);
         this.forecastPolicy = policies.create(FORECAST, properties.openMeteoForecast());
         this.archivePolicy = policies.create(ARCHIVE, properties.openMeteoArchive());
+        log.info("Open-Meteo: {} API", key == null ? "free (non-commercial)" : "commercial");
     }
 
     @Override
