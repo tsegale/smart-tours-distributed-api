@@ -43,6 +43,67 @@ available.
 - **A cold cache is cheap when the host is healthy**: p95 23.8 ms while filling 388 cells, every lookup answered in
   time.
 
+## Cold cache: where the time goes (Phase 4)
+
+Phase 3 left a cold-cache p95 of 4.5 s unexplained (run 3 below). Phase 4 added a timer for each stage of tour
+detail (`tour.detail.stage`: fx, weather, write; `catalogue.cache.read` and `catalogue.cache.load` for the tour
+lookup; `tour.detail.request` for the whole request inside tour-core) and ran the cold scenario for 30 s at
+40 requests/s with `benchmarks/attribute_cold.py`, which reads tour-core's histograms before and after the run.
+2026-11-03, chaos profile, ai and booking services stopped.
+
+| Run | Conditions | k6 p95 / p99 (ms) | tour-core request p95 / p99 (ms) | Weather fetched / unavailable | Docker VM free before, after |
+| --- | --- | ---: | ---: | --- | --- |
+| A | right after a rebuild: new JVM, tour cache empty | 2,280.1 / 3,085.8 | not recorded (parser bug, fixed) | 0 / 1,085, forecast breaker opened | 358, 246 MiB |
+| B | the same instance a few minutes later | 433.3 / 953.6 | 156.2 / 454.8 | 358 / 18 | 301, 253 MiB |
+| C | `--fresh`: restarted (warm-up ran), tour cache emptied | 242.8 / 595.6 | 191.7 / 536.9 | 372 / 1 | 323, 235 MiB |
+| D | as C, with G1 instead of the Serial collector (trial, not kept) | 1,019.6 / 1,952.8 | 784.6 / 1,888.2 | 0 / 1,180, forecast breaker opened | 293, 118 MiB |
+
+Stages in run C, the clean cold run (p95 / p99, ms): tour lookup on a cache miss 153.2 / 341.0 (383 of 1,200
+requests), Redis read of the tour 26.0 / 37.4 on a miss and 4.4 / 16.7 on a hit, weather 127.8 / 309.7, display
+price 1.0 / 1.0, serialisation and write 5.3 / 24.6. Three minor GC pauses in 30 s, 128 ms on average, the longest
+284 ms.
+
+**Finding: the cold path itself is bounded; the multi-second tails are the host.**
+
+- In a clean cold run (C) the whole request inside tour-core is 192 ms at p95, the weather stage is inside its
+  400 ms include budget even at p99, and the gap to what k6 sees through the gateway is 51 ms at p95.
+- In the slow runs (A and D) every stage slowed down at once, including ones that do no more work when the cache
+  is cold: Redis reads of cached tours went from 4.4 to 56.8 ms at p95, database loads from 153 to 742 ms, and
+  calls to the WireMock stubs, which answer at once, took 2.7 s on average and opened the forecast circuit. A
+  slow stub, a slow Redis and a slow Postgres at the same moment is the Docker VM stalling (it had 118 to 358 MiB
+  free), not the code. The 4.5 s of Phase 3 (run 3, VM swapping) fits the same pattern, and so do the stalled
+  round 1 of run 5 and runs 1 and 4.
+- **GC adds to the tail, but isn't the main cause.** The container has a 768 MiB limit, so the JVM picks the
+  Serial collector (one thread, all requests stop) with a 576 MiB heap. Pauses were 49 to 210 ms on average per
+  run, three in 30 s. G1 (run D) was no better here and its larger footprint makes memory pressure worse on an
+  8 GB laptop; on a host with spare memory, G1 and more CPU for the container are worth measuring again.
+- **The weather stage can exceed the 400 ms include budget.** The budget bounds the wait for the provider, not
+  the Redis reads and writes around it, each of which may take up to its 250 ms timeout. Run A's weather p99
+  was 1.3 s. Bounding the whole stage is listed in the Phase 5 to-do.
+
+## First request after a restart (Phase 4 warm-up)
+
+`benchmarks/measure_first_request.py`: restart tour-core, wait until its readiness probe says UP, then send five
+requests for tour detail with currency and weather, each for a tour and weather cell nothing had requested before
+(so every request does the same cold-cache work). Three restarts; the median per request. Chaos profile with
+healthy stubs, same image, warm-up switched with `WARM_UP_ENABLED`.
+
+| Request after ready | Warm-up off (ms) | Warm-up on (ms) |
+| --- | ---: | ---: |
+| 1st | 9,983 (8,482 to 29,508) | 1,293 (601 to 2,401) |
+| 2nd | 169 | 573 |
+| 3rd | 158 | 131 |
+| 4th | 107 | 168 |
+| 5th | 94 | 235 |
+
+The warm-up sends 45 requests to the service itself (weather forecast and climate normal, tour detail with
+currency and weather, plain detail, list, two searches; three rounds) before Spring Boot publishes
+`ACCEPTING_TRAFFIC`, and took 11.6 s. It cuts the first visitor's wait by a factor of about 8; requests 2 to 5
+are noise on this host (memory was short in both series; restart to ready took 126 s with warm-up off, longer
+than with it on). Against the real Open-Meteo the first request fell from 3,750 to 406 ms, but that comparison is
+confounded: the network took 3 to 7 s to open a TCP connection to Open-Meteo that evening, so every weather
+lookup failed in both series and the warm-up's own failures had opened the breaker before traffic arrived.
+
 ## Earlier attempts
 
 Four full runs on 2026-11-02 and 2026-11-03 before run 5 measured the laptop rather than the code:
