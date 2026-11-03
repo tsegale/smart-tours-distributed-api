@@ -35,5 +35,10 @@ docker-compose.override.yml
 node_modules/
 *.log
 
+# JVM crash dumps (native OOM on small dev machines)
+hs_err_pid*
+replay_pid*
+*.hprof
+
 # Benchmark output (raw k6 summaries, minted tokens)
 benchmarks/out/
