@@ -1,12 +1,21 @@
-# Smart Tours: full local stack.
+# Smart Tours: local stack.
 #
 #   cp .env.example .env      # then edit the secrets
-#   docker compose up --build
+#   python scripts/ticket_keys.py   # once: the check-in token key pair (secrets/, git-ignored)
+#   docker compose up --build       # the core: gateway, tour-core, booking, their stores
+#
+# Optional pieces are profiles, so the default stays usable on an 8 GB laptop (README, "Profiles"):
+#   --profile ai              recommendations (ai-service, ai-worker, ai-db): about 1 GB more
+#   --profile notifications   emails, PDF tickets, check-in (notification-*, MinIO, Mailpit)
+#   --profile flower          Celery's Flower dashboard (with notifications)
+#   --profile payments        Stripe CLI webhook forwarding (Stripe test mode)
+#   --profile chaos           WireMock provider stubs (with infra/chaos/chaos.env)
 #
 # Only the API gateway (8080) and the RabbitMQ management UI (15672) are meant to be
 # called from outside. Databases are published on 127.0.0.1 only, for local tooling.
 # The application services are reachable only inside the compose network, so every
 # request has to go through the gateway, which authenticates it and sets X-User-Id.
+# Every container has a memory limit; docs/benchmarks/notifications.md records what they use.
 
 x-db-healthcheck: &db-healthcheck
   interval: 5s
@@ -26,6 +35,10 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d tours"]
       <<: *db-healthcheck
+    deploy:
+      resources:
+        limits:
+          memory: 512M # PostGIS, the 100k-tour seed and search's working set
     restart: unless-stopped
 
   bookings-db:
@@ -39,10 +52,15 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d bookings"]
       <<: *db-healthcheck
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     restart: unless-stopped
 
   ai-db:
     image: pgvector/pgvector:pg16
+    profiles: [ai]
     environment:
       POSTGRES_DB: ai
       POSTGRES_USER: ${AI_DB_USER:?set AI_DB_USER in .env}
@@ -52,6 +70,10 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ai"]
       <<: *db-healthcheck
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     restart: unless-stopped
 
   # Rate-limit token buckets (gateway). Default policy: never evicts, so a bucket can't vanish under pressure.
@@ -63,6 +85,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 64M
     restart: unless-stopped
 
   # tour-core's catalogue cache: bounded, evicts least recently used keys, nothing persisted (it's a cache).
@@ -72,6 +98,10 @@ services:
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
     ports: ["127.0.0.1:6380:6379"]
     healthcheck: *redis-healthcheck
+    deploy:
+      resources:
+        limits:
+          memory: 192M # maxmemory 128mb of data, plus Redis' own overhead
     restart: unless-stopped
 
   rabbitmq:
@@ -88,6 +118,10 @@ services:
       interval: 10s
       timeout: 10s
       retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 512M # RabbitMQ blocks publishers at 40% of this (its memory high watermark)
     restart: unless-stopped
 
   # ---------------------------------------------------------------- services
@@ -116,7 +150,7 @@ services:
       redis: { condition: service_healthy }
       tour-core-service: { condition: service_healthy }
       booking-service: { condition: service_healthy }
-      ai-service: { condition: service_started }
+      ai-service: { condition: service_started, required: false } # profile ai; without it, 503 on /api/recommendations
     deploy:
       resources:
         limits:
@@ -189,8 +223,15 @@ services:
       WEB_CONCURRENCY: ${BOOKING_WEB_CONCURRENCY:-4}
       DB_POOL_SIZE: 5
       DB_MAX_OVERFLOW: 10
-      # Only the outbox relay connects to the broker; the API writes events to the outbox table.
+      # Only the outbox relay and the ticket listener connect to the broker; the API writes events to the outbox.
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
+      # Tickets (ADR 0015): presigned downloads with a read-only MinIO user, signed for the URL the browser uses,
+      # and check-in tokens verified with the public key only. Empty: the ticket endpoints answer 503.
+      TICKETS_S3_PUBLIC_ENDPOINT_URL: ${TICKETS_S3_PUBLIC_ENDPOINT_URL:-http://localhost:9000}
+      TICKETS_S3_ACCESS_KEY: tickets-reader
+      TICKETS_S3_SECRET_KEY: ${TICKETS_READER_SECRET_KEY:-}
+      TICKET_VERIFY_KEY_FILE: /run/secrets/ticket-verify/ticket_verify_key.pem
+    volumes: ["./secrets/ticket-verify:/run/secrets/ticket-verify:ro"]
     depends_on:
       bookings-db: { condition: service_healthy }
     healthcheck:
@@ -212,6 +253,7 @@ services:
     pull_policy: never # local image from booking-service's build
     command: ["python", "-m", "app.jobs.expire_holds"]
     environment: *booking-env
+    volumes: []
     depends_on:
       booking-service: { condition: service_healthy } # runs the migrations
     deploy:
@@ -227,6 +269,7 @@ services:
     pull_policy: never # local image from booking-service's build
     command: ["python", "-m", "app.jobs.outbox_relay"]
     environment: *booking-env
+    volumes: []
     depends_on:
       booking-service: { condition: service_healthy } # runs the migrations
       rabbitmq: { condition: service_healthy }
@@ -234,6 +277,24 @@ services:
       resources:
         limits:
           memory: 256M
+    restart: unless-stopped
+
+  # Same image, different process: records ticket.rendered events, so booking-service knows where each ticket is
+  # without reading notification-service's database (ADR 0015). Only useful with the notifications profile.
+  booking-ticket-listener:
+    image: smarttours/booking-service:local
+    pull_policy: never
+    profiles: [notifications]
+    command: ["python", "-m", "app.jobs.ticket_listener"]
+    environment: *booking-env
+    volumes: []
+    depends_on:
+      booking-service: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 128M
     restart: unless-stopped
 
   # Stripe test mode only: docker compose --profile payments up
@@ -273,6 +334,7 @@ services:
   ai-service:
     build: ./ai-recommendation-service
     image: smarttours/ai-recommendation-service:local # built once, reused by ai-worker
+    profiles: [ai]
     environment: &ai-env
       DATABASE_URL: postgresql+psycopg://${AI_DB_USER}:${AI_DB_PASSWORD}@ai-db:5432/ai
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
@@ -290,6 +352,7 @@ services:
   # Scales independently of the HTTP API (docker compose up --scale ai-worker=3).
   ai-worker:
     image: smarttours/ai-recommendation-service:local
+    profiles: [ai]
     pull_policy: never # local image from ai-service's build; a second build: would rebuild torch for nothing
     command: ["python", "-m", "app.worker"]
     environment: *ai-env
@@ -304,9 +367,213 @@ services:
           memory: 1536M
     restart: unless-stopped
 
+  # ---------------------------------------------------------------- notifications (profile)
+  # docker compose --profile notifications up -d: booking emails with PDF tickets (ADRs 0014, 0015).
+  notifications-db:
+    image: postgres:16-alpine
+    profiles: [notifications]
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: ${NOTIFICATIONS_DB_USER:-notifications}
+      POSTGRES_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD:?set NOTIFICATIONS_DB_PASSWORD in .env}
+    ports: ["127.0.0.1:5436:5432"]
+    volumes: [notifications_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d notifications"]
+      <<: *db-healthcheck
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+    restart: unless-stopped
+
+  # Celery's broker is this RabbitMQ, on a vhost of its own: task messages never share a vhost with domain events.
+  # One-shot: creates the vhost and grants the app user on it, through the management API (idempotent PUTs).
+  rabbitmq-setup:
+    image: curlimages/curl:8.22.0
+    profiles: [notifications]
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        curl -fsS --retry 30 --retry-connrefused --retry-delay 2 -u "$$RABBITMQ_USER:$$RABBITMQ_PASSWORD"
+        -X PUT http://rabbitmq:15672/api/vhosts/celery &&
+        curl -fsS --retry 5 -u "$$RABBITMQ_USER:$$RABBITMQ_PASSWORD" -X PUT -H 'content-type: application/json'
+        -d '{"configure":".*","write":".*","read":".*"}' "http://rabbitmq:15672/api/permissions/celery/$$RABBITMQ_USER" &&
+        echo "vhost celery ready"
+    environment:
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+    restart: "no"
+
+  # S3-compatible object storage for ticket PDFs. MinIO stopped publishing community images in October 2025;
+  # this is Chainguard's build of current MinIO source (with a shell, for the healthcheck), pinned by digest.
+  minio:
+    image: cgr.dev/chainguard/minio:latest-dev@sha256:6d4f84fa90a51955476b23d9bc3bc371d60835c59d1b36826169e0392c2b57a2
+    profiles: [notifications]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-smarttours-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    # 9000: presigned ticket downloads go straight from the browser to here. 9001: the MinIO console.
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+    volumes: [minio_data:/data]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    restart: unless-stopped
+
+  # One-shot: the private tickets bucket and two least-privilege users, one that writes (notification-service)
+  # and one that only reads (booking-service, which presigns downloads). Idempotent.
+  minio-setup:
+    image: cgr.dev/chainguard/minio-client:latest-dev@sha256:39768db4c3fa811bc8f2e2a3e0add8ea391648b1c980de179985e1c353dc1805
+    profiles: [notifications]
+    entrypoint: ["sh", "/setup/minio-setup.sh"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-smarttours-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+      TICKETS_WRITER_SECRET_KEY: ${TICKETS_WRITER_SECRET_KEY:?set TICKETS_WRITER_SECRET_KEY in .env}
+      TICKETS_READER_SECRET_KEY: ${TICKETS_READER_SECRET_KEY:?set TICKETS_READER_SECRET_KEY in .env}
+    volumes: ["./infra/minio:/setup:ro"]
+    depends_on:
+      minio: { condition: service_healthy }
+    restart: "no"
+
+  # SMTP sink with a web UI and an API (tests assert on it): http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    profiles: [notifications]
+    environment:
+      MP_ENABLE_CHAOS: "true" # SMTP failures on demand, through its API (docs/smoke-test.md, tests)
+      MP_MAX_MESSAGES: "5000"
+    ports: ["127.0.0.1:8025:8025", "127.0.0.1:1025:1025"]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: unless-stopped
+
+  # One image, four processes: the API (health, metrics, admin), the event bridge, Celery workers and Beat.
+  notification-service:
+    build: ./notification-service
+    image: smarttours/notification-service:local
+    profiles: [notifications]
+    environment: &notification-env
+      DATABASE_URL: postgresql+psycopg://${NOTIFICATIONS_DB_USER:-notifications}:${NOTIFICATIONS_DB_PASSWORD:-}@notifications-db:5432/notifications
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/celery
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: tickets-writer
+      S3_SECRET_KEY: ${TICKETS_WRITER_SECRET_KEY:-}
+      TICKET_SIGNING_KEY_FILE: /run/secrets/ticket_signing_key
+      SEND_RATE_LIMIT: ${NOTIFICATIONS_SEND_RATE_LIMIT:-10/s}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://localhost:8084/health').status != 200)"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      notifications-db: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+    restart: unless-stopped
+
+  notification-bridge:
+    image: smarttours/notification-service:local
+    pull_policy: never
+    profiles: [notifications]
+    command: ["python", "-m", "app.bridge"]
+    environment: *notification-env
+    depends_on:
+      notification-service: { condition: service_healthy } # runs the migrations
+      rabbitmq-setup: { condition: service_completed_successfully }
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: unless-stopped
+
+  # Renders PDFs and sends email. Prefork pool; NOTIFICATION_WORKER_CONCURRENCY processes (the benchmark compares 1
+  # and 2). Scale out with --scale notification-worker=N.
+  notification-worker:
+    image: smarttours/notification-service:local
+    pull_policy: never
+    profiles: [notifications]
+    command: ["sh", "-c", "exec celery -A app.celery_app worker --loglevel=INFO --concurrency=$${NOTIFICATION_WORKER_CONCURRENCY:-2} --max-memory-per-child=200000"]
+    environment:
+      <<: *notification-env
+      NOTIFICATION_WORKER_CONCURRENCY: ${NOTIFICATION_WORKER_CONCURRENCY:-2}
+    secrets: [ticket_signing_key]
+    depends_on:
+      notification-service: { condition: service_healthy }
+      rabbitmq-setup: { condition: service_completed_successfully }
+      minio-setup: { condition: service_completed_successfully }
+      mailpit: { condition: service_started }
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+
+  # Beat must be a singleton: two schedulers enqueue every job twice. The tasks are idempotent (a second reminder
+  # run creates nothing), so a brief overlap during a deploy is harmless, but don't scale this service.
+  notification-beat:
+    image: smarttours/notification-service:local
+    pull_policy: never
+    profiles: [notifications]
+    command: ["celery", "-A", "app.celery_app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    environment: *notification-env
+    depends_on:
+      notification-service: { condition: service_healthy }
+      rabbitmq-setup: { condition: service_completed_successfully }
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: unless-stopped
+
+  # Celery's dashboard: http://localhost:5555 (with --profile notifications --profile flower).
+  flower:
+    image: smarttours/notification-service:local
+    pull_policy: never
+    profiles: [flower]
+    command: ["sh", "-c", "exec celery -A app.celery_app flower --port=5555 --broker_api=http://$$RABBITMQ_USER:$$RABBITMQ_PASSWORD@rabbitmq:15672/api/ --basic-auth=$$FLOWER_BASIC_AUTH"]
+    environment:
+      <<: *notification-env
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:?set FLOWER_BASIC_AUTH (user:password) in .env}
+    ports: ["127.0.0.1:5555:5555"]
+    depends_on:
+      rabbitmq-setup: { condition: service_completed_successfully }
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+    restart: unless-stopped
+
+# The check-in token's private key: only the worker that renders tickets reads it. python scripts/ticket_keys.py
+secrets:
+  ticket_signing_key:
+    file: ./secrets/ticket-signing/ticket_signing_key.pem
+
 volumes:
   tours_data:
   bookings_data:
   ai_data:
   rabbitmq_data:
   hf_models:
+  notifications_data:
+  minio_data:
