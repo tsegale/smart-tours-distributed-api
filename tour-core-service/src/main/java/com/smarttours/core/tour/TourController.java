@@ -3,6 +3,7 @@ package com.smarttours.core.tour;
 import com.smarttours.core.common.InvalidParameterException;
 import com.smarttours.core.fx.CurrencyConversion;
 import com.smarttours.core.fx.DisplayPricing;
+import com.smarttours.core.ops.TourDetailStages;
 import com.smarttours.core.tour.dto.PageResponse;
 import com.smarttours.core.tour.dto.TourDetailResponse;
 import com.smarttours.core.tour.dto.TourRequest;
@@ -55,11 +56,14 @@ public class TourController {
     private final TourService tourService;
     private final DisplayPricing displayPricing;
     private final DepartureWeather departureWeather;
+    private final TourDetailStages stages;
 
-    public TourController(TourService tourService, DisplayPricing displayPricing, DepartureWeather departureWeather) {
+    public TourController(TourService tourService, DisplayPricing displayPricing, DepartureWeather departureWeather,
+                          TourDetailStages stages) {
         this.tourService = tourService;
         this.displayPricing = displayPricing;
         this.departureWeather = departureWeather;
+        this.stages = stages;
     }
 
     @PostMapping
@@ -105,7 +109,7 @@ public class TourController {
                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                                  LocalDate date) {
         boolean withWeather = includesWeather(include);
-        CurrencyConversion conversion = displayPricing.forCurrency(currency);
+        CurrencyConversion conversion = stages.fx(() -> displayPricing.forCurrency(currency));
         VersionedTour found = tourService.get(id);
         if (!withWeather && !conversion.changesRepresentation()) {
             return ResponseEntity.ok()
@@ -113,9 +117,10 @@ public class TourController {
                     .cacheControl(TOUR_CACHE_CONTROL)
                     .body(found.tour());
         }
-        TourResponse tour = found.tour().priced(conversion);
+        TourResponse tour = stages.fx(() -> found.tour().priced(conversion));
         Object body = withWeather
-                ? TourDetailResponse.of(tour, departureWeather.forTour(id, tour.latitude(), tour.longitude(), date))
+                ? TourDetailResponse.of(tour, stages.weather(
+                        () -> departureWeather.forTour(id, tour.latitude(), tour.longitude(), date)))
                 : tour;
         return ResponseEntity.ok().cacheControl(TOUR_CACHE_CONTROL).body(body);
     }

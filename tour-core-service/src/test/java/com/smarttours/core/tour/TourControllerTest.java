@@ -8,13 +8,19 @@ import com.smarttours.core.tour.dto.VersionedTour;
 import com.smarttours.core.fx.CurrencyConversion;
 import com.smarttours.core.fx.DisplayPricing;
 import com.smarttours.core.fx.UnsupportedCurrencyException;
+import com.smarttours.core.ops.TourDetailStages;
 import com.smarttours.core.weather.DepartureWeather;
 import com.smarttours.core.weather.WeatherLookup;
 import com.smarttours.core.weather.WeatherReport;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -43,7 +49,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TourController.class)
+@Import({TourDetailStages.class, TourControllerTest.Meters.class})
 class TourControllerTest {
+
+    @TestConfiguration
+    static class Meters {
+        @Bean
+        MeterRegistry meterRegistry() {
+            return new SimpleMeterRegistry();
+        }
+    }
+
 
     static final TourResponse SOSSUSVLEI = new TourResponse(
             1L, "Sossusvlei Sunrise Dunes", "Climb Dune 45 at dawn", new BigDecimal("1850.00"), "NAD",

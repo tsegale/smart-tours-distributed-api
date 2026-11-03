@@ -26,7 +26,7 @@ class CatalogueCacheTest {
 
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final CatalogueCache cache = new CatalogueCache(new ConcurrentMapCacheManager("tour", "search"),
-            mock(StringRedisTemplate.class), new CacheConfig(meters));
+            mock(StringRedisTemplate.class), new CacheConfig(meters), meters);
 
     @Test
     void concurrentMissesForOneKey_loadOnce() throws Exception {

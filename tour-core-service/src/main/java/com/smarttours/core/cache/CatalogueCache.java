@@ -3,6 +3,9 @@ package com.smarttours.core.cache;
 import com.smarttours.core.search.SearchCriteria;
 import com.smarttours.core.search.SearchResponse;
 import com.smarttours.core.tour.dto.VersionedTour;
+import com.smarttours.core.ops.TourDetailStages;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
@@ -14,6 +17,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -34,6 +38,9 @@ import java.util.function.Supplier;
  *
  * <p>Every Redis call is guarded: on any error the handler logs and counts it, and the caller falls
  * through to the database.
+ *
+ * <p>Timed per cache: {@code catalogue.cache.read} (the Redis read, tag {@code outcome} hit or miss) and
+ * {@code catalogue.cache.load} (the loader on a miss, waiting on another load included).
  */
 @Component
 public class CatalogueCache {
@@ -47,12 +54,15 @@ public class CatalogueCache {
     private final StringRedisTemplate redis;
     private final CacheErrorHandler errors;
     private final ConcurrentHashMap<String, CompletableFuture<Object>> inFlight = new ConcurrentHashMap<>();
+    private final MeterRegistry meters;
 
-    public CatalogueCache(CacheManager cacheManager, StringRedisTemplate redis, CachingConfigurer cachingConfigurer) {
+    public CatalogueCache(CacheManager cacheManager, StringRedisTemplate redis, CachingConfigurer cachingConfigurer,
+                          MeterRegistry meters) {
         this.tours = Objects.requireNonNull(cacheManager.getCache(TOURS), TOURS);
         this.searches = Objects.requireNonNull(cacheManager.getCache(SEARCH), SEARCH);
         this.redis = redis;
         this.errors = Objects.requireNonNull(cachingConfigurer.errorHandler());
+        this.meters = meters;
     }
 
     public VersionedTour tour(long id, Supplier<VersionedTour> loader) {
@@ -99,10 +109,30 @@ public class CatalogueCache {
     }
 
     private <T> T getOrLoad(Cache cache, Object key, Class<T> type, Supplier<T> loader) {
+        long started = System.nanoTime();
         T cached = get(cache, key, type);
+        timer("catalogue.cache.read", cache, cached != null ? "hit" : "miss").record(System.nanoTime() - started,
+                TimeUnit.NANOSECONDS);
         if (cached != null) {
             return cached;
         }
+        Timer.Sample load = Timer.start(meters);
+        try {
+            return load(cache, key, type, loader);
+        } finally {
+            load.stop(timer("catalogue.cache.load", cache, null));
+        }
+    }
+
+    private Timer timer(String name, Cache cache, String outcome) {
+        Timer.Builder builder = Timer.builder(name).tag("cache", cache.getName());
+        if (outcome != null) {
+            builder.tag("outcome", outcome);
+        }
+        return TourDetailStages.histogram(builder).register(meters);
+    }
+
+    private <T> T load(Cache cache, Object key, Class<T> type, Supplier<T> loader) {
         String flightKey = cache.getName() + "::" + key;
         CompletableFuture<Object> mine = new CompletableFuture<>();
         CompletableFuture<Object> leader = inFlight.putIfAbsent(flightKey, mine);
