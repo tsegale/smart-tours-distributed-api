@@ -17,3 +17,6 @@ Format: [Michael Nygard's template](https://cognitect.com/blog/2011/11/15/docume
 | [0010](0010-rate-limiting-at-the-gateway.md) | Rate limiting at the gateway: Redis token buckets, fail mode per route | Accepted |
 | [0011](0011-display-only-currency-conversion.md) | Display-only currency conversion from daily reference rates | Accepted |
 | [0012](0012-resilience-policy-for-outbound-calls.md) | Resilience policy for outbound calls | Accepted |
+| [0013](0013-polling-outbox-relay-over-cdc.md) | Transactional outbox in tour-core, relayed by polling (not CDC) | Accepted |
+| [0014](0014-celery-behind-an-event-bridge-for-notifications.md) | Celery behind an event bridge for notifications | Accepted |
+| [0015](0015-signed-qr-check-in-tokens-and-object-storage.md) | Signed QR check-in tokens, and object storage for tickets | Accepted |
