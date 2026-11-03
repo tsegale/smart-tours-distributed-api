@@ -15,6 +15,7 @@ import org.locationtech.jts.geom.Point;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Objects;
 
 /**
@@ -62,6 +63,13 @@ public class Tour {
     @Column(name = "duration_minutes", nullable = false)
     private int durationMinutes;
 
+    @Column(name = "meeting_point", length = 500)
+    private String meetingPoint;
+
+    /** IANA region id; departures are in this zone's local time. */
+    @Column(name = "time_zone", nullable = false, length = 64)
+    private String timeZone;
+
     @Column(name = "rating_count", nullable = false, insertable = false, updatable = false)
     private int ratingCount;
 
@@ -85,13 +93,14 @@ public class Tour {
     }
 
     public Tour(String name, String description, BigDecimal price, Point location,
-                Category category, Difficulty difficulty, int durationMinutes) {
-        update(name, description, price, location, category, difficulty, durationMinutes);
+                Category category, Difficulty difficulty, int durationMinutes, String meetingPoint, ZoneId timeZone) {
+        update(name, description, price, location, category, difficulty, durationMinutes, meetingPoint, timeZone);
     }
 
     /** Replaces every operator-editable attribute (PUT semantics). */
     public final void update(String name, String description, BigDecimal price, Point location,
-                             Category category, Difficulty difficulty, int durationMinutes) {
+                             Category category, Difficulty difficulty, int durationMinutes, String meetingPoint,
+                             ZoneId timeZone) {
         this.name = Objects.requireNonNull(name, "name");
         this.description = description;
         this.price = Objects.requireNonNull(price, "price");
@@ -99,6 +108,8 @@ public class Tour {
         this.category = Objects.requireNonNull(category, "category");
         this.difficulty = Objects.requireNonNull(difficulty, "difficulty");
         this.durationMinutes = durationMinutes;
+        this.meetingPoint = meetingPoint;
+        this.timeZone = Objects.requireNonNull(timeZone, "timeZone").getId();
     }
 
     public Long getId() { return id; }
@@ -110,6 +121,8 @@ public class Tour {
     public Category getCategory() { return category; }
     public Difficulty getDifficulty() { return difficulty; }
     public int getDurationMinutes() { return durationMinutes; }
+    public String getMeetingPoint() { return meetingPoint; }
+    public String getTimeZone() { return timeZone; }
     public int getRatingCount() { return ratingCount; }
     public BigDecimal getAvgRating() { return avgRating; }
     public Instant getCreatedAt() { return createdAt; }

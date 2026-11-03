@@ -1,6 +1,7 @@
 package com.smarttours.core.tour;
 
 import com.smarttours.core.cache.CatalogueCache;
+import com.smarttours.core.common.InvalidParameterException;
 import com.smarttours.core.events.TourCreatedEvent;
 import com.smarttours.core.events.TourUpdatedEvent;
 import com.smarttours.core.outbox.Outbox;
@@ -13,11 +14,13 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -35,7 +38,7 @@ class TourServiceTest {
 
     private static final TourRequest ETOSHA = new TourRequest(
             "Etosha Game Drive", "Big five at the waterholes", new BigDecimal("2400.00"), -18.8556, 16.3294,
-            Category.SAFARI, Difficulty.EASY, 480);
+            Category.SAFARI, Difficulty.EASY, 480, "Okaukuejo camp reception", null);
 
     @Mock
     private TourRepository tours;
@@ -48,6 +51,9 @@ class TourServiceTest {
 
     @Mock
     private Outbox outbox;
+
+    @Spy
+    private TourProperties properties = new TourProperties(ZoneId.of("Africa/Windhoek"));
 
     @InjectMocks
     private TourService service;
@@ -138,6 +144,43 @@ class TourServiceTest {
     }
 
     @Test
+    void create_withoutATimeZoneUsesTheDefaultAndCarriesTheMeetingPointInTheEvent() {
+        when(tours.saveAndFlush(any(Tour.class))).thenAnswer(invocation -> withId(invocation.getArgument(0)));
+
+        VersionedTour created = service.create(ETOSHA);
+
+        assertThat(created.tour().timeZone()).isEqualTo("Africa/Windhoek");
+        assertThat(created.tour().meetingPoint()).isEqualTo("Okaukuejo camp reception");
+        ArgumentCaptor<TourCreatedEvent> event = ArgumentCaptor.forClass(TourCreatedEvent.class);
+        verify(events).publishEvent(event.capture());
+        assertThat(event.getValue().timeZone()).isEqualTo("Africa/Windhoek");
+        assertThat(event.getValue().meetingPoint()).isEqualTo("Okaukuejo camp reception");
+    }
+
+    @Test
+    void create_keepsAnIanaTimeZoneAndRefusesAFixedOffset() {
+        when(tours.saveAndFlush(any(Tour.class))).thenAnswer(invocation -> withId(invocation.getArgument(0)));
+
+        assertThat(service.create(withTimeZone("Africa/Gaborone")).tour().timeZone()).isEqualTo("Africa/Gaborone");
+        assertThatThrownBy(() -> service.create(withTimeZone("+02:00")))
+                .isInstanceOf(InvalidParameterException.class)
+                .hasMessageContaining("IANA");
+        assertThatThrownBy(() -> service.create(withTimeZone("Mars/Olympus")))
+                .isInstanceOf(InvalidParameterException.class);
+    }
+
+    private static Tour withId(Tour tour) {
+        ReflectionTestUtils.setField(tour, "id", 7L);
+        return tour;
+    }
+
+    private static TourRequest withTimeZone(String zone) {
+        return new TourRequest(ETOSHA.name(), ETOSHA.description(), ETOSHA.price(), ETOSHA.latitude(),
+                ETOSHA.longitude(), ETOSHA.category(), ETOSHA.difficulty(), ETOSHA.durationMinutes(),
+                ETOSHA.meetingPoint(), zone);
+    }
+
+    @Test
     void update_wildcardIfMatchAcceptsAnyVersion() {
         when(tours.findById(7L)).thenReturn(Optional.of(existing(5)));
 
@@ -149,7 +192,7 @@ class TourServiceTest {
     private static Tour existing(long version) {
         Tour tour = new Tour("Old name", null, new BigDecimal("100.00"),
                 new GeometryFactory().createPoint(new Coordinate(15.0, -22.0)),
-                Category.CITY, Difficulty.EASY, 60);
+                Category.CITY, Difficulty.EASY, 60, null, ZoneId.of("Africa/Windhoek"));
         ReflectionTestUtils.setField(tour, "id", 7L);
         ReflectionTestUtils.setField(tour, "version", version);
         return tour;

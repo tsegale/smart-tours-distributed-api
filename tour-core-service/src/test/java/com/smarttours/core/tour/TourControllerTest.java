@@ -63,7 +63,8 @@ class TourControllerTest {
 
     static final TourResponse SOSSUSVLEI = new TourResponse(
             1L, "Sossusvlei Sunrise Dunes", "Climb Dune 45 at dawn", new BigDecimal("1850.00"), "NAD",
-            -24.7275, 15.3424, Category.DESERT, Difficulty.MODERATE, 300, new BigDecimal("4.60"), 12,
+            -24.7275, 15.3424, Category.DESERT, Difficulty.MODERATE, 300, "Sesriem gate", "Africa/Windhoek",
+            new BigDecimal("4.60"), 12,
             Instant.parse("2026-10-01T08:00:00Z"), null, null);
 
     static final CurrencyConversion EUR = CurrencyConversion.at(Currency.getInstance("EUR"),

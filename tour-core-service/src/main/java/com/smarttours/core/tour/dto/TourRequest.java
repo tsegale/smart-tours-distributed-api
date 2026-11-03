@@ -23,5 +23,9 @@ public record TourRequest(
         @NotNull Category category,
         @NotNull Difficulty difficulty,
         // Up to 30 days, matching the CHECK constraint on tours.duration_minutes.
-        @NotNull @Positive @Max(43_200) Integer durationMinutes) {
+        @NotNull @Positive @Max(43_200) Integer durationMinutes,
+        // Where customers meet the guide; printed on tickets and reminders.
+        @Size(max = 500) String meetingPoint,
+        // IANA region id (Africa/Windhoek). Optional: the configured default when absent.
+        @Size(max = 64) String timeZone) {
 }

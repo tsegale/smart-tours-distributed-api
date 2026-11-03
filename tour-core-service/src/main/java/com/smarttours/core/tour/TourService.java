@@ -2,6 +2,7 @@ package com.smarttours.core.tour;
 
 import com.smarttours.core.cache.CatalogueCache;
 import com.smarttours.core.common.ETags;
+import com.smarttours.core.common.InvalidParameterException;
 import com.smarttours.core.events.TourCreatedEvent;
 import com.smarttours.core.events.TourUpdatedEvent;
 import com.smarttours.core.outbox.Outbox;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -38,18 +40,22 @@ public class TourService {
     private final ApplicationEventPublisher events;
     private final CatalogueCache cache;
     private final Outbox outbox;
+    private final TourProperties properties;
 
-    public TourService(TourRepository tours, ApplicationEventPublisher events, CatalogueCache cache, Outbox outbox) {
+    public TourService(TourRepository tours, ApplicationEventPublisher events, CatalogueCache cache, Outbox outbox,
+                       TourProperties properties) {
         this.tours = tours;
         this.events = events;
         this.cache = cache;
         this.outbox = outbox;
+        this.properties = properties;
     }
 
     @Transactional
     public VersionedTour create(TourRequest request) {
         Tour saved = tours.saveAndFlush(new Tour(request.name(), request.description(), request.price(),
-                point(request), request.category(), request.difficulty(), request.durationMinutes()));
+                point(request), request.category(), request.difficulty(), request.durationMinutes(),
+                request.meetingPoint(), timeZone(request)));
 
         // In this transaction: the event commits or rolls back with the tour; OutboxRelay publishes it.
         TourCreatedEvent event = TourCreatedEvent.of(saved);
@@ -75,7 +81,8 @@ public class TourService {
             throw new PreconditionFailedException(id, current);
         }
         tour.update(request.name(), request.description(), request.price(), point(request),
-                request.category(), request.difficulty(), request.durationMinutes());
+                request.category(), request.difficulty(), request.durationMinutes(), request.meetingPoint(),
+                timeZone(request));
         tours.flush(); // version check and bump happen now, so the response carries the new ETag
 
         TourUpdatedEvent event = TourUpdatedEvent.of(tour);
@@ -103,6 +110,19 @@ public class TourService {
         return tours.findWithinRadius(lat, lon, radiusMeters, MAX_NEARBY_RESULTS).stream()
                 .map(TourResponse::from)
                 .toList();
+    }
+
+    /** An IANA region id, or the default when the request names none. Fixed offsets (+02:00) are refused. */
+    private ZoneId timeZone(TourRequest request) {
+        String requested = request.timeZone();
+        if (requested == null || requested.isBlank()) {
+            return properties.defaultTimeZone();
+        }
+        if (!ZoneId.getAvailableZoneIds().contains(requested.strip())) {
+            throw new InvalidParameterException("timeZone",
+                    "timeZone must be an IANA time zone such as Africa/Windhoek, not '" + requested + "'");
+        }
+        return ZoneId.of(requested.strip());
     }
 
     private static VersionedTour versioned(Tour tour) {

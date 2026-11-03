@@ -18,12 +18,14 @@ public record TourUpdatedEvent(
         Instant occurredAt,
         long tourId,
         String name,
-        String description) implements Outbox.OutboxEvent {
+        String description,
+        String meetingPoint,
+        String timeZone) implements Outbox.OutboxEvent {
 
     public static final String TYPE = "tour.updated";
 
     public static TourUpdatedEvent of(Tour tour) {
         return new TourUpdatedEvent(UUID.randomUUID(), TYPE, Instant.now(),
-                tour.getId(), tour.getName(), tour.getDescription());
+                tour.getId(), tour.getName(), tour.getDescription(), tour.getMeetingPoint(), tour.getTimeZone());
     }
 }

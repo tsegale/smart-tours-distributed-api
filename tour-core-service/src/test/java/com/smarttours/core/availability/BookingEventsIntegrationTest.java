@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -104,7 +105,8 @@ class BookingEventsIntegrationTest extends IntegrationTest {
     @Test
     void reviewSubmitted_addsTheRatingExactlyOnce() {
         long tourId = tours.save(new Tour("Etosha Game Drive", "Lions", new BigDecimal("2400.00"),
-                GEOMETRY.createPoint(new Coordinate(16.33, -18.86)), Category.SAFARI, Difficulty.EASY, 480)).getId();
+                GEOMETRY.createPoint(new Coordinate(16.33, -18.86)), Category.SAFARI, Difficulty.EASY, 480, null,
+                ZoneId.of("Africa/Windhoek"))).getId();
         long versionBefore = tours.findById(tourId).orElseThrow().getVersion();
         UUID first = UUID.randomUUID();
 

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -101,6 +102,6 @@ class TourRepositoryIntegrationTest extends IntegrationTest {
 
     private static Tour tour(String name, double lat, double lon) {
         return new Tour(name, "A walk", new BigDecimal("450.00"), GEOMETRY.createPoint(new Coordinate(lon, lat)),
-                Category.CULTURAL, Difficulty.EASY, 120);
+                Category.CULTURAL, Difficulty.EASY, 120, null, ZoneId.of("Africa/Windhoek"));
     }
 }

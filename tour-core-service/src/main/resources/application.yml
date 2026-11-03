@@ -55,6 +55,9 @@ spring:
       enable-statistics: true
 
 smarttours:
+  tours:
+    # A tour's departures are in its own time zone; this one when a request names none.
+    default-time-zone: ${TOURS_DEFAULT_TIME_ZONE:Africa/Windhoek}
   messaging:
     max-retries: 5
     retry-delay: 10s

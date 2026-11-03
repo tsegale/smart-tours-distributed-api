@@ -258,6 +258,34 @@ public class ToursRecord extends UpdatableRecordImpl<ToursRecord> {
         return get(15);
     }
 
+    /**
+     * Setter for <code>public.tours.meeting_point</code>.
+     */
+    public void setMeetingPoint(String value) {
+        set(16, value);
+    }
+
+    /**
+     * Getter for <code>public.tours.meeting_point</code>.
+     */
+    public String getMeetingPoint() {
+        return (String) get(16);
+    }
+
+    /**
+     * Setter for <code>public.tours.time_zone</code>.
+     */
+    public void setTimeZone(String value) {
+        set(17, value);
+    }
+
+    /**
+     * Getter for <code>public.tours.time_zone</code>.
+     */
+    public String getTimeZone() {
+        return (String) get(17);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -281,7 +309,7 @@ public class ToursRecord extends UpdatableRecordImpl<ToursRecord> {
     /**
      * Create a detached, initialised ToursRecord
      */
-    public ToursRecord(Long id, String name, String description, BigDecimal price, String currency, Geometry location, OffsetDateTime createdAt, OffsetDateTime updatedAt, Long version, String category, String difficulty, Integer durationMinutes, Long ratingSum, Integer ratingCount, BigDecimal avgRating, Object searchVector) {
+    public ToursRecord(Long id, String name, String description, BigDecimal price, String currency, Geometry location, OffsetDateTime createdAt, OffsetDateTime updatedAt, Long version, String category, String difficulty, Integer durationMinutes, Long ratingSum, Integer ratingCount, BigDecimal avgRating, Object searchVector, String meetingPoint, String timeZone) {
         super(Tours.TOURS);
 
         setId(id);
@@ -300,6 +328,8 @@ public class ToursRecord extends UpdatableRecordImpl<ToursRecord> {
         setRatingCount(ratingCount);
         setAvgRating(avgRating);
         setSearchVector(searchVector);
+        setMeetingPoint(meetingPoint);
+        setTimeZone(timeZone);
         resetTouchedOnNotNull();
     }
 }

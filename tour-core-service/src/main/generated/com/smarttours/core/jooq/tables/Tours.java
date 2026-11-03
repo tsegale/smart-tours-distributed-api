@@ -146,6 +146,16 @@ public class Tours extends TableImpl<ToursRecord> {
     @Deprecated
     public final TableField<ToursRecord, Object> SEARCH_VECTOR = createField(DSL.name("search_vector"), DefaultDataType.getDefaultDataType("\"pg_catalog\".\"tsvector\"").nullable(false), this, "");
 
+    /**
+     * The column <code>public.tours.meeting_point</code>.
+     */
+    public final TableField<ToursRecord, String> MEETING_POINT = createField(DSL.name("meeting_point"), SQLDataType.VARCHAR(500), this, "");
+
+    /**
+     * The column <code>public.tours.time_zone</code>.
+     */
+    public final TableField<ToursRecord, String> TIME_ZONE = createField(DSL.name("time_zone"), SQLDataType.VARCHAR(64).nullable(false).defaultValue(DSL.field(DSL.raw("'Africa/Windhoek'::character varying"), SQLDataType.VARCHAR)), this, "");
+
     private Tours(Name alias, Table<ToursRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

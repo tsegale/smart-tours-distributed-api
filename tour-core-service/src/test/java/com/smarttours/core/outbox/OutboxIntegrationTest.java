@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OutboxIntegrationTest extends IntegrationTest {
 
     private static final TourRequest REQUEST = new TourRequest("Etosha Game Drive", "Big five at the waterholes",
-            new BigDecimal("2400.00"), -18.8556, 16.3294, Category.SAFARI, Difficulty.EASY, 480);
+            new BigDecimal("2400.00"), -18.8556, 16.3294, Category.SAFARI, Difficulty.EASY, 480, null, null);
 
     @Autowired
     private TourService tours;
@@ -104,7 +104,7 @@ class OutboxIntegrationTest extends IntegrationTest {
         assertThat(pending()).isZero();
         assertThat(jdbc.sql("SELECT count(*) FROM outbox").query(Long.class).single()).isZero();
         TourCreatedEvent event = new TourCreatedEvent(UUID.randomUUID(), TourCreatedEvent.TYPE, Instant.now(), 1L,
-                "n", "d");
+                "n", "d", null, "Africa/Windhoek");
         assertThatThrownBy(() -> outbox.record("tour", 1L, event)).isInstanceOf(IllegalTransactionStateException.class);
     }
 
@@ -172,7 +172,7 @@ class OutboxIntegrationTest extends IntegrationTest {
         transactions.executeWithoutResult(status -> {
             for (int i = 0; i < events; i++) {
                 TourCreatedEvent event = new TourCreatedEvent(UUID.randomUUID(), TourCreatedEvent.TYPE, Instant.now(),
-                        i, "Tour " + i, "d");
+                        i, "Tour " + i, "d", null, "Africa/Windhoek");
                 outbox.record("tour", i, event);
             }
         });

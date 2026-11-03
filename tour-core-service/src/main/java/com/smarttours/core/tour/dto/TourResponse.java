@@ -11,7 +11,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * A tour as clients see it. {@code avgRating} is null until the first verified review.
+ * A tour as clients see it. {@code avgRating} is null until the first verified review; {@code timeZone} is
+ * the IANA zone its departures are in.
  *
  * <p>{@code price} is in {@code currency} (NAD), authoritative and what a booking charges. With
  * {@code ?currency=}, {@code displayPrice} adds it converted for display only, or, when no usable rate
@@ -29,6 +30,8 @@ public record TourResponse(
         Category category,
         Difficulty difficulty,
         int durationMinutes,
+        String meetingPoint,
+        String timeZone,
         BigDecimal avgRating,
         int ratingCount,
         Instant createdAt,
@@ -47,6 +50,8 @@ public record TourResponse(
                 tour.getCategory(),
                 tour.getDifficulty(),
                 tour.getDurationMinutes(),
+                tour.getMeetingPoint(),
+                tour.getTimeZone(),
                 tour.getRatingCount() == 0 ? null : tour.getAvgRating(),
                 tour.getRatingCount(),
                 tour.getCreatedAt(),
@@ -59,7 +64,7 @@ public record TourResponse(
             return this;
         }
         return new TourResponse(id, name, description, price, currency, latitude, longitude, category, difficulty,
-                durationMinutes, avgRating, ratingCount, createdAt, conversion.display(price),
+                durationMinutes, meetingPoint, timeZone, avgRating, ratingCount, createdAt, conversion.display(price),
                 conversion.unavailableReason());
     }
 }
