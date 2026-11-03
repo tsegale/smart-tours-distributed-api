@@ -1,0 +1,11 @@
+Your booking is cancelled.
+
+Tour:          {{ booking.tour_name }}
+Departure:     {{ departure.strftime("%A, %d %B %Y, %H:%M") }} ({{ booking.time_zone }}, UTC{{ offset }})
+Meeting point: {{ booking.meeting_point or "to be confirmed by your guide" }}
+Guests:        {{ booking.slots }}
+
+No refund is due under the cancellation policy, or nothing was charged. If you think this is wrong, reply to this email.
+
+-- 
+Smart Tours. Booking {{ booking.reference }}.

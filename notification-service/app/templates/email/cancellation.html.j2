@@ -1,0 +1,11 @@
+{% extends "email/base.html.j2" %}
+{% block content %}
+<p style="font-size:18px;font-weight:bold;margin:0 0 12px;">Your booking is cancelled.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0;font-size:15px;">
+  <tr><td style="color:#5b6b70;padding-right:16px;">Tour</td><td>{{ booking.tour_name }}</td></tr>
+  <tr><td style="color:#5b6b70;padding-right:16px;">Departure</td><td>{{ departure.strftime("%A, %d %B %Y, %H:%M") }} (UTC{{ offset }})</td></tr>
+  <tr><td style="color:#5b6b70;padding-right:16px;">Meeting point</td><td>{{ booking.meeting_point or "to be confirmed by your guide" }}</td></tr>
+  <tr><td style="color:#5b6b70;padding-right:16px;">Guests</td><td>{{ booking.slots }}</td></tr>
+</table>
+<p>No refund is due under the cancellation policy, or nothing was charged. If you think this is wrong, reply to this email.</p>
+{% endblock %}

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ticket {{ booking.reference }}</title>
+<style>
+  @page { size: A5 landscape; margin: 12mm; }
+  body { font-family: "DejaVu Sans", sans-serif; color: #1d2a2f; font-size: 10.5pt; }
+  .head { display: flex; justify-content: space-between; align-items: baseline;
+          border-bottom: 1.5pt solid #b3541e; padding-bottom: 3mm; }
+  .brand { font-size: 14pt; font-weight: bold; letter-spacing: 0.04em; }
+  .reference { font-family: "DejaVu Sans Mono", monospace; font-size: 13pt; }
+  .body { display: flex; gap: 8mm; margin-top: 6mm; }
+  .facts { flex: 1; }
+  .facts h1 { font-size: 15pt; margin: 0 0 4mm; }
+  .facts dl { display: grid; grid-template-columns: 30mm 1fr; row-gap: 2mm; margin: 0; }
+  .facts dt { color: #5b6b70; }
+  .facts dd { margin: 0; }
+  .qr { width: 52mm; text-align: center; }
+  .qr img { width: 52mm; height: 52mm; }
+  .qr p { font-size: 8pt; color: #5b6b70; margin: 1mm 0 0; }
+  .foot { position: absolute; bottom: 0; font-size: 8pt; color: #5b6b70; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <span class="brand">SMART TOURS</span>
+    <span class="reference">{{ booking.reference }}</span>
+  </div>
+  <div class="body">
+    <div class="facts">
+      <h1>{{ booking.tour_name }}</h1>
+      <dl>
+        <dt>Departure</dt>
+        <dd>{{ departure.strftime("%A, %d %B %Y, %H:%M") }} ({{ booking.time_zone }}, UTC{{ departure.strftime("%z")[:3] }}:{{ departure.strftime("%z")[3:] }})</dd>
+        <dt>Meeting point</dt>
+        <dd>{{ booking.meeting_point or "Your guide will confirm the meeting point" }}</dd>
+        <dt>Guests</dt>
+        <dd>{{ booking.slots }}</dd>
+        <dt>Booking</dt>
+        <dd>{{ booking.reference }} (#{{ booking.booking_id }})</dd>
+      </dl>
+    </div>
+    <div class="qr">
+      <img src="{{ qr }}" alt="Check-in code for {{ booking.reference }}">
+      <p>Show this code at check-in.<br>Valid until {{ expires_at.strftime("%d %b %Y, %H:%M") }}.</p>
+    </div>
+  </div>
+  <p class="foot">One ticket for the whole party. The code is checked once; keep it private.</p>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:0;background:#f4f1ec;font-family:Arial,Helvetica,sans-serif;color:#1d2a2f;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ec;">
+    <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;">
+        <tr><td style="padding:20px 24px;border-bottom:3px solid #b3541e;font-weight:bold;letter-spacing:0.04em;">
+          SMART TOURS <span style="float:right;font-family:monospace;font-weight:normal;">{{ booking.reference }}</span>
+        </td></tr>
+        <tr><td style="padding:24px;line-height:1.5;font-size:15px;">
+          {% block content %}{% endblock %}
+        </td></tr>
+        <tr><td style="padding:16px 24px;font-size:12px;color:#5b6b70;border-top:1px solid #e6e1d9;">
+          Booking {{ booking.reference }}. Times are local to the tour ({{ booking.time_zone }}).
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

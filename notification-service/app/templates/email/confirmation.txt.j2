@@ -1,0 +1,11 @@
+Your booking is confirmed.
+
+Tour:          {{ booking.tour_name }}
+Departure:     {{ departure.strftime("%A, %d %B %Y, %H:%M") }} ({{ booking.time_zone }}, UTC{{ offset }})
+Meeting point: {{ booking.meeting_point or "to be confirmed by your guide" }}
+Guests:        {{ booking.slots }}
+
+You paid {{ booking.total_amount }} {{ booking.currency }}. Your ticket is attached: show its QR code at check-in. You can also download it from your bookings.
+
+-- 
+Smart Tours. Booking {{ booking.reference }}.

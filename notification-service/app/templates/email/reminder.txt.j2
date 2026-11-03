@@ -1,0 +1,11 @@
+Your tour is tomorrow.
+
+Tour:          {{ booking.tour_name }}
+Departure:     {{ departure.strftime("%A, %d %B %Y, %H:%M") }} ({{ booking.time_zone }}, UTC{{ offset }})
+Meeting point: {{ booking.meeting_point or "to be confirmed by your guide" }}
+Guests:        {{ booking.slots }}
+
+Please be at the meeting point 15 minutes early, with your ticket's QR code ready on your phone or printed.
+
+-- 
+Smart Tours. Booking {{ booking.reference }}.

@@ -1,0 +1,11 @@
+Your booking is cancelled and refunded.
+
+Tour:          {{ booking.tour_name }}
+Departure:     {{ departure.strftime("%A, %d %B %Y, %H:%M") }} ({{ booking.time_zone }}, UTC{{ offset }})
+Meeting point: {{ booking.meeting_point or "to be confirmed by your guide" }}
+Guests:        {{ booking.slots }}
+
+We are refunding {{ booking.refund_amount or booking.total_amount }} {{ booking.currency }} to your original payment method. Banks usually take 5 to 10 working days.
+
+-- 
+Smart Tours. Booking {{ booking.reference }}.

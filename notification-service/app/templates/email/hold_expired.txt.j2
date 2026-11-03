@@ -1,0 +1,11 @@
+Your seats were released.
+
+Tour:          {{ booking.tour_name }}
+Departure:     {{ departure.strftime("%A, %d %B %Y, %H:%M") }} ({{ booking.time_zone }}, UTC{{ offset }})
+Meeting point: {{ booking.meeting_point or "to be confirmed by your guide" }}
+Guests:        {{ booking.slots }}
+
+We held these seats for you, but the payment did not arrive in time, so they went back on sale. Nothing was charged. You are welcome to book again.
+
+-- 
+Smart Tours. Booking {{ booking.reference }}.
