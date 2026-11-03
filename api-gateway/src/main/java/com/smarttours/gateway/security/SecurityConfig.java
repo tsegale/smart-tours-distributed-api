@@ -74,6 +74,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.GET, "/docs/tours/**").permitAll()
                         .pathMatchers("/api/tours", "/api/tours/**").hasAnyRole("OPERATOR", "ADMIN")
                         .pathMatchers(HttpMethod.POST, "/api/availability").hasAnyRole("OPERATOR", "ADMIN")
+                        .pathMatchers("/api/check-ins", "/api/check-ins/**").hasAnyRole("OPERATOR", "ADMIN")
                         .pathMatchers(HttpMethod.POST, "/api/ai/embed").hasRole("ADMIN")
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

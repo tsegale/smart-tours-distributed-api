@@ -26,6 +26,12 @@ rate-limits:
   booking-create: # POST /api/bookings: every request holds seats for 30 minutes
     replenish-rate: ${RATE_LIMIT_BOOKING_RPS:1}
     burst-capacity: ${RATE_LIMIT_BOOKING_BURST:5}
+  ticket: # GET /api/bookings/{id}/ticket: each answer is a fresh presigned URL; a customer needs a handful
+    replenish-rate: ${RATE_LIMIT_TICKET_RPS:1}
+    burst-capacity: ${RATE_LIMIT_TICKET_BURST:10}
+  check-in: # POST /api/check-ins, per operator: a scanner at a busy gate, not a script guessing tokens
+    replenish-rate: ${RATE_LIMIT_CHECK_IN_RPS:5}
+    burst-capacity: ${RATE_LIMIT_CHECK_IN_BURST:30}
 
 spring:
   application:
@@ -136,6 +142,36 @@ spring:
                     fail-mode: closed
                     redis-rate-limiter.replenishRate: ${rate-limits.booking-create.replenish-rate}
                     redis-rate-limiter.burstCapacity: ${rate-limits.booking-create.burst-capacity}
+            # The PDF ticket: a 302 to a presigned object-storage URL, passed through to the client as it is.
+            - id: booking-ticket
+              order: 55
+              uri: ${BOOKING_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/bookings/{id}/ticket
+                - Method=GET
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.ticket.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.ticket.burst-capacity}
+            # Operators scanning QR codes (OPERATOR or ADMIN, SecurityConfig). Fails open: a Redis outage must not
+            # stop boarding, and a check-in can't take inventory (each ticket is accepted once anyway).
+            - id: booking-check-in
+              order: 56
+              uri: ${BOOKING_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/check-ins
+                - Method=POST
+              filters:
+                - name: RequestSize
+                  args:
+                    maxSize: 8KB # a token is a few hundred bytes
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.check-in.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.check-in.burst-capacity}
             - id: booking-service
               order: 60
               uri: ${BOOKING_SERVICE_URL:http://localhost:8082}

@@ -92,6 +92,28 @@ class SecurityConfigTest {
     }
 
     @Test
+    void checkInAsCustomer_isForbidden() {
+        String token = sign("alice", List.of("CUSTOMER"), Instant.now().plusSeconds(60));
+        client.post().uri("/api/check-ins").header("Authorization", "Bearer " + token).bodyValue("{}")
+                .exchange().expectStatus().isForbidden();
+    }
+
+    @Test
+    void checkInAsOperator_passesSecurity() {
+        String token = sign("op-1", List.of("OPERATOR"), Instant.now().plusSeconds(60));
+        client.post().uri("/api/check-ins").header("Authorization", "Bearer " + token).bodyValue("{}")
+                .exchange().expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+    }
+
+    @Test
+    void ticketDownloadNeedsAToken() {
+        client.get().uri("/api/bookings/7/ticket").exchange().expectStatus().isUnauthorized();
+        String token = sign("alice", List.of("CUSTOMER"), Instant.now().plusSeconds(60));
+        client.get().uri("/api/bookings/7/ticket").header("Authorization", "Bearer " + token)
+                .exchange().expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+    }
+
+    @Test
     void stripeWebhookWithoutToken_passesSecurity() {
         client.post().uri("/webhooks/stripe").bodyValue("{}").exchange()
                 .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
