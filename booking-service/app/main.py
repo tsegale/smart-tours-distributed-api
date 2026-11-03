@@ -2,12 +2,13 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from sqlalchemy import text
 
 from .clients.tour_client import close_tour_client
 from .database import engine
 from .errors import register_error_handlers
+from .metrics import render
 from .payments import get_payment_provider
 from .routers import availability, bookings, webhooks
 
@@ -40,6 +41,11 @@ def create_app() -> FastAPI:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return {"status": "UP"}
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics() -> Response:
+        body, content_type = render()
+        return Response(content=body, media_type=content_type)
 
     return app
 
