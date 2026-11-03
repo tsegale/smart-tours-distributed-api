@@ -183,10 +183,9 @@ sequenceDiagram
   tops out around 80 req/s ([load test](docs/benchmarks/search.md#load-test-k6-through-the-gateway)).
 - **Designed for failure, measured.** Exchange rates and weather come from free APIs behind Resilience4j
   (time limit, retry with jitter and Retry-After, circuit breaker, thread-pool bulkhead per provider) and a
-  stale-if-error cache. Under k6 at 40 req/s with every provider dead, the tour page's p95 was 11 ms, against
-  118 ms with a warm cache in the same round; with a provider answering in 2 s it was bounded by the 400 ms weather
-  budget (p95 407 to 411 ms in three runs), and 10 ms once the breaker opened. One clean round so far, not yet the
-  three-round table: memory on the benchmark laptop interfered, as the report explains
+  stale-if-error cache. Under k6 at 40 req/s with every provider dead, the tour page's p95 was 9.9 ms, against
+  9.4 ms with a warm cache (median of three rounds, no errors); with a provider answering in 2 s it was bounded by
+  the 400 ms weather budget (p95 406 ms), and 12.5 ms once the breaker opened
   ([results](docs/benchmarks/integrations.md)). Every failure mode also has a WireMock test.
 - **Rate limits per caller.** Redis token buckets at the gateway keyed by JWT subject or a proxy-aware client IP,
   429 Problem Details with `Retry-After`, fail-open for reads and fail-closed for seat holds
@@ -314,7 +313,7 @@ CI runs all of this on every push: [`.github/workflows/ci.yml`](.github/workflow
 | 0 | Make it run: fixes, per-service databases, migrations, Dockerfiles, CI, ADRs | Done |
 | 1 | Booking core: payment hold → Stripe Checkout → signed webhooks → confirm/expire; locking benchmark with k6 | Done |
 | 2 | Search and caching: dynamic filters, distance sort, keyset pagination, CQRS availability, Redis, rate limiting | Done |
-| 3 | Integrations: currency (Frankfurter, NAD base) and weather (Open-Meteo) behind Resilience4j, chaos profile | Done (benchmark: one clean round, rerun pending) |
+| 3 | Integrations: currency (Frankfurter, NAD base) and weather (Open-Meteo) behind Resilience4j, chaos profile | Done |
 | 4 | Async workers: tour-core outbox (booking-service's landed in Phase 2), notification-service (Celery), PDF tickets, Mailpit | |
 | 5 | Production ops: Keycloak, OpenTelemetry + Grafana, live deployment with TLS | |
 | 6 | AI: hybrid pgvector + PostGIS search, RAG itinerary generation | |

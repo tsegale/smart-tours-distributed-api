@@ -14,44 +14,50 @@ the tour (cached, ADR 0009), its price converted to EUR (rates in memory, ADR 00
 are switched between runs (`scripts/chaos.py`). 400 tours spread over 389 weather cells of the 100k seed, so a
 cold cache really is cold. 40 requests/s for 60 s per run (k6 `constant-arrival-rate`), 200 signed-in users.
 
-## Status: one clean round, not yet the three-round table
+## Reading the numbers
 
-The runner's three-round table (between the k6 markers below) has **not been produced yet**. Four full runs were
-attempted on 2026-11-02 and 2026-11-03; only one round of one run was clean. The others measured the laptop:
+The three-round table below was produced on 2026-11-03 (run 5). Rounds 2 and 3 agree closely; round 1 contains a
+host stall that began during its cold-cache run and lasted into the next scenarios. The table reports medians, so the
+stall shows only in the bracketed ranges:
+
+| Round 1 symptom | Value | Rounds 2 and 3 |
+| --- | ---: | ---: |
+| cold cache p95 | 39,030.5 ms | 20.0 and 23.8 ms |
+| slow, breaker allowed to open, p99 | 2,076.6 ms | 407.7 and 407.2 ms |
+| every provider dead, p99 | 4,674.0 ms | 32.7 and 24.2 ms |
+
+A cold cache does the same work in every round (388 cells fetched from the stubs). It cost 20 to 24 ms at p95 in
+rounds 2 and 3, so the multi-second cold tails of round 1 and of run 3 below come from the host, not the fetch path.
+Run 5 started with 923 MiB free in the Docker VM and 424 MiB of swap already in use; the host had about 800 MB
+available.
+
+- **With every provider dead, the page is as fast as with a warm cache**: median p95 9.9 ms against 9.4 ms, p99
+  32.7 against 22.1, error rate 0. The breaker opens within the first second, after which a weather lookup is a
+  Redis miss and an immediate `CallNotPermittedException`; the EUR price comes from memory either way.
+- **A slow provider costs the include budget and no more.** With the breaker disabled, every page waits its 400 ms
+  for weather and answers without it: p95 405.9 to 406.3 ms across the three rounds. The thread-pool bulkhead is why
+  the cost stops there: 8 threads are busy with the slow provider, and everything past them is refused at once
+  instead of queueing.
+- **Letting the breaker open removes even that**: p95 12.5 ms. Its p99 of about 407 ms is the first second, before
+  10 calls have failed.
+- **A cold cache is cheap when the host is healthy**: p95 23.8 ms while filling 388 cells, every lookup answered in
+  time.
+
+## Earlier attempts
+
+Four full runs on 2026-11-02 and 2026-11-03 before run 5 measured the laptop rather than the code:
 
 | Run | What went wrong | Evidence |
 | --- | --- | --- |
 | 1 | Docker VM swapping: p50 17.5 s on healthy stubs with a warm cache | 59 MiB free and 612 MiB swap in use in the VM before the run; hundreds of Redis timeouts a minute in tour-core |
 | 2 | stopped after round 1 to investigate tails of 20 s; not reproducible alone (below) | |
-| 3 | round 1 clean (below); in round 2 the WireMock stubs thrashed against their own 256 MiB limit and stopped answering | `memory.events`: `max 960`, 2,483 major page faults in the stub container; its admin API timed out |
+| 3 | round 1 clean except a cold p95 of 4.5 s; in round 2 the WireMock stubs thrashed against their own 256 MiB limit and stopped answering | `memory.events`: `max 960`, 2,483 major page faults in the stub container; its admin API timed out |
 | 4 | after giving the stubs 512 MiB and an explicit heap: stalls of up to 60 s in every scenario | host RAM 895 MB free of 8 GB (Docker Desktop, browser, other apps), so Windows pages the VM itself |
 
-The fixes kept from this: ai-service, ai-worker and the booking processes are stopped for the run (the runner's
-docstring says so), the stub container has 512 MiB and `-Xmx192m`, and the runner records the VM's free memory and
-swap in the report. What is left is the host: run it again with other applications closed.
+Kept from this: ai-service, ai-worker and the booking processes are stopped for the run, the stub container has
+512 MiB and `-Xmx192m`, and the runner records the VM's free memory and swap in the report.
 
-## Measured: run 3, round 1
-
-All five scenarios in sequence, as `run_integrations_benchmark.py` runs them, on 2026-11-03 at 01:00 (Africa/Windhoek).
-Docker VM before the run: 207 MiB free, 278 MiB swap in use; stubs still at 256 MiB. The raw k6 summaries of this
-round were overwritten by run 4 (same file names); the figures are the runner's own output.
-
-| Scenario | p50 (ms) | p95 (ms) | p99 (ms) | Errors | Weather ok / stale / unavailable | Breaker after |
-| --- | ---: | ---: | ---: | ---: | --- | --- |
-| warm cache | 7.8 | 117.8 | 406.7 | 0 | 2,379 / 0 / 22 | CLOSED |
-| cold cache, healthy stubs | 8.6 | 4,533.7 | 6,393.3 | 0 | 2,253 / 0 / 2 | CLOSED |
-| provider slow (2 s), breaker disabled | 6.0 | 407.1 | 419.1 | 0 | 0 / 0 / 2,401 | DISABLED |
-| provider slow (2 s), breaker allowed to open | 5.3 | 9.8 | 406.7 | 0 | 0 / 0 / 2,401 | OPEN |
-| every provider dead (connection reset) | 5.9 | 11.1 | 38.4 | 0 | 0 / 0 / 2,401 | HALF_OPEN |
-
-Weather outcomes are tour-core's own count (`weather_lookups_total`) over each run: from the cache or fetched in
-time (ok), served stale, or without weather (unavailable). Every response was checked: an error is anything but a
-200 carrying the tour, its EUR display price and a weatherStatus. There were none in any scenario.
-
-## Measured: single scenarios in isolation
-
-The two scenarios with the worst tails in run 2, run alone right afterwards with the runner's own preparation
-(`prepare()`), at the same 40 requests/s. Raw summaries: `benchmarks/out/diag-*.json`.
+Single scenarios run alone after run 2, with the runner's own preparation (`prepare()`), at 40 requests/s:
 
 | Scenario | Duration | Requests | p50 (ms) | p95 (ms) | p99 (ms) | max (ms) | Errors |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -59,35 +65,32 @@ The two scenarios with the worst tails in run 2, run alone right afterwards with
 | provider slow (2 s), breaker disabled | 60 s | 2,400 | 8.2 | 410.5 | 519.6 | 643.1 | 0 |
 | every provider dead | 60 s | 2,401 | 7.6 | 96.0 | 794.6 | 1,352.3 | 0 |
 
-A thread dump of tour-core in the middle of the 30 s slow run showed all 60 request threads idle in the pool:
-40 requests/s with a slow provider kept no request thread busy for long.
+A thread dump of tour-core in the middle of the 30 s slow run showed all 60 request threads idle in the pool.
 
-## Reading the numbers
+Absolute numbers are from a memory-constrained laptop; use production-like hardware before comparing them.
 
-- **With every provider dead, the page is as fast as with a warm cache**: p95 11.1 ms against 117.8 ms in the same
-  round, p99 38.4 against 406.7. The breaker opens within the first second, after which a weather lookup is a Redis
-  miss and an immediate `CallNotPermittedException`; the EUR price comes from memory either way. That is the
-  headline Phase 3 set out to prove, measured once in sequence and once alone (p95 96 ms), not yet three times.
-- **A slow provider costs the include budget and no more.** With the breaker disabled, every page waits its
-  400 ms for weather and answers without it: p95 407 to 411 ms and p99 419 to 520 ms in three runs. The thread-pool
-  bulkhead is why the cost stops there: 8 threads are busy with the slow provider, and everything past them is
-  refused at once instead of queueing.
-- **Letting the breaker open removes even that**: p95 9.8 ms. Its p99 of 406.7 ms is the first second, before
-  10 calls have failed.
-- **The cold run's tail is not explained yet.** Weather was fetched in time for all but 2 requests, so the page
-  did not wait for it longer than its budget, yet p95 was 4.5 s. In the same run the stub container was close to
-  its memory limit and, one scenario later, thrashed visibly; a stalled container slows the whole VM. Until a
-  clean three-round run reproduces or removes it, treat it as open.
-- **Warm p99 of 407 ms** on a request that does no I/O beyond Redis is this laptop: memory was short throughout
-  (see the runs above). Production-like hardware should be used before comparing absolute numbers.
+<!-- k6:start -->
+Generated by `benchmarks/run_integrations_benchmark.py` on 2026-11-03. `GET /api/tours/{id}?currency=EUR&include=weather&date=2026-11-08` through the gateway, 40 requests/s for 60s per run (k6 `constant-arrival-rate`), 3 rounds per scenario, 200 signed-in users, 400 tours in 389 weather cells of the 100k seed. Each figure is the median of the rounds, with the range in brackets when the rounds differed. Providers are the WireMock stubs of the chaos profile.
+
+| Scenario | p50 (ms) | p95 (ms) | p99 (ms) | Error rate | Weather ok / stale / unavailable | Breaker after |
+| --- | ---: | ---: | ---: | ---: | --- | --- |
+| warm cache | 6.1 (5.9 to 6.1) | 9.4 (8.3 to 9.8) | 22.1 (16.4 to 27.0) | 0.00% | 2400 / 0 / 0 | CLOSED |
+| cold cache, healthy stubs | 6.4 (5.8 to 677.8) | 23.8 (20.0 to 39030.5) | 48.2 (27.4 to 44385.9) | 0.00% | 2400 / 0 / 0 | CLOSED |
+| provider slow (2 s), before the circuit opens (breaker disabled) | 6.6 (6.1 to 6.8) | 406.2 (405.9 to 406.3) | 408.4 (408.0 to 408.6) | 0.00% | 0 / 0 / 2401 | DISABLED |
+| provider slow (2 s), circuit allowed to open | 6.2 (5.7 to 6.4) | 12.5 (9.5 to 131.0) | 407.7 (407.2 to 2076.6) | 0.00% | 0 / 0 / 2400 | HALF_OPEN, OPEN |
+| every provider dead (connection reset) | 6.4 (6.3 to 6.4) | 9.9 (9.4 to 682.9) | 32.7 (24.2 to 4674.0) | 0.00% | 0 / 0 / 2401 | HALF_OPEN, OPEN |
+
+Weather outcomes are tour-core's own count (`weather_lookups_total`) over each run: answered from the cache or fetched in time (ok), served stale, or without weather (unavailable). Every response is checked: an error is anything but a 200 carrying the tour, its EUR display price and a weatherStatus.
 
 | | |
 | --- | --- |
 | Host CPU | 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz (8 logical cores) |
-| Host RAM | 8 GB (895 MB free during run 4) |
+| Host RAM | 8 GB |
 | Host OS | Windows 11 (10.0.26300) |
-| Docker | 29.7.2 (Docker Desktop), VM with 8 vCPU and 3.7 GiB, shared by every container and k6 |
+| Docker | 29.7.2 (Docker Desktop) |
+| Docker VM | 8 vCPU, 3.7 GiB (shared by every container and k6) |
+| VM memory | before the runs 923 MiB free, 424 MiB swap in use; after 588 MiB free, 400 MiB swap in use |
 | k6 | `grafana/k6:2.3.0` |
 
-<!-- k6:start -->
+Raw k6 summaries: `benchmarks/out/integrations-*.json` (not committed).
 <!-- k6:end -->
