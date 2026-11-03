@@ -18,7 +18,7 @@ from ..schemas import (
     ReviewResponse,
 )
 from ..security import CurrentUser, get_current_user
-from ..services import booking_service, review_service
+from ..services import booking_service, review_service, tickets
 from ..services.booking_service import CancellationOutcome
 from ..services.reservation import SeatReservationStrategy, strategy_from_settings
 
@@ -73,6 +73,7 @@ def to_response(booking: Booking, cancellation: CancellationOutcome | None = Non
         else None,
         created_at=booking.created_at,
         confirmed_at=booking.confirmed_at,
+        checked_in_at=booking.checked_in_at,
         cancelled_at=booking.cancelled_at,
         cancellation=CancellationSummary(**cancellation.__dict__) if cancellation is not None else None,
     )
@@ -153,3 +154,24 @@ def review_booking(booking_id: int, body: ReviewCreate, user: User, db: DbSessio
         return ReviewResponse.model_validate(review)
     finally:
         db.rollback()
+
+
+@router.get(
+    "/{booking_id}/ticket",
+    status_code=status.HTTP_302_FOUND,
+    responses={
+        302: {"description": "Redirect to a short-lived presigned URL for the PDF"},
+        404: {"description": "Not your booking, or the ticket is not issued yet (ticket-not-ready)"},
+        503: {"description": "Ticket downloads are not configured"},
+    },
+)
+def download_ticket(
+    booking_id: int, user: User, db: DbSession, settings: Annotated[Settings, Depends(get_settings)]
+) -> Response:
+    """The owner's PDF ticket: a redirect to object storage, valid for TICKET_URL_TTL_S seconds."""
+    try:
+        booking = booking_service.get_booking_for_user(db, user.id, booking_id)
+        url = tickets.presigned_ticket_url(db, booking, settings)
+    finally:
+        db.rollback()
+    return Response(status_code=status.HTTP_302_FOUND, headers={"Location": url, "Cache-Control": "no-store"})

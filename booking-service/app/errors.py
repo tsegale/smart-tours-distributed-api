@@ -68,6 +68,34 @@ class IdempotencyKeyReusedError(DomainError):
     status, slug, title = 422, "idempotency-key-reused", "Idempotency key reused with a different request"
 
 
+class TicketNotReadyError(NotFoundError):
+    slug, title = "ticket-not-ready", "The ticket has not been issued yet"
+
+
+class TicketsUnavailableError(DomainError):
+    status, slug, title = 503, "tickets-unavailable", "Tickets are not available right now"
+
+
+class TicketInvalidError(DomainError):
+    status, slug, title = 422, "ticket-invalid", "Ticket not valid"
+
+
+class TicketExpiredError(DomainError):
+    status, slug, title = 410, "ticket-expired", "Ticket expired"
+
+
+class WrongDayError(ConflictError):
+    slug, title = "ticket-wrong-day", "Ticket is for another day"
+
+
+class AlreadyCheckedInError(ConflictError):
+    slug, title = "ticket-already-used", "Ticket already checked in"
+
+
+class BookingNotConfirmedError(ConflictError):
+    slug, title = "booking-not-confirmed", "Booking is not confirmed"
+
+
 class UnauthenticatedError(DomainError):
     status, slug, title = 401, "unauthenticated", "Authentication required"
 

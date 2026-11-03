@@ -70,6 +70,7 @@ class BookingResponse(BaseModel):
     created_at: datetime
     confirmed_at: datetime | None = None
     cancelled_at: datetime | None = None
+    checked_in_at: datetime | None = None
     cancellation: CancellationSummary | None = None
 
     @computed_field  # type: ignore[prop-decorator]
@@ -96,3 +97,17 @@ class ReviewResponse(BaseModel):
     rating: int
     comment: str | None = None
     created_at: datetime
+
+
+class CheckInRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=4096, description="The JWS from the ticket's QR code")
+
+
+class CheckInResponse(BaseModel):
+    booking_id: int
+    reference: str
+    tour_name: str
+    starts_at: datetime
+    time_zone: str
+    slots: int
+    checked_in_at: datetime

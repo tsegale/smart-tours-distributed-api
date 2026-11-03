@@ -10,7 +10,7 @@ from .database import engine
 from .errors import register_error_handlers
 from .metrics import render
 from .payments import get_payment_provider
-from .routers import availability, bookings, webhooks
+from .routers import availability, bookings, checkins, webhooks
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
     app.include_router(bookings.router)
     app.include_router(availability.router)
     app.include_router(webhooks.router)
+    app.include_router(checkins.router)
 
     @app.get("/health", tags=["ops"])
     def health() -> dict[str, str]:

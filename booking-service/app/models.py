@@ -96,6 +96,7 @@ class Booking(Base):
         ),
         CheckConstraint("status <> 'PENDING_PAYMENT' OR hold_expires_at IS NOT NULL", name="ck_bookings_hold_set"),
         CheckConstraint("total_amount = unit_price * slots", name="ck_bookings_total"),
+        CheckConstraint("(checked_in_at IS NULL) = (checked_in_by IS NULL)", name="ck_bookings_checked_in_by"),
         # A retried request with the same Idempotency-Key must never create a second booking.
         UniqueConstraint("user_id", "idempotency_key", name="uq_bookings_user_idempotency_key"),
         UniqueConstraint("reference", name="uq_bookings_reference"),
@@ -128,6 +129,9 @@ class Booking(Base):
     )
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The first valid scan of the ticket's QR code (POST /api/check-ins), and the operator who scanned it.
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    checked_in_by: Mapped[str | None] = mapped_column(String(255))
 
     availability: Mapped[TourAvailability] = relationship(lazy="joined")
     payment: Mapped["Payment | None"] = relationship(back_populates="booking", lazy="selectin")
@@ -222,3 +226,18 @@ class Review(Base):
     rating: Mapped[int] = mapped_column(SmallInteger)
     comment: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class BookingTicket(Base):
+    """Where a booking's PDF ticket is, as notification-service announced it (ticket.rendered, ADR 0015)."""
+
+    __tablename__ = "booking_tickets"
+
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), primary_key=True)
+    bucket: Mapped[str] = mapped_column(String(63))
+    object_key: Mapped[str] = mapped_column(String(1024))
+    sha256: Mapped[str] = mapped_column(String(64))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    rendered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

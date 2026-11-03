@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -59,6 +60,22 @@ class Settings(BaseSettings):
     outbox_retention_hours: int = Field(default=168, gt=0)
     outbox_prune_interval_s: float = Field(default=300.0, gt=0)
     outbox_prune_batch_size: int = Field(default=1000, gt=0)
+
+    # --- tickets and check-in (ADR 0015)
+    # Presigned downloads: a read-only object-storage user, and the endpoint as the browser reaches it (the
+    # signature covers the host). An empty secret key disables downloads (503).
+    tickets_s3_public_endpoint_url: str = "http://localhost:9000"
+    tickets_s3_region: str = "us-east-1"
+    tickets_s3_access_key: str = "tickets-reader"
+    tickets_s3_secret_key: str = ""
+    ticket_url_ttl_s: int = Field(default=300, gt=0, le=3600)
+    # The public half of notification-service's signing key: verifies check-in tokens, can't mint them.
+    ticket_verify_key_file: Path = Path("/run/secrets/ticket-verify/ticket_verify_key.pem")
+    ticket_clock_leeway_s: int = Field(default=60, ge=0)
+    # ticket.rendered consumer (app.jobs.ticket_listener): the topology of ADR 0005.
+    ticket_queue_name: str = "booking.tickets"
+    ticket_max_retries: int = Field(default=5, ge=0)
+    ticket_retry_delay_ms: int = Field(default=10_000, gt=0)
 
 
 @lru_cache

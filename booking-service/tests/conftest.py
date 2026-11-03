@@ -29,6 +29,28 @@ os.environ["PAYMENT_PROVIDER"] = "fake"
 os.environ["STRIPE_WEBHOOK_SECRET"] = WEBHOOK_SECRET
 os.environ["STRIPE_SECRET_KEY"] = ""
 
+
+def _ticket_keys():
+    """A test key pair for check-in tokens: the public half is the configured verify key, as in production."""
+    import tempfile
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    key = Ed25519PrivateKey.generate()
+    path = os.path.join(tempfile.mkdtemp(prefix="ticket-verify-"), "ticket_verify_key.pem")
+    with open(path, "wb") as f:
+        f.write(
+            key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        )
+    return key, path
+
+
+TICKET_SIGNING_KEY, _verify_key_path = _ticket_keys()
+os.environ["TICKET_VERIFY_KEY_FILE"] = _verify_key_path
+os.environ["TICKETS_S3_PUBLIC_ENDPOINT_URL"] = "http://localhost:9000"
+os.environ["TICKETS_S3_SECRET_KEY"] = "test-reader-secret"
+
 import respx  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
