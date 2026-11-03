@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tsegale/smart-tours-distributed-api/blob/master/docs/events/availability-changed.schema.json",
+  "title": "availability.changed",
+  "description": "A departure's seat count or definition changed. Published by booking-service through its outbox (ADR 0008).",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique per event; consumers deduplicate on it"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the change committed (producer clock)"
+    },
+    "eventType": {
+      "enum": [
+        "availability.changed"
+      ]
+    },
+    "availabilityId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tourId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "startsAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "totalSlots": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "slotsLeft": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Increases with every change; apply only newer"
+    }
+  },
+  "required": [
+    "eventId",
+    "eventType",
+    "occurredAt",
+    "availabilityId",
+    "tourId",
+    "startsAt",
+    "totalSlots",
+    "slotsLeft",
+    "version"
+  ],
+  "additionalProperties": false
+}

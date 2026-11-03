@@ -133,6 +133,13 @@
 
         <!-- Tests -->
         <dependency>
+            <!-- Contract tests: published events against their JSON Schemas in docs/events. Jackson 3, like Boot 4. -->
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>3.0.8</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.wiremock</groupId>
             <artifactId>wiremock-standalone</artifactId>
             <version>${wiremock.version}</version>

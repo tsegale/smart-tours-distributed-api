@@ -16,6 +16,9 @@ from app.models import OutboxEvent
 from app.services import outbox
 from app.services.outbox_relay import OutboundMessage, prune_published, relay_batch
 
+# write_events() makes up outbox rows to exercise the relay; they follow no event schema.
+pytestmark = pytest.mark.synthetic_events
+
 
 class RecordingPublisher:
     """Stands in for RabbitMQ. Optionally blocks mid-publish, or fails after publishing."""

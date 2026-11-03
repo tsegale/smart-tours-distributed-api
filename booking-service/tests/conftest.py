@@ -40,8 +40,11 @@ from app.database import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.payments import get_payment_provider  # noqa: E402
 from app.payments.fake_provider import FakePaymentProvider  # noqa: E402
+from tests.event_contracts import load_event_schemas  # noqa: E402
 
 SERVICE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+EVENT_SCHEMAS = load_event_schemas()
 
 TOUR = {
     "id": 1,
@@ -145,6 +148,26 @@ def every_status_change_is_in_the_outbox(request):
                 f"booking {row.id} is {row.status}, but its newest lifecycle event is "
                 f"{row.event_type or 'missing'} ({row.event_status})"
             )
+
+
+@pytest.fixture(autouse=True)
+def every_event_matches_its_documented_schema(request):
+    """After every test: each outbox payload validates against its schema in docs/events (the contract).
+
+    So the contract is checked for every event every test produces, not only in tests that look at events, and
+    an event type with no schema fails the build.
+    """
+    yield
+    if request.node.get_closest_marker("synthetic_events"):
+        return
+    with engine.connect() as conn:
+        rows = conn.execute(text("SELECT event_type, payload FROM outbox ORDER BY occurred_at")).all()
+    for event_type, payload in rows:
+        assert event_type in EVENT_SCHEMAS, f"{event_type} has no schema in docs/events"
+        errors = sorted(EVENT_SCHEMAS[event_type].iter_errors(payload), key=lambda e: e.path)
+        assert not errors, f"{event_type} breaks its documented schema: " + "; ".join(
+            f"{'/'.join(map(str, e.path)) or '(root)'}: {e.message}" for e in errors
+        )
 
 
 @pytest.fixture(autouse=True)

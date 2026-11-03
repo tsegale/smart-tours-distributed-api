@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tsegale/smart-tours-distributed-api/blob/master/docs/events/review-submitted.schema.json",
+  "title": "review.submitted",
+  "description": "A verified review was submitted for a confirmed booking. Published by booking-service.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique per event; consumers deduplicate on it"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the change committed (producer clock)"
+    },
+    "eventType": {
+      "enum": [
+        "review.submitted"
+      ]
+    },
+    "reviewId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "bookingId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tourId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "rating": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    }
+  },
+  "required": [
+    "eventId",
+    "eventType",
+    "occurredAt",
+    "reviewId",
+    "bookingId",
+    "tourId",
+    "rating"
+  ],
+  "additionalProperties": false
+}

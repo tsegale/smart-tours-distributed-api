@@ -4,6 +4,7 @@ import re
 import uuid
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import func, update
 
 from app.database import SessionLocal
@@ -17,6 +18,7 @@ def gauge(client, name: str) -> float:
     return float(match.group(1))
 
 
+@pytest.mark.synthetic_events
 def test_lag_is_the_age_of_the_oldest_unpublished_event(client):
     assert gauge(client, "outbox_oldest_unpublished_age_seconds") == 0
     assert gauge(client, "outbox_unpublished_events") == 0

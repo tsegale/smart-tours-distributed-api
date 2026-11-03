@@ -8,6 +8,7 @@ testpaths = ["tests"]
 addopts = "-ra"
 markers = [
     "raw_seat_writes: the test changes seat counts with raw SQL on purpose, so the outbox invariant does not apply",
+    "synthetic_events: the test writes made-up outbox rows to exercise the relay or metrics, so the contract check does not apply",
     "raw_status_writes: the test sets booking statuses with raw SQL on purpose, so the lifecycle-event invariant does not apply",
 ]
 filterwarnings = [

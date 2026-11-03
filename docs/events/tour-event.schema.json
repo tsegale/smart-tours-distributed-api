@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tsegale/smart-tours-distributed-api/blob/master/docs/events/tour-event.schema.json",
+  "title": "tour.created / tour.updated",
+  "description": "A tour was created or replaced by an operator. Published by tour-core through its outbox (ADR 0013).",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique per event; consumers deduplicate on it"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the change committed (producer clock)"
+    },
+    "eventType": {
+      "enum": [
+        "tour.created",
+        "tour.updated"
+      ]
+    },
+    "tourId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "meetingPoint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1,
+      "description": "IANA time zone, e.g. Africa/Windhoek"
+    }
+  },
+  "required": [
+    "eventId",
+    "eventType",
+    "occurredAt",
+    "tourId",
+    "name",
+    "description",
+    "meetingPoint",
+    "timeZone"
+  ],
+  "additionalProperties": false
+}

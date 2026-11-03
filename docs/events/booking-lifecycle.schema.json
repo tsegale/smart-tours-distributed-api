@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tsegale/smart-tours-distributed-api/blob/master/docs/events/booking-lifecycle.schema.json",
+  "title": "booking.confirmed / booking.cancelled / booking.refunded / booking.hold_expired",
+  "description": "A booking changed status. Carries everything a notifier needs (no call-backs). Published by booking-service through its outbox, in the transaction of the change.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique per event; consumers deduplicate on it"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the change committed (producer clock)"
+    },
+    "eventType": {
+      "enum": [
+        "booking.confirmed",
+        "booking.cancelled",
+        "booking.refunded",
+        "booking.hold_expired"
+      ]
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "bookingId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reference": {
+      "type": "string",
+      "pattern": "^ST-[0-9A-Z]{8}$"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contactEmail": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 320,
+      "description": "Null when the token had no email claim: send nothing"
+    },
+    "status": {
+      "enum": [
+        "PENDING_PAYMENT",
+        "CONFIRMED",
+        "CANCELLED",
+        "EXPIRED",
+        "REFUNDED"
+      ]
+    },
+    "previousStatus": {
+      "enum": [
+        "PENDING_PAYMENT",
+        "CONFIRMED",
+        "CANCELLED",
+        "EXPIRED",
+        "REFUNDED"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "slots": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "unitPrice": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d{2}$",
+      "description": "Exact decimal, two places, as a string"
+    },
+    "totalAmount": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d{2}$",
+      "description": "Exact decimal, two places, as a string"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "departure": {
+      "type": "object",
+      "properties": {
+        "availabilityId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tourId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tourName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "meetingPoint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeZone": {
+          "type": "string",
+          "minLength": 1,
+          "description": "IANA time zone, e.g. Africa/Windhoek"
+        },
+        "startsAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "availabilityId",
+        "tourId",
+        "tourName",
+        "meetingPoint",
+        "timeZone",
+        "startsAt"
+      ],
+      "additionalProperties": false
+    },
+    "refund": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d{2}$",
+          "description": "Exact decimal, two places, as a string"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      },
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false
+    },
+    "holdExpiresAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "eventId",
+    "eventType",
+    "occurredAt",
+    "schemaVersion",
+    "bookingId",
+    "reference",
+    "userId",
+    "contactEmail",
+    "status",
+    "previousStatus",
+    "reason",
+    "slots",
+    "unitPrice",
+    "totalAmount",
+    "currency",
+    "departure"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "booking.confirmed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "CONFIRMED"
+          }
+        },
+        "not": {
+          "required": [
+            "refund"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "booking.cancelled"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "CANCELLED"
+          }
+        },
+        "not": {
+          "required": [
+            "refund"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "booking.refunded"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "REFUNDED"
+          }
+        },
+        "required": [
+          "refund"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "booking.hold_expired"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "EXPIRED"
+          }
+        },
+        "not": {
+          "required": [
+            "refund"
+          ]
+        }
+      }
+    }
+  ]
+}

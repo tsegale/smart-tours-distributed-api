@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tsegale/smart-tours-distributed-api/blob/master/docs/events/ticket-rendered.schema.json",
+  "title": "ticket.rendered",
+  "description": "The PDF e-ticket of a confirmed booking is stored in object storage. Published by notification-service through its outbox; booking-service records the location for downloads.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique per event; consumers deduplicate on it"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the change committed (producer clock)"
+    },
+    "eventType": {
+      "enum": [
+        "ticket.rendered"
+      ]
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "bookingId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reference": {
+      "type": "string",
+      "pattern": "^ST-[0-9A-Z]{8}$"
+    },
+    "bucket": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 63
+    },
+    "objectKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "contentType": {
+      "const": "application/pdf"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "required": [
+    "eventId",
+    "eventType",
+    "occurredAt",
+    "schemaVersion",
+    "bookingId",
+    "reference",
+    "bucket",
+    "objectKey",
+    "contentType",
+    "sizeBytes",
+    "sha256"
+  ],
+  "additionalProperties": false
+}
