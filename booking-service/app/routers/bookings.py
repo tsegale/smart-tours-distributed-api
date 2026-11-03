@@ -50,6 +50,7 @@ def to_response(booking: Booking, cancellation: CancellationOutcome | None = Non
     payment = booking.payment
     return BookingResponse(
         id=booking.id,
+        reference=booking.reference,
         availability_id=booking.availability_id,
         tour_id=booking.availability.tour_id,
         starts_at=booking.availability.starts_at,
@@ -99,7 +100,9 @@ def create_booking(
 ) -> BookingResponse:
     """Hold seats for HOLD_MINUTES and return the checkout URL to pay at."""
     ttl = booking_service.hold_ttl(settings, provider)
-    booking, created = booking_service.hold_seats(db, user.id, body, idempotency_key, strategy, ttl)
+    booking, created = booking_service.hold_seats(
+        db, user.id, body, idempotency_key, strategy, ttl, contact_email=user.email
+    )
     # The hold is committed before the provider is called: no lock is held across the network.
     booking = booking_service.ensure_checkout(db, booking, provider, settings)
     if not created:

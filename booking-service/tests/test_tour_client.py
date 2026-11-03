@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 import httpx
+import pytest
 import respx
 
 from tests.conftest import ALICE, OPERATOR, TOUR
@@ -70,7 +71,7 @@ def test_price_is_parsed_exactly(client, tour_core):
     tour_core["get_tour"].mock(
         return_value=httpx.Response(
             200,
-            content=b'{"id":1,"name":"Etosha","price":1234567.89,"currency":"NAD"}',
+            content=b'{"id":1,"name":"Etosha","price":1234567.89,"currency":"NAD","timeZone":"Africa/Windhoek"}',
             headers={"content-type": "application/json"},
         )
     )
@@ -97,3 +98,24 @@ def test_calls_go_to_the_configured_internal_url(client, tour_core):
     request: httpx.Request = tour_core["get_tour"].calls.last.request
     assert str(request.url) == "http://tour-core.test/api/tours/1"
     assert isinstance(tour_core, respx.MockRouter)
+
+
+def test_the_departure_snapshots_the_meeting_point_and_time_zone(client):
+    response = create_departure(client)
+
+    assert response.status_code == 201
+    assert response.json()["meeting_point"] == "Sesriem gate"
+    assert response.json()["time_zone"] == "Africa/Windhoek"
+
+
+@pytest.mark.parametrize("time_zone", [None, "Mars/Olympus"])
+def test_a_tour_without_a_known_time_zone_is_unreadable(client, tour_core, time_zone):
+    tour = {key: value for key, value in TOUR.items() if key != "timeZone"}
+    if time_zone:
+        tour["timeZone"] = time_zone
+    tour_core["get_tour"].mock(return_value=httpx.Response(200, json=tour))
+
+    response = create_departure(client)
+
+    assert response.status_code == 503
+    assert response.headers["content-type"] == "application/problem+json"

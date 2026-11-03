@@ -104,7 +104,9 @@ def _expire_departure(db: Session, availability_id: int, now: datetime, batch_si
         )
         released = 0
         for booking in holds:
-            transition(booking, BookingStatus.EXPIRED, reason="hold_expired")
+            outbox.booking_status_changed(
+                db, booking, transition(booking, BookingStatus.EXPIRED, reason="hold_expired")
+            )
             released += booking.slots
         availability.booked_slots -= released
         if holds:

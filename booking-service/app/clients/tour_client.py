@@ -1,4 +1,4 @@
-"""Synchronous client for tour-core-service, used to validate tours and snapshot their price.
+"""Synchronous client for tour-core-service, used to validate tours and snapshot what a departure needs.
 
 Called directly on the internal network (not through the gateway). Failure handling:
 - connect/read timeouts on every call, so a hung tour-core can't hold a request thread forever;
@@ -12,6 +12,7 @@ import random
 import time
 from dataclasses import dataclass
 from decimal import Decimal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 
@@ -28,6 +29,8 @@ class TourSnapshot:
     name: str
     price: Decimal
     currency: str
+    meeting_point: str | None
+    time_zone: str  # IANA region id, validated
 
 
 class TourClient:
@@ -57,13 +60,18 @@ class TourClient:
             )
         try:
             body = response.json(parse_float=Decimal)  # exact prices, never via float
+            time_zone = str(body["timeZone"])
+            ZoneInfo(time_zone)  # a departure's local time and reminders depend on it: refuse an unknown zone
+            meeting_point = body.get("meetingPoint")
             return TourSnapshot(
                 id=int(body["id"]),
                 name=str(body["name"]),
                 price=to_amount(body["price"]),
                 currency=str(body.get("currency") or "NAD").upper(),
+                meeting_point=str(meeting_point) if meeting_point else None,
+                time_zone=time_zone,
             )
-        except (ValueError, KeyError, TypeError) as exc:
+        except (ValueError, KeyError, TypeError, ZoneInfoNotFoundError) as exc:
             log.error("tour-core returned an unreadable tour %s: %s", tour_id, exc)
             raise UpstreamUnavailableError(
                 "The tour catalogue returned an unreadable tour", upstream="tour-core-service"

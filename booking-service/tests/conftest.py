@@ -43,7 +43,14 @@ from app.payments.fake_provider import FakePaymentProvider  # noqa: E402
 
 SERVICE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-TOUR = {"id": 1, "name": "Sossusvlei Sunrise Dunes", "price": 1850.00, "currency": "NAD"}
+TOUR = {
+    "id": 1,
+    "name": "Sossusvlei Sunrise Dunes",
+    "price": 1850.00,
+    "currency": "NAD",
+    "meetingPoint": "Sesriem gate",
+    "timeZone": "Africa/Windhoek",
+}
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -103,6 +110,40 @@ def every_seat_change_is_in_the_outbox(request):
             assert (row.event_version, row.event_slots_left) == (row.version, row.slots_left), (
                 f"departure {row.id} is at version {row.version} with {row.slots_left} seats left, but its newest "
                 f"availability.changed event says version {row.event_version} with {row.event_slots_left}"
+            )
+
+
+LATEST_BOOKING_EVENTS = text(
+    """
+    SELECT b.id, b.status, e.payload ->> 'status' AS event_status, e.event_type
+    FROM bookings b
+    LEFT JOIN LATERAL (
+        SELECT payload, event_type FROM outbox o
+        WHERE o.aggregate_type = 'booking' AND o.aggregate_id = b.id::text
+        ORDER BY o.occurred_at DESC, (o.payload ->> 'occurredAt') DESC
+        LIMIT 1
+    ) e ON true
+    WHERE b.status <> 'PENDING_PAYMENT'
+    ORDER BY b.id
+    """
+)
+
+
+@pytest.fixture(autouse=True)
+def every_status_change_is_in_the_outbox(request):
+    """After every test: each booking that left PENDING_PAYMENT has a lifecycle event for its current status.
+
+    The same guard as for seats: a new path that moves a booking without outbox.booking_status_changed()
+    fails the build, whichever test exercises it.
+    """
+    yield
+    if request.node.get_closest_marker("raw_status_writes"):
+        return
+    with engine.connect() as conn:
+        for row in conn.execute(LATEST_BOOKING_EVENTS):
+            assert row.event_status == row.status, (
+                f"booking {row.id} is {row.status}, but its newest lifecycle event is "
+                f"{row.event_type or 'missing'} ({row.event_status})"
             )
 
 

@@ -15,6 +15,7 @@ and then only to CONFIRMED (seats re-reserved) or REFUNDED (money returned). See
 """
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -55,8 +56,22 @@ def ensure_can_transition(current: BookingStatus | str, target: BookingStatus, b
         )
 
 
-def transition(booking: "Booking", target: BookingStatus, reason: str) -> None:
-    """Move a booking to `target` or raise a 409 Problem. The caller holds the booking's row lock."""
+@dataclass(frozen=True)
+class StatusChange:
+    """What transition() did; app.services.outbox turns it into the booking's lifecycle event."""
+
+    from_status: BookingStatus
+    to_status: BookingStatus
+    reason: str
+    at: datetime
+
+
+def transition(booking: "Booking", target: BookingStatus, reason: str) -> StatusChange:
+    """Move a booking to `target` or raise a 409 Problem. The caller holds the booking's row lock.
+
+    The caller passes the result to outbox.booking_status_changed() in the same transaction; tests/conftest.py
+    checks after every test that each booking's newest lifecycle event matches its status.
+    """
     current = BookingStatus(booking.status)
     ensure_can_transition(current, target, booking.id)
     now = datetime.now(UTC)
@@ -73,3 +88,4 @@ def transition(booking: "Booking", target: BookingStatus, reason: str) -> None:
         reason,
         extra={"booking_id": booking.id, "from_status": current, "to_status": target, "reason": reason},
     )
+    return StatusChange(current, target, reason, now)

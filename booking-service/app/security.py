@@ -18,6 +18,8 @@ from .errors import ForbiddenError, UnauthenticatedError
 class CurrentUser:
     id: str
     roles: frozenset[str]
+    # The token's email claim, forwarded by the gateway as X-User-Email; None when the token has none.
+    email: str | None = None
 
     def has_any_role(self, *roles: str) -> bool:
         return bool(self.roles.intersection(roles))
@@ -26,11 +28,13 @@ class CurrentUser:
 def get_current_user(
     x_user_id: Annotated[str | None, Header()] = None,
     x_user_roles: Annotated[str | None, Header()] = None,
+    x_user_email: Annotated[str | None, Header()] = None,
 ) -> CurrentUser:
     if not x_user_id:
         raise UnauthenticatedError("Missing X-User-Id; requests must come through the API gateway")
     roles = frozenset(r.strip() for r in (x_user_roles or "").split(",") if r.strip())
-    return CurrentUser(id=x_user_id, roles=roles)
+    email = x_user_email.strip() if x_user_email and x_user_email.strip() else None
+    return CurrentUser(id=x_user_id, roles=roles, email=email)
 
 
 def require_roles(*roles: str):

@@ -80,22 +80,26 @@ def _apply(db: Session, event: ProviderEvent, provider: PaymentProvider) -> Webh
 
     match event.type:
         case E.CHECKOUT_COMPLETED if event.payment_status == "paid":
-            _payment_succeeded(availability, booking, payment, event, result)
+            _payment_succeeded(db, availability, booking, payment, event, result)
         case E.CHECKOUT_COMPLETED:
             # Delayed payment methods complete the session unpaid; async_payment_* follows.
             log.info("webhook.awaiting_async_payment booking_id=%s", booking.id)
         case E.ASYNC_PAYMENT_SUCCEEDED:
-            _payment_succeeded(availability, booking, payment, event, result)
+            _payment_succeeded(db, availability, booking, payment, event, result)
         case E.ASYNC_PAYMENT_FAILED:
             payment.status = PaymentStatus.FAILED
             if booking.status == BookingStatus.PENDING_PAYMENT:
-                transition(booking, BookingStatus.CANCELLED, reason="async_payment_failed")
+                outbox.booking_status_changed(
+                    db, booking, transition(booking, BookingStatus.CANCELLED, reason="async_payment_failed")
+                )
                 availability.booked_slots -= booking.slots
         case E.CHECKOUT_EXPIRED:
             if payment.status == PaymentStatus.PENDING:
                 payment.status = PaymentStatus.EXPIRED
             if booking.status == BookingStatus.PENDING_PAYMENT:
-                transition(booking, BookingStatus.EXPIRED, reason="checkout_expired")
+                outbox.booking_status_changed(
+                    db, booking, transition(booking, BookingStatus.EXPIRED, reason="checkout_expired")
+                )
                 availability.booked_slots -= booking.slots
     if availability.booked_slots != seats_before:
         outbox.availability_changed(db, availability)
@@ -103,6 +107,7 @@ def _apply(db: Session, event: ProviderEvent, provider: PaymentProvider) -> Webh
 
 
 def _payment_succeeded(
+    db: Session,
     availability: TourAvailability,
     booking: Booking,
     payment: Payment,
@@ -122,20 +127,28 @@ def _payment_succeeded(
     match BookingStatus(booking.status):
         case BookingStatus.PENDING_PAYMENT:
             payment.status = PaymentStatus.PAID
-            transition(booking, BookingStatus.CONFIRMED, reason="payment_succeeded")
+            outbox.booking_status_changed(
+                db, booking, transition(booking, BookingStatus.CONFIRMED, reason="payment_succeeded")
+            )
         case BookingStatus.EXPIRED if availability.slots_remaining >= booking.slots:
             # Paid after the hold lapsed, and the seats are still free: take them again.
             availability.booked_slots += booking.slots
             payment.status = PaymentStatus.PAID
-            transition(booking, BookingStatus.CONFIRMED, reason="late_payment_seats_rereserved")
+            outbox.booking_status_changed(
+                db, booking, transition(booking, BookingStatus.CONFIRMED, reason="late_payment_seats_rereserved")
+            )
         case BookingStatus.EXPIRED:
             # Paid after the hold lapsed, and someone else has the seats: give the money back.
             payment.status = PaymentStatus.REFUND_PENDING
-            transition(booking, BookingStatus.REFUNDED, reason="late_payment_sold_out")
+            outbox.booking_status_changed(
+                db, booking, transition(booking, BookingStatus.REFUNDED, reason="late_payment_sold_out")
+            )
             result.refunds_due.append(booking.id)
         case BookingStatus.CANCELLED:
             payment.status = PaymentStatus.REFUND_PENDING
-            transition(booking, BookingStatus.REFUNDED, reason="paid_after_cancellation")
+            outbox.booking_status_changed(
+                db, booking, transition(booking, BookingStatus.REFUNDED, reason="paid_after_cancellation")
+            )
             result.refunds_due.append(booking.id)
         case BookingStatus.CONFIRMED | BookingStatus.REFUNDED:
             pass  # already settled; a second success event for the same session

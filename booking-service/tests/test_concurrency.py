@@ -165,6 +165,7 @@ def test_check_constraint_is_never_violated_under_contention(strategy, make_depa
 
 
 @pytest.mark.raw_seat_writes
+@pytest.mark.raw_status_writes
 def test_without_any_strategy_updates_are_lost(make_departure):
     """Control experiment: the naive read-check-write every strategy exists to prevent.
 
@@ -189,10 +190,10 @@ def test_without_any_strategy_updates_are_lost(make_departure):
             )
             db.execute(
                 text(
-                    "INSERT INTO bookings (user_id, availability_id, slots, status, unit_price, total_amount, currency)"
-                    " VALUES (:u, :a, 1, 'CONFIRMED', 0, 0, 'NAD')"
+                    "INSERT INTO bookings (reference, user_id, availability_id, slots, status, unit_price,"
+                    " total_amount, currency) VALUES (:r, :u, :a, 1, 'CONFIRMED', 0, 0, 'NAD')"
                 ),
-                {"u": f"user-{i}", "a": availability_id},
+                {"r": f"ST-RAW{i:05d}", "u": f"user-{i}", "a": availability_id},
             )
             db.commit()
 

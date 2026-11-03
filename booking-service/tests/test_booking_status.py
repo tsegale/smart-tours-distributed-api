@@ -62,6 +62,7 @@ def test_timestamps_follow_the_transition():
     assert b.cancelled_at is not None
 
 
+@pytest.mark.raw_status_writes
 def test_illegal_transition_is_a_problem_response(client, departure, book):
     """An EXPIRED booking can't be cancelled: the table refuses, rendered as RFC 9457."""
     from sqlalchemy import text

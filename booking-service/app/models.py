@@ -65,6 +65,9 @@ class TourAvailability(Base):
     tour_id: Mapped[int] = mapped_column(BigInteger, index=True)
     # Snapshot of the tour's name and price when the departure was opened.
     tour_name: Mapped[str] = mapped_column(String(255))
+    # Also snapshotted, for tickets and reminders: where to meet, and the IANA zone the departure is in.
+    meeting_point: Mapped[str | None] = mapped_column(String(500))
+    time_zone: Mapped[str] = mapped_column(String(64))
     unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     currency: Mapped[str] = mapped_column(String(3))
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -95,6 +98,7 @@ class Booking(Base):
         CheckConstraint("total_amount = unit_price * slots", name="ck_bookings_total"),
         # A retried request with the same Idempotency-Key must never create a second booking.
         UniqueConstraint("user_id", "idempotency_key", name="uq_bookings_user_idempotency_key"),
+        UniqueConstraint("reference", name="uq_bookings_reference"),
         # The sweeper's query: overdue holds only, so the index stays small.
         Index(
             "ix_bookings_hold_expiry",
@@ -104,7 +108,11 @@ class Booking(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # What the customer quotes and the ticket prints (ST-7K3Q9P2M); unguessable, unlike the id.
+    reference: Mapped[str] = mapped_column(String(16))
     user_id: Mapped[str] = mapped_column(String(255), index=True)
+    # From the token (X-User-Email) when the booking was made. None: no notifications for this booking.
+    contact_email: Mapped[str | None] = mapped_column(String(320))
     availability_id: Mapped[int] = mapped_column(ForeignKey("tour_availability.id"), index=True)
     slots: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(20))

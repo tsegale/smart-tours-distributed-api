@@ -12,6 +12,7 @@ REFUND_PENDING -> REFUNDED step, which nothing else writes.
 """
 
 import logging
+import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -53,6 +54,8 @@ def create_availability(db: Session, data: AvailabilityCreate, tours: TourClient
     availability = TourAvailability(
         tour_id=tour.id,
         tour_name=tour.name,
+        meeting_point=tour.meeting_point,
+        time_zone=tour.time_zone,
         unit_price=tour.price,
         currency=tour.currency,
         starts_at=data.starts_at,
@@ -100,6 +103,16 @@ def _replay(existing: Booking, data: BookingCreate) -> Booking:
     return existing
 
 
+# Crockford's base32: no I, L, O or U, so a reference read out over the phone is unambiguous.
+REFERENCE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+REFERENCE_LENGTH = 8
+
+
+def new_reference() -> str:
+    """ST- and 8 random characters: 2^40 possibilities, so the unique constraint is a backstop, not a lottery."""
+    return "ST-" + "".join(secrets.choice(REFERENCE_ALPHABET) for _ in range(REFERENCE_LENGTH))
+
+
 def hold_seats(
     db: Session,
     user_id: str,
@@ -107,6 +120,7 @@ def hold_seats(
     idempotency_key: str | None,
     strategy: SeatReservationStrategy,
     ttl: timedelta,
+    contact_email: str | None = None,
 ) -> tuple[Booking, bool]:
     """Reserve seats as a PENDING_PAYMENT hold. Returns (booking, created); False on a replay."""
     try:
@@ -119,7 +133,9 @@ def hold_seats(
         availability = strategy.reserve(db, data.availability_id, data.slots)
         outbox.availability_changed(db, availability)
         booking = Booking(
+            reference=new_reference(),
             user_id=user_id,
+            contact_email=contact_email,
             availability_id=availability.id,
             slots=data.slots,
             status=BookingStatus.PENDING_PAYMENT,
@@ -231,7 +247,9 @@ def _compensate_failed_checkout(db: Session, booking_id: int) -> None:
         availability = lock_availability(db, booking.availability_id)
         booking = lock_booking(db, booking_id)
         if booking.status == BookingStatus.PENDING_PAYMENT:
-            transition(booking, BookingStatus.CANCELLED, reason="checkout_failed")
+            outbox.booking_status_changed(
+                db, booking, transition(booking, BookingStatus.CANCELLED, reason="checkout_failed")
+            )
             _release_seats(db, availability, booking)
             # The attempt left nothing behind, so the client may retry with the same key.
             booking.idempotency_key = None
@@ -317,7 +335,9 @@ def _cancel_hold(
         booking = lock_booking(db, booking_id)
         if booking.status != BookingStatus.PENDING_PAYMENT:
             raise ConflictError(f"Booking is now {booking.status}; please retry", current_status=booking.status)
-        transition(booking, BookingStatus.CANCELLED, reason="customer_cancelled_hold")
+        outbox.booking_status_changed(
+            db, booking, transition(booking, BookingStatus.CANCELLED, reason="customer_cancelled_hold")
+        )
         _release_seats(db, availability, booking)
         payment = _payment_for(db, booking_id)
         if payment is not None and payment.status == PaymentStatus.PENDING:
@@ -350,10 +370,14 @@ def _cancel_confirmed(
         paid = payment is not None and payment.status == PaymentStatus.PAID
         refund_due = paid and refund_eligible(availability.starts_at, settings)
         if refund_due:
-            transition(booking, BookingStatus.REFUNDED, reason="customer_cancelled_full_refund")
+            outbox.booking_status_changed(
+                db, booking, transition(booking, BookingStatus.REFUNDED, reason="customer_cancelled_full_refund")
+            )
             payment.status = PaymentStatus.REFUND_PENDING
         else:
-            transition(booking, BookingStatus.CANCELLED, reason="customer_cancelled_no_refund")
+            outbox.booking_status_changed(
+                db, booking, transition(booking, BookingStatus.CANCELLED, reason="customer_cancelled_no_refund")
+            )
         _release_seats(db, availability, booking)
         total_amount = booking.total_amount
         db.commit()

@@ -18,6 +18,8 @@ class AvailabilityResponse(BaseModel):
     id: int
     tour_id: int
     tour_name: str
+    meeting_point: str | None = None
+    time_zone: str
     starts_at: datetime
     unit_price: Decimal
     currency: str
@@ -51,6 +53,8 @@ class CancellationSummary(BaseModel):
 
 class BookingResponse(BaseModel):
     id: int
+    # What the ticket prints and the customer quotes.
+    reference: str
     availability_id: int
     tour_id: int
     starts_at: datetime
