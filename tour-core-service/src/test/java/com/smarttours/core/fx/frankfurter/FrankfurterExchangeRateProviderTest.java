@@ -49,7 +49,7 @@ class FrankfurterExchangeRateProviderTest {
     static void startAndWarmUp() {
         wireMock.start();
         stub(okJson(ProviderTestSupport.fixture("frankfurter/rates-2026-10-31.json")));
-        provider(ProviderTestSupport.provider(wireMock.baseUrl())).latest("NAD", QUOTES);
+        provider(ProviderTestSupport.warmUp(wireMock.baseUrl())).latest("NAD", QUOTES);
     }
 
     @AfterAll

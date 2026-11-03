@@ -44,6 +44,14 @@ public final class ProviderTestSupport {
         return provider(baseUrl, Duration.ofSeconds(1), 2, 10, Duration.ofSeconds(30), 4, 8);
     }
 
+    /**
+     * For a test class's one warm-up call only: 30 s and 3 attempts, so loading the stacks on a slow or loaded
+     * machine can't fail the warm-up that exists to keep that cost out of the tests' time limits.
+     */
+    public static ProviderProperties warmUp(String baseUrl) {
+        return provider(baseUrl, Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(30), 4, 8);
+    }
+
     public static IntegrationProperties integrations(ProviderProperties frankfurter, ProviderProperties forecast,
                                                      ProviderProperties archive) {
         return new IntegrationProperties(USER_AGENT, frankfurter, forecast, archive);

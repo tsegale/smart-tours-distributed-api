@@ -55,7 +55,7 @@ class OpenMeteoWeatherProviderTest {
     static void startAndWarmUp() {
         wireMock.start();
         stubForecast(okJson(ProviderTestSupport.fixture("open-meteo/forecast-sossusvlei-2026-11-05.json")));
-        provider(ProviderTestSupport.provider(wireMock.baseUrl())).forecast(SOSSUSVLEI, DAY).join();
+        provider(ProviderTestSupport.warmUp(wireMock.baseUrl())).forecast(SOSSUSVLEI, DAY).join();
     }
 
     @AfterAll
