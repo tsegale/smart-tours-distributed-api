@@ -6,13 +6,15 @@ in bash (Git Bash on Windows works). Every step prints what it got next to what 
 Requirements: Docker with Compose v2, `curl`, Python 3 (for `scripts/dev_token.py` and JSON parsing).
 
 Sections 0 to 6 run with the default `PAYMENT_PROVIDER=fake` and need no Stripe account. Section 7 is the
-Stripe test-mode path.
+Stripe test-mode path. Section 2 needs the `ai` profile, section 9 the `chaos` profile and section 10 the
+`notifications` profile; the core stack alone runs everything else.
 
 ```bash
 cp .env.example .env    # then replace every change-me value (openssl rand -base64 48 for JWT_SECRET,
                         # openssl rand -hex 32 for STRIPE_WEBHOOK_SECRET)
-docker compose up --build -d --wait
-docker compose ps       # every service "healthy" or "running"
+python scripts/ticket_keys.py   # once: the check-in token key pair, into secrets/ (git-ignored)
+docker compose --profile ai --profile notifications up --build -d --wait
+docker compose --profile ai --profile notifications ps   # every service "healthy" or "running"
 ```
 
 ## 0. Setup
@@ -348,6 +350,51 @@ The first request after a pause of half a minute or more is about 0.4 s slower o
 a plain tour without weather or currency took 0.49 s through the gateway after 31 s idle, against 0.14 s straight
 from tour-core. So the first page after the breaker's 30 s open state took 0.75 to 1.26 s in three runs, and the
 next ones 0.06 to 0.52 s.
+
+## 10. Notifications: email with a PDF ticket, download, check-in (notifications profile)
+
+Runs after sections 0 to 2 (uses `$T1`). A customer with an email claim books a departure that leaves today, pays
+with the fake provider, gets an email with the PDF ticket in Mailpit, downloads the ticket through the gateway, and
+an operator scans its QR code: the first scan checks in, the second is refused. Needs
+`pip install pypdfium2==5.14.0 zxing-cpp==3.1.1 pillow` for `scripts/read_ticket_qr.py` (the "scanner").
+
+```bash
+docker compose --profile notifications up -d --wait
+MAIL=http://127.0.0.1:8025/api/v1
+CAROL=$(python scripts/dev_token.py --sub carol --email carol@example.com)
+TONIGHT=$(python -c "from datetime import datetime; from zoneinfo import ZoneInfo; print(datetime.now(ZoneInfo('Africa/Windhoek')).replace(hour=23, minute=30, second=0, microsecond=0).isoformat())")
+
+# Today's departure (today in the tour's time zone, so the ticket can be checked in now)
+AV2=$(curl -s -X POST $GW/api/availability -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json'   -d "{\"tour_id\":$T1,\"starts_at\":\"$TONIGHT\",\"total_slots\":6}" | json "d['id']")
+B5=$(curl -s -X POST $GW/api/bookings -H "Authorization: Bearer $CAROL" -H 'Content-Type: application/json'   -d "{\"availability_id\":$AV2,\"slots\":2}" | json "d['id']")
+python scripts/fake_webhook.py --booking $B5                     # pays: CONFIRMED, booking.confirmed in the outbox
+
+# The email, with the ticket attached (bridge -> Celery: render the PDF, store it in MinIO, send)
+wait_for "curl -s '$MAIL/search?query=to:carol@example.com' | json \"d['messages_count']\" | grep -qx 1"
+MSG=$(curl -s "$MAIL/search?query=to:carol@example.com" | json "d['messages'][0]['ID']")
+curl -s $MAIL/message/$MSG | json "d['Subject'], d['MessageID'], [a['FileName'] for a in d['Attachments']]"
+# expect 'Your booking ST-... is confirmed: Sossusvlei Sunrise Dunes', 'confirmation.<id>.st-...@notifications...',
+#        ['ticket-ST-....pdf']
+
+# Download it again through the gateway: a 302 to a 5-minute presigned URL on MinIO
+wait_for "test \$(code $GW/api/bookings/$B5/ticket -H 'Authorization: Bearer $CAROL') = 302"   # ticket.rendered
+LOC=$(curl -s -o /dev/null -w '%{redirect_url}' $GW/api/bookings/$B5/ticket -H "Authorization: Bearer $CAROL")
+echo "$LOC" | cut -c1-80                                         # http://localhost:9000/tickets/tickets/<id>/ST-....pdf?X-Amz-...
+curl -s "$LOC" -o ticket.pdf && head -c 5 ticket.pdf; echo      # expect %PDF-
+echo "someone else:   $(code $GW/api/bookings/$B5/ticket -H "Authorization: Bearer $CUSTOMER")  (expect 404)"
+echo "private bucket: $(code http://127.0.0.1:9000/tickets/${LOC#*tickets/tickets/})  (expect 403 without a signature)"
+
+# Check in with the QR code, twice
+TOKEN=$(python scripts/read_ticket_qr.py ticket.pdf)
+checkin() { curl -s -X POST $GW/api/check-ins -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json'   -d "{\"token\":\"$1\"}"; }
+checkin "$TOKEN" | json "d['reference'], d['slots'], d['checked_in_at']"          # expect ST-..., 2, a timestamp
+checkin "$TOKEN" | json "d['status'], d['type']"                                   # expect 409 .../ticket-already-used
+checkin "${TOKEN%?}x" | json "d['status'], d['type']"                              # expect 422 .../ticket-invalid
+echo "as a customer:  $(code -X POST $GW/api/check-ins -H "Authorization: Bearer $CAROL"   -H 'Content-Type: application/json' -d "{\"token\":\"$TOKEN\"}")  (expect 403)"
+
+# What the service did, one JSON line per step, tied together by booking_id
+docker compose --profile notifications logs notification-worker notification-bridge | grep "\"booking_id\": $B5"
+```
 
 ## Reset
 
