@@ -48,12 +48,10 @@ public class WarmUpRunner implements ApplicationRunner {
     private final WeatherProperties weather;
     private final Clock clock;
     private final MeterRegistry meters;
-    private final RestClient.Builder restClients;
     private volatile Result lastResult;
 
     public WarmUpRunner(ApplicationContext context, ApplicationAvailability availability, JdbcClient jdbc,
-                        WarmUpProperties properties, WeatherProperties weather, Clock clock, MeterRegistry meters,
-                        RestClient.Builder restClients) {
+                        WarmUpProperties properties, WeatherProperties weather, Clock clock, MeterRegistry meters) {
         this.context = context;
         this.availability = availability;
         this.jdbc = jdbc;
@@ -61,7 +59,6 @@ public class WarmUpRunner implements ApplicationRunner {
         this.weather = weather;
         this.clock = clock;
         this.meters = meters;
-        this.restClients = restClients;
     }
 
     /** What the last warm-up did; null if it didn't run. */
@@ -109,11 +106,15 @@ public class WarmUpRunner implements ApplicationRunner {
         log.info("Warm-up finished in {} ms: {} requests, {} failed", lastResult.millis(), sent, failed);
     }
 
+    /**
+     * A plain client, not Spring Boot's observed builder: these calls are not outbound traffic, and observing
+     * them would add an {@code http.client.requests} series per warm-up URL (their dates change daily).
+     */
     private RestClient client(int port) {
         HttpClient http = HttpClient.newBuilder().connectTimeout(properties.requestTimeout()).build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(http);
         factory.setReadTimeout(properties.requestTimeout());
-        return restClients.clone().baseUrl("http://127.0.0.1:" + port).requestFactory(factory).build();
+        return RestClient.builder().baseUrl("http://127.0.0.1:" + port).requestFactory(factory).build();
     }
 
     /**
