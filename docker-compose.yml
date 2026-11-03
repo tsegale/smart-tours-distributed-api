@@ -146,6 +146,7 @@ services:
       FX_REFRESH_ON_STARTUP: ${FX_REFRESH_ON_STARTUP:-true}
       WEATHER_INCLUDE_BUDGET: ${WEATHER_INCLUDE_BUDGET:-400ms}
       WEATHER_REQUEST_BUDGET: ${WEATHER_REQUEST_BUDGET:-3s}
+      ACTUATOR_ACCESS_MAX_PERMITTED: ${ACTUATOR_ACCESS_MAX_PERMITTED:-read-only}
     depends_on:
       tours-db: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }

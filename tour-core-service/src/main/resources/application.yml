@@ -136,6 +136,10 @@ management:
     redis:
       enabled: false
   endpoints:
+    # Read-only: no actuator operation changes state (circuit-breaker transitions included). Only the chaos
+    # profile lifts the cap, so the benchmark can disable a breaker (infra/chaos/chaos.env).
+    access:
+      max-permitted: ${ACTUATOR_ACCESS_MAX_PERMITTED:read-only}
     web:
       exposure:
         # prometheus is for scraping on the internal network: the gateway routes no /actuator path here.
