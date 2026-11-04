@@ -30,9 +30,9 @@ still takes about 6 minutes. That part scales with render processes (`NOTIFICATI
 
 Throughput is the render rate (about 0.75 s of worker time per ticket including storage), unchanged by the split.
 The Phase 5 run's renders were slower than Phase 4's, 457 ms against 377 ms at the median, with the host at 356 MiB
-free against about 700. Rendering alone on an otherwise idle Docker VM (40 renders of the real ticket template in
-one process, 4 runs each) gives 268 ms at the median, so memory pressure and the burst's concurrent load account
-for the rest on this laptop; the comparison between the two runs says nothing about the code.
+free against about 700, so the two runs' render times can't be compared. The figure in these tables is what the
+worker logs: the token, the PDF, the upload to MinIO and the database write. The PDF alone, on an otherwise idle
+Docker VM (40 renders of the real ticket template in one process, 4 runs each), takes 268 ms at the median.
 
 **The "No writable cache directories" message** on every render is fixed, and it was harmless: it cost no measurable
 time. Each font cache recorded its directory's mtime to the nanosecond, the image layer keeps whole seconds, so
