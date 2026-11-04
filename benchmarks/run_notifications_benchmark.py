@@ -7,8 +7,8 @@ Needs the notifications profile running:
     python benchmarks/run_notifications_benchmark.py --events 500 --workers 1,2
     # or one setting per invocation: --workers 1, then --workers 2 --append
 
-Per worker setting (NOTIFICATION_WORKER_CONCURRENCY, Celery prefork processes in one container):
-  1. the worker is recreated with that concurrency and the send rate limit lifted (the default 10/s would measure
+Per worker setting (NOTIFICATION_WORKER_CONCURRENCY, the render worker's Celery prefork processes):
+  1. both workers are recreated, the render worker with that concurrency, and the send rate limit lifted (the default 10/s would measure
      the limit, not the pipeline; see the report);
   2. N events are published to smarttours.events with routing key booking.confirmed, from a container on the
      compose network, so the event's occurredAt and the worker's sent_at come from the same clock (the Docker VM's);
@@ -43,6 +43,7 @@ from run_integrations_benchmark import vm_memory
 REPORT = ROOT / "docs" / "benchmarks" / "notifications.md"
 START, END = "<!-- bench:start -->", "<!-- bench:end -->"
 MAILPIT = "http://127.0.0.1:8025"
+WORKERS = ("notification-worker", "notification-email-worker")
 WATCHED = ("notification-worker", "notification-email-worker", "notification-bridge", "notifications-db", "rabbitmq", "minio", "mailpit")
 
 PUBLISHER = r"""
@@ -132,13 +133,15 @@ def percentile(values: list[float], q: float) -> float:
 
 
 def run_once(concurrency: int, events: int, env_files: list[str], timeout_s: float) -> dict:
-    compose("up", "-d", "--no-deps", "--force-recreate", "--wait", "notification-worker", env_files=env_files)
+    # Both workers: the render pool's size is the variable, and the email worker gets the lifted rate limit.
+    compose("up", "-d", "--no-deps", "--force-recreate", "--wait", *WORKERS, env_files=env_files)
     # Ready means consuming: Celery logs "ready." once the pool is up.
     deadline = time.monotonic() + 120
-    while "ready." not in compose("logs", "--since", "5m", "notification-worker", env_files=env_files, check=False):
-        if time.monotonic() > deadline:
-            raise SystemExit("notification-worker did not become ready")
-        time.sleep(1)
+    for worker in WORKERS:
+        while "ready." not in compose("logs", "--since", "5m", worker, env_files=env_files, check=False):
+            if time.monotonic() > deadline:
+                raise SystemExit(f"{worker} did not become ready")
+            time.sleep(1)
     mailpit_clear()
     first = int(time.time()) * 1000  # booking ids unique per run
     run_id = uuid.uuid4().hex[:8]
@@ -269,7 +272,7 @@ def main() -> None:
     write_report(results, args, (memory_before, memory_after))
     os.environ.pop("NOTIFICATIONS_SEND_RATE_LIMIT")
     os.environ["NOTIFICATION_WORKER_CONCURRENCY"] = "2"
-    compose("up", "-d", "--no-deps", "--force-recreate", "--wait", "notification-worker", env_files=env_files)
+    compose("up", "-d", "--no-deps", "--force-recreate", "--wait", *WORKERS, env_files=env_files)
 
 
 if __name__ == "__main__":
