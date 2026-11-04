@@ -6,3 +6,6 @@ jsonschema==4.26.0
 # jsonschema checks format: date-time only with this installed
 rfc3339-validator==0.1.4
 pypdf==6.21.4
+# Decode the ticket's QR code in tests, as a scanner would
+pypdfium2==5.14.0
+zxing-cpp==3.1.1

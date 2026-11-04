@@ -33,6 +33,8 @@ os.environ.update(
         "RABBITMQ_URL": os.environ["TEST_RABBITMQ_URL"],
         "CELERY_BROKER_URL": os.environ["TEST_CELERY_BROKER_URL"],
         "QUEUE_NAME": "notifications.booking-events.test",
+        # Not the live worker's queue: a running notification-worker would otherwise take these tests' tasks.
+        "CELERY_TASK_QUEUE": "notifications.tasks.test",
         "S3_ENDPOINT_URL": os.environ["TEST_S3_ENDPOINT_URL"],
         "S3_ACCESS_KEY": os.environ.get("TEST_S3_ACCESS_KEY", "smarttours-admin"),
         "S3_SECRET_KEY": os.environ.get("TEST_S3_SECRET_KEY", ""),

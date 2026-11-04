@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     # --- Celery: its own vhost, so task traffic never mixes with domain events (ADR 0014)
     celery_broker_url: str = "amqp://smarttours:change-me-rabbit@127.0.0.1:5672/celery"
+    # Its dead-letter exchange and queue are named after it. Tests use their own, so a running worker can't take
+    # their tasks.
+    celery_task_queue: str = "notifications.tasks"
     task_max_retries: int = Field(default=5, ge=0)
     task_retry_backoff_s: int = Field(default=10, gt=0)
     task_retry_backoff_max_s: int = Field(default=600, gt=0)

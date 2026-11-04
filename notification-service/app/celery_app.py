@@ -26,9 +26,9 @@ from .logs import configure_logging
 
 settings = get_settings()
 
-TASK_QUEUE = "notifications.tasks"
-DEAD_LETTER_EXCHANGE = "notifications.tasks.dlx"
-DEAD_LETTER_QUEUE = "notifications.tasks.dlq"
+TASK_QUEUE = settings.celery_task_queue
+DEAD_LETTER_EXCHANGE = f"{TASK_QUEUE}.dlx"
+DEAD_LETTER_QUEUE = f"{TASK_QUEUE}.dlq"
 
 app = Celery("notifications", broker=settings.celery_broker_url, include=["app.tasks"])
 app.conf.update(

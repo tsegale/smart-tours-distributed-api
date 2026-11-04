@@ -99,6 +99,23 @@ def test_the_pdf_carries_the_reference_tour_and_local_departure():
     assert "Sesriem gate" in text
 
 
+def test_the_qr_code_on_the_pdf_decodes_to_a_token_that_verifies():
+    """The full round trip a guide's scanner makes: render, print, scan, verify."""
+    import pypdfium2
+    import zxingcpp
+
+    booking = snapshot(datetime(2030, 12, 1, 4, 0, tzinfo=UTC))
+    token = issue_token(booking, SIGNING_KEY, "tickets-1", timedelta(hours=24))
+    pdf = render_pdf(booking, token)
+
+    page = pypdfium2.PdfDocument(pdf)[0]
+    [code] = [c for c in zxingcpp.read_barcodes(page.render(scale=200 / 72).to_pil())
+              if c.format == zxingcpp.BarcodeFormat.QRCode]  # fmt: skip
+
+    assert code.text == token.value
+    assert verify(code.text)["ref"] == "ST-7K3Q9P2M"
+
+
 @pytest.mark.parametrize(
     ("utc", "local"),
     [
