@@ -16,7 +16,7 @@ what the QR code holds, and where the PDF lives so the customer can download it 
   verify a login token can mint one, and a leak there is a leak everywhere. The ticket key is asymmetric: only
   notification-service's worker holds the private key (a compose secret); booking-service, which checks tickets,
   holds only the public key and **can verify a ticket but never mint one**. `python scripts/ticket_keys.py`
-  generates the pair into `secrets/` (git-ignored); `--rotate` replaces it.
+  generates the pair into `secrets/` (git-ignored); `--rotate` adds a new one (see the update below).
 - Why a token and not a random code looked up in a table: the scanner's decision needs the signature, the expiry
   and the booking row it already has. A random code would work too (and is revocable by deleting it), but needs a
   table per issued ticket and gives no offline check. The signature also binds the booking to its departure, so a
@@ -57,11 +57,25 @@ it into `booking_tickets`. No service reads another's database (ADR 0001). The r
 after rendering and every 30 s from Beat.
 
 ## Consequences
-- A leaked public key is harmless; a leaked private key lets someone mint valid tickets until the pair is rotated
-  (`--rotate`), which also invalidates every ticket already sent. Key rotation with overlap (several verification
-  keys by `kid`, or a JWKS endpoint) is a Phase 5 item.
+- A leaked public key is harmless; a leaked private key lets someone mint valid tickets until it is rotated and
+  retired, which invalidates the tickets it signed (docs/runbooks/ticket-key-rotation.md).
 - Tickets can't be revoked individually before they expire; cancellation is caught by the `CONFIRMED` check
   instead, which is the case that matters.
 - The download link expires after 5 minutes, so it can't be shared usefully; the customer asks again (rate
   limited at the gateway, 1/s with a burst of 10).
 - One more object store to run, behind the `notifications` profile.
+
+## Update (Phase 5): rotation with an overlap window
+The first version had one key pair: rotating it invalidated every ticket already sent. Now:
+- A key's `kid` is its RFC 7638 JWK thumbprint, so an id can't point at the wrong key and needs no configuration.
+- notification-service publishes the public keys still accepted (the active one and retired ones whose tickets
+  haven't expired) as a JWKS, `GET /.well-known/jwks.json`, internal network only. The render worker refuses to
+  sign with a key that isn't published, so no ticket is ever issued that nothing can verify.
+- booking-service fetches the JWKS, caches it (5 min), and refetches on an unknown kid at most every 30 s, so a
+  rotated key is picked up on its first scan and made-up kids can't make every scan a request. If the JWKS can't be
+  fetched, known keys keep working; an unknown kid then is a 503, not an invalid ticket.
+- Each ticket records its `kid`; a retired key is unpublished once the latest expiry of its tickets has passed.
+
+The private key still lives in exactly one process. Signing through a key-management service, where the key never
+leaves the KMS, would remove even that. Procedure:
+[docs/runbooks/ticket-key-rotation.md](../runbooks/ticket-key-rotation.md).

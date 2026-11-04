@@ -12,7 +12,7 @@ Stripe test-mode path. Section 2 needs the `ai` profile, section 9 the `chaos` p
 ```bash
 cp .env.example .env    # then replace every change-me value (openssl rand -base64 48 for JWT_SECRET,
                         # openssl rand -hex 32 for STRIPE_WEBHOOK_SECRET)
-python scripts/ticket_keys.py   # once: the check-in token key pair, into secrets/ (git-ignored)
+python scripts/ticket_keys.py   # once (and safe to repeat): the check-in signing key, into secrets/ (git-ignored)
 docker compose --profile ai --profile notifications up --build -d --wait
 docker compose --profile ai --profile notifications ps   # every service "healthy" or "running"
 ```

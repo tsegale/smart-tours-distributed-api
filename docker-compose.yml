@@ -226,12 +226,12 @@ services:
       # Only the outbox relay and the ticket listener connect to the broker; the API writes events to the outbox.
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
       # Tickets (ADR 0015): presigned downloads with a read-only MinIO user, signed for the URL the browser uses,
-      # and check-in tokens verified with the public key only. Empty: the ticket endpoints answer 503.
+      # and check-in tokens verified with notification-service's public keys (JWKS, by kid). Without the
+      # notifications profile, downloads and check-in answer 503.
       TICKETS_S3_PUBLIC_ENDPOINT_URL: ${TICKETS_S3_PUBLIC_ENDPOINT_URL:-http://localhost:9000}
       TICKETS_S3_ACCESS_KEY: tickets-reader
       TICKETS_S3_SECRET_KEY: ${TICKETS_READER_SECRET_KEY:-}
-      TICKET_VERIFY_KEY_FILE: /run/secrets/ticket-verify/ticket_verify_key.pem
-    volumes: ["./secrets/ticket-verify:/run/secrets/ticket-verify:ro"]
+      TICKET_JWKS_URL: http://notification-service:8084/.well-known/jwks.json
     depends_on:
       bookings-db: { condition: service_healthy }
     healthcheck:
@@ -475,6 +475,8 @@ services:
       S3_ACCESS_KEY: tickets-writer
       S3_SECRET_KEY: ${TICKETS_WRITER_SECRET_KEY:-}
       TICKET_SIGNING_KEY_FILE: /run/secrets/ticket_signing_key
+      # Public keys only: the API publishes them as a JWKS, the render worker checks its key is among them.
+      TICKET_PUBLIC_KEYS_DIR: /run/ticket-keys
       SEND_RATE_LIMIT: ${NOTIFICATIONS_SEND_RATE_LIMIT:-10/s}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://localhost:8084/health').status != 200)"]
@@ -482,6 +484,7 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+    volumes: ["./secrets/ticket-public:/run/ticket-keys:ro"]
     depends_on:
       notifications-db: { condition: service_healthy }
     deploy:
@@ -516,6 +519,7 @@ services:
       <<: *notification-env
       NOTIFICATION_WORKER_CONCURRENCY: ${NOTIFICATION_WORKER_CONCURRENCY:-2}
     secrets: [ticket_signing_key]
+    volumes: ["./secrets/ticket-public:/run/ticket-keys:ro"]
     depends_on:
       notification-service: { condition: service_healthy }
       rabbitmq-setup: { condition: service_completed_successfully }

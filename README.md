@@ -227,7 +227,7 @@ Requirements: Docker with Compose v2.
 ```bash
 cp .env.example .env                                   # then replace every change-me value
 # a strong JWT secret:  openssl rand -base64 48
-python scripts/ticket_keys.py                          # once: the key pair that signs ticket QR codes
+python scripts/ticket_keys.py                          # once: the key that signs ticket QR codes
 docker compose up --build                              # the core; add profiles for the rest (below)
 ```
 
@@ -377,6 +377,7 @@ booking-service/             FastAPI, SQLAlchemy, Alembic, payments, reviews, ho
 ai-recommendation-service/   FastAPI API + RabbitMQ worker, pgvector
 notification-service/        FastAPI admin API, event bridge, Celery workers and Beat, PDF tickets, email
 docs/adr/                    Architecture decision records
+docs/runbooks/               Operational procedures (ticket key rotation)
 docs/events.md, docs/events/ Every integration event, with its JSON Schema (the producers' contract tests read them)
 docs/benchmarks/             Measured results: locking, search, integrations, notifications, memory
 benchmarks/                  k6 scenarios (booking contention, search, integrations) and the scripts that run them
@@ -386,7 +387,7 @@ scripts/seed_tours.sql       100k realistic tours and departures for search benc
 scripts/dev_token.py         Mint local JWTs (until Keycloak)
 scripts/fake_webhook.py      Send a signed Stripe-format webhook (fake provider)
 scripts/chaos.py             Switch the provider stubs between healthy, slow, errors and dead
-scripts/ticket_keys.py       Generate the Ed25519 key pair for ticket check-in tokens (into secrets/, git-ignored)
+scripts/ticket_keys.py       Ticket check-in signing keys: create, rotate, retire (into secrets/, git-ignored)
 scripts/read_ticket_qr.py    Read the check-in token from a ticket PDF's QR code, as a scanner would
 docker-compose.yml           Local stack: the core by default, optional pieces as profiles
 ```
