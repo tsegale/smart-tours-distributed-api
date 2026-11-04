@@ -5,6 +5,7 @@ Not routed by the gateway: reachable on the internal network only, identity from
 service behind the gateway (ADR 0004).
 """
 
+import json
 import logging
 from collections.abc import Iterator
 from datetime import datetime
@@ -18,6 +19,8 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from . import tickets
+from .config import get_settings
 from .database import SessionLocal, engine
 from .dispatch import dispatch
 from .errors import register_error_handlers
@@ -101,6 +104,25 @@ def health() -> dict[str, str]:
 @app.get("/metrics", include_in_schema=False)
 def metrics() -> Response:
     return Response(content=generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/.well-known/jwks.json", tags=["tickets"])
+def ticket_jwks() -> Response:
+    """The public keys that verify check-in tokens (RFC 7517), chosen by the token's kid. Public by nature, but
+    served on the internal network only: booking-service is the one verifier."""
+    settings = get_settings()
+    try:
+        keys = tickets.published_keys(settings.ticket_public_keys_dir)
+    except (OSError, ValueError) as exc:
+        log.error("jwks.unreadable dir=%s error=%s", settings.ticket_public_keys_dir, exc)
+        keys = []
+    if not keys:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "No ticket verification keys are published")
+    return Response(
+        content=json.dumps({"keys": keys}),
+        media_type="application/jwk-set+json",
+        headers={"Cache-Control": f"public, max-age={settings.jwks_max_age_s}"},
+    )
 
 
 @app.get("/admin/notifications", response_model=list[NotificationView], dependencies=[Depends(require_operator)])

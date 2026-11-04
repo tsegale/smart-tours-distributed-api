@@ -18,7 +18,8 @@ from app.events import parse_booking_event
 from app.intake import record_booking_event
 from app.models import Notification, NotificationStatus, OutboxEvent, Ticket
 from app.tasks import relay_outbox
-from tests.conftest import eventually
+from app.tickets import key_id
+from tests.conftest import SIGNING_KEY, eventually
 from tests.factories import body, booking_event
 
 SCHEMAS = Path(__file__).resolve().parents[2] / "docs" / "events"
@@ -73,6 +74,7 @@ def test_the_rendered_ticket_is_recorded_and_announced_with_the_documented_schem
         ticket = db.get(Ticket, 18)
         [event] = db.execute(select(OutboxEvent.payload)).scalars().all()
     assert ticket.object_key == "tickets/18/ST-00000018.pdf"
+    assert ticket.key_id == key_id(SIGNING_KEY.public_key())  # what the rotation runbook queries
     schema = json.loads((SCHEMAS / "ticket-rendered.schema.json").read_text(encoding="utf-8"))
     errors = list(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(event))
     assert not errors, [e.message for e in errors]

@@ -59,7 +59,10 @@ class Settings(BaseSettings):
     s3_secret_key: str = "change-me-minio"
     tickets_bucket: str = "tickets"
     ticket_signing_key_file: Path = Path("/run/secrets/ticket_signing_key")
-    ticket_key_id: str = "tickets-1"
+    # Public keys check-ins accept (*.pem): the active key's and retired keys' still in their overlap window. The
+    # API publishes them as a JWKS; the render worker refuses to sign with a key that isn't among them.
+    ticket_public_keys_dir: Path = Path("/run/ticket-keys")
+    jwks_max_age_s: int = Field(default=300, gt=0)
     # The token stays valid until this long after departure, for late check-ins on multi-day tours.
     ticket_token_grace_hours: int = Field(default=24, gt=0)
 

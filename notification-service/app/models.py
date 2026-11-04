@@ -111,6 +111,9 @@ class Ticket(Base):
     size_bytes: Mapped[int] = mapped_column(Integer)
     sha256: Mapped[str] = mapped_column(String(64))
     token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # The signing key's kid: a retired key stays published until max(token_expires_at) of its tickets has passed.
+    # NULL for tickets rendered before keys had ids (the first key).
+    key_id: Mapped[str | None] = mapped_column(String(64))
     rendered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

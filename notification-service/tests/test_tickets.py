@@ -10,7 +10,7 @@ from pypdf import PdfReader
 from app.config import get_settings
 from app.emails import compose
 from app.models import BookingSnapshot, NotificationType
-from app.tickets import ALGORITHM, AUDIENCE, ISSUER, issue_token, render_pdf
+from app.tickets import ALGORITHM, AUDIENCE, ISSUER, issue_token, key_id, render_pdf
 from tests.conftest import SIGNING_KEY
 
 PUBLIC_KEY = SIGNING_KEY.public_key()
@@ -45,7 +45,7 @@ def verify(token: str, **options) -> dict:
 def test_the_token_round_trips_with_the_public_key():
     booking = snapshot(datetime(2030, 12, 1, 4, 0, tzinfo=UTC))
 
-    token = issue_token(booking, SIGNING_KEY, "tickets-1", timedelta(hours=24))
+    token = issue_token(booking, SIGNING_KEY, timedelta(hours=24))
     claims = verify(token.value)
 
     assert claims["sub"] == "18"
@@ -53,11 +53,11 @@ def test_the_token_round_trips_with_the_public_key():
     assert claims["aid"] == 7
     assert claims["dep"] == "2030-12-01T04:00:00+00:00"
     assert datetime.fromtimestamp(claims["exp"], UTC) == datetime(2030, 12, 2, 4, 0, tzinfo=UTC)
-    assert jwt.get_unverified_header(token.value)["kid"] == "tickets-1"
+    assert jwt.get_unverified_header(token.value)["kid"] == token.key_id == key_id(PUBLIC_KEY)
 
 
 def test_a_tampered_token_is_refused():
-    token = issue_token(snapshot(datetime(2030, 12, 1, 4, 0, tzinfo=UTC)), SIGNING_KEY, "k", timedelta(hours=24))
+    token = issue_token(snapshot(datetime(2030, 12, 1, 4, 0, tzinfo=UTC)), SIGNING_KEY, timedelta(hours=24))
     header, payload, signature = token.value.split(".")
     forged_payload = jwt.utils.base64url_encode(
         jwt.utils.base64url_decode(payload).replace(b'"sub":"18"', b'"sub":"19"')
@@ -70,7 +70,7 @@ def test_a_tampered_token_is_refused():
 def test_a_token_signed_with_another_key_is_refused():
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-    other = issue_token(snapshot(datetime(2030, 12, 1, 4, 0, tzinfo=UTC)), Ed25519PrivateKey.generate(), "k",
+    other = issue_token(snapshot(datetime(2030, 12, 1, 4, 0, tzinfo=UTC)), Ed25519PrivateKey.generate(),
                         timedelta(hours=24))  # fmt: skip
     with pytest.raises(jwt.InvalidSignatureError):
         verify(other.value)
@@ -78,7 +78,7 @@ def test_a_token_signed_with_another_key_is_refused():
 
 def test_an_expired_token_is_refused():
     departed = snapshot(datetime(2026, 1, 10, 4, 0, tzinfo=UTC))
-    token = issue_token(departed, SIGNING_KEY, "k", timedelta(hours=24), now=datetime(2026, 1, 1, tzinfo=UTC))
+    token = issue_token(departed, SIGNING_KEY, timedelta(hours=24), now=datetime(2026, 1, 1, tzinfo=UTC))
 
     with pytest.raises(jwt.ExpiredSignatureError):
         verify(token.value)
@@ -87,7 +87,7 @@ def test_an_expired_token_is_refused():
 def test_the_pdf_carries_the_reference_tour_and_local_departure():
     # 22:05 UTC on the 1st is 00:05 on the 2nd in Windhoek: the ticket shows the tour's local date.
     booking = snapshot(datetime(2030, 12, 1, 22, 5, tzinfo=UTC))
-    token = issue_token(booking, SIGNING_KEY, "k", timedelta(hours=24))
+    token = issue_token(booking, SIGNING_KEY, timedelta(hours=24))
 
     pdf = render_pdf(booking, token)
 
@@ -105,7 +105,7 @@ def test_the_qr_code_on_the_pdf_decodes_to_a_token_that_verifies():
     import zxingcpp
 
     booking = snapshot(datetime(2030, 12, 1, 4, 0, tzinfo=UTC))
-    token = issue_token(booking, SIGNING_KEY, "tickets-1", timedelta(hours=24))
+    token = issue_token(booking, SIGNING_KEY, timedelta(hours=24))
     pdf = render_pdf(booking, token)
 
     page = pypdfium2.PdfDocument(pdf)[0]

@@ -110,12 +110,9 @@ def render_ticket(self: Task, notification_id: int) -> None:
             return  # nothing to render (send_email decides what to do), or rendered already
     started = datetime.now(UTC)
     try:
-        token = tickets.issue_token(
-            booking,
-            tickets.signing_key(settings.ticket_signing_key_file),
-            settings.ticket_key_id,
-            timedelta(hours=settings.ticket_token_grace_hours),
-        )
+        key = tickets.signing_key(settings.ticket_signing_key_file)
+        tickets.ensure_published(key, settings.ticket_public_keys_dir)  # a crash, not a retry: it needs an operator
+        token = tickets.issue_token(booking, key, timedelta(hours=settings.ticket_token_grace_hours))
         pdf = tickets.render_pdf(booking, token)
         digest = tickets.sha256_hex(pdf)
         key = tickets.object_key(booking)
@@ -134,6 +131,7 @@ def render_ticket(self: Task, notification_id: int) -> None:
                 size_bytes=len(pdf),
                 sha256=digest,
                 token_expires_at=token.expires_at,
+                key_id=token.key_id,
             )
             .on_conflict_do_nothing(index_elements=["booking_id"])
             .returning(Ticket.booking_id)

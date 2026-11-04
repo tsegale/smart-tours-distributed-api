@@ -42,6 +42,7 @@ os.environ.update(
         "SMTP_HOST": os.environ["TEST_SMTP_HOST"],
         "SMTP_PORT": os.environ.get("TEST_SMTP_PORT", "1025"),
         "TICKET_SIGNING_KEY_FILE": str(KEY_DIR / "signing.pem"),
+        "TICKET_PUBLIC_KEYS_DIR": str(KEY_DIR / "public"),
         # Fast retries, so the retry tests take seconds, not minutes.
         "TASK_RETRY_BACKOFF_S": "1",
         "TASK_RETRY_BACKOFF_MAX_S": "2",
@@ -67,6 +68,13 @@ def _write_test_keys() -> Ed25519PrivateKey:
     KEY_DIR.mkdir(parents=True, exist_ok=True)
     (KEY_DIR / "signing.pem").write_bytes(
         key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+    )
+    public = KEY_DIR / "public"
+    public.mkdir(exist_ok=True)
+    for stale in public.glob("*.pem"):
+        stale.unlink()  # keys from an earlier run
+    (public / "active.pem").write_bytes(
+        key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
     )
     return key
 
