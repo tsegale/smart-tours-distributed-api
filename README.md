@@ -1,8 +1,9 @@
 # Smart Tours Distributed API
 
 A polyglot microservices backend for discovering and booking tours in southern Africa. It covers
-cache-backed geospatial and full-text search, overbooking-safe seat inventory, a transactional outbox with
-an event-fed read model, rate limiting at the edge, and semantic recommendations.
+cache-backed geospatial and full-text search, overbooking-safe seat inventory, transactional outboxes with
+an event-fed read model, rate limiting at the edge, booking emails with signed PDF tickets and QR check-in,
+and semantic recommendations.
 
 ![CI](https://github.com/tsegale/smart-tours-distributed-api/actions/workflows/ci.yml/badge.svg)
 
@@ -12,24 +13,32 @@ an event-fed read model, rate limiting at the edge, and semantic recommendations
 flowchart LR
     client([Client]) -->|HTTPS + JWT| gw[API Gateway<br/>Spring Cloud Gateway]
     gw <-->|token buckets| redis[(Redis<br/>rate limits)]
-    gw -->|X-User-Id| tour[tour-core-service<br/>Spring Boot]
-    gw -->|X-User-Id| book[booking-service<br/>FastAPI]
+    gw -->|X-User-Id, X-User-Email| tour[tour-core-service<br/>Spring Boot]
+    gw -->|X-User-Id, X-User-Email| book[booking-service<br/>FastAPI]
     psp([Stripe]) -->|signed webhooks| gw
     gw --> ai[ai-service<br/>FastAPI]
     tour <-->|tour + search cache| cache[(Redis<br/>cache)]
     tour -->|daily rates| fx([Frankfurter])
     tour -->|forecast, archive| meteo([Open-Meteo])
-    book -->|price snapshot| tour
+    book -->|price + meeting point snapshot| tour
     book -->|Checkout, refunds| psp
-    tour --> toursdb[(PostgreSQL + PostGIS<br/>tours, departure read model)]
+    tour --> toursdb[(PostgreSQL + PostGIS<br/>tours, outbox, read model)]
+    tour -. outbox relay, confirms .-> mq
     book --> bookdb[(PostgreSQL<br/>bookings + outbox)]
     sweeper[booking-sweeper] --> bookdb
     relay[booking-outbox-relay] -->|polls the outbox| bookdb
-    relay -- availability.changed<br/>review.submitted --> mq{{RabbitMQ<br/>smarttours.events}}
-    tour -- tour.created<br/>tour.updated --> mq
+    relay -- availability.changed, review.submitted<br/>booking.confirmed / cancelled / refunded / hold_expired --> mq{{RabbitMQ<br/>smarttours.events}}
     mq -- availability.changed<br/>review.submitted --> tour
     mq -- tour.* --> worker[ai-worker] --> aidb[(PostgreSQL<br/>+ pgvector)]
     ai --> aidb
+    mq -- booking.* --> bridge[notification-bridge]
+    bridge --> notifdb[(PostgreSQL<br/>notifications + outbox)]
+    bridge -->|Celery tasks, vhost celery| celery[notification-worker<br/>Celery + Beat]
+    celery -->|PDF tickets| minio[(MinIO<br/>private bucket)]
+    celery -->|SMTP| mailpit([Mailpit])
+    celery -- ticket.rendered --> mq
+    mq -- ticket.rendered --> tl[booking-ticket-listener] --> bookdb
+    client -. presigned URL .-> minio
 ```
 
 | Service | Stack | Responsibility |
@@ -38,6 +47,9 @@ flowchart LR
 | **tour-core-service** | Java 21, Spring Boot 4, JPA + jOOQ, PostGIS, Flyway, Redis, Resilience4j | Catalogue with optimistic concurrency (ETag / If-Match) and one search endpoint (geo, full text, facets, ratings, date availability) with keyset pagination and Redis caching. Keeps a read model of departures and ratings fed by booking events. Display prices in five currencies and departure weather from external APIs, behind per-provider resilience policies. |
 | **booking-service** | Python 3.12, FastAPI, SQLAlchemy 2, Alembic, Stripe SDK | Departures with price snapshots, seat holds, Stripe Checkout, signed webhooks, cancellation, refunds and verified reviews. Every seat change writes an event to a transactional outbox; separate processes expire holds and relay the outbox. |
 | **ai-recommendation-service** | Python 3.12, FastAPI, sentence-transformers, pgvector | Embeds tours from events (separate worker process). "Similar tours" and natural-language search. |
+| **notification-service** | Python 3.12, FastAPI, Celery, RabbitMQ, WeasyPrint, MinIO (boto3), SMTP | Turns booking lifecycle events into emails: PDF e-tickets with a signed QR check-in code, cancellations, refunds, expired holds and day-before reminders. An event bridge records each event idempotently and hands the work to Celery workers on their own RabbitMQ vhost. |
+
+Every integration event, its producer, consumers and JSON Schema: [`docs/events.md`](docs/events.md).
 
 Key decisions are recorded in [`docs/adr`](docs/adr/README.md).
 
@@ -159,6 +171,8 @@ sequenceDiagram
 | `GET /api/bookings/me`, `GET /api/bookings/{id}` | owner | Booking, payment status, hold expiry |
 | `POST /api/bookings/{id}/cancel` | owner | Release a hold, or cancel under the refund policy (explained in `cancellation`) |
 | `POST /api/bookings/{id}/review` | owner | Rate a confirmed trip once it has started (1 to 5, once); feeds the tour's average in tour-core |
+| `GET /api/bookings/{id}/ticket` | owner | 302 to a 5-minute presigned URL for the PDF ticket; 404 `ticket-not-ready` until it is rendered |
+| `POST /api/check-ins` | OPERATOR | Scan a ticket's QR token: accepted once, on the day of departure in the tour's time zone ([ADR 0015](docs/adr/0015-signed-qr-check-in-tokens-and-object-storage.md)) |
 | `POST /webhooks/stripe` | Stripe (public, signature-verified) | Payment events |
 
 ## Engineering highlights
@@ -198,7 +212,8 @@ sequenceDiagram
   lost update that happens without the lock, and a `CHECK` constraint backs up the application logic.
 - **Idempotent writes.** `Idempotency-Key` on bookings: a retried request returns the original booking instead
   of charging twice.
-- **Database per service.** Three PostgreSQL instances, each schema owned by its own migrations (Flyway / Alembic).
+- **Database per service.** One PostgreSQL database per service, each schema owned by its own migrations
+  (Flyway / Alembic).
 - **Resilient messaging.** Typed events with ids, consumer-owned quorum queues, a TTL retry queue and a
   dead-letter queue, so a malformed message can't block the pipeline.
 - **Security at the edge.** Standard OAuth2 resource server (Keycloak-ready). Identity is never taken from
@@ -212,10 +227,29 @@ Requirements: Docker with Compose v2.
 ```bash
 cp .env.example .env                                   # then replace every change-me value
 # a strong JWT secret:  openssl rand -base64 48
-docker compose up --build
+python scripts/ticket_keys.py                          # once: the key pair that signs ticket QR codes
+docker compose up --build                              # the core; add profiles for the rest (below)
 ```
 
-The first build downloads the embedding model (~90 MB) into a volume. After that, start-up takes seconds.
+### Profiles
+
+The default `docker compose up` is the core (gateway, tour-core, booking with its sweeper and relay, their
+databases, RabbitMQ, two Redis); everything optional is a profile, so the core fits on an 8 GB laptop. Every
+container has a memory limit ([memory](docs/benchmarks/notifications.md#memory-budget)).
+
+| Profile | Adds | For |
+| --- | --- | --- |
+| *(none)* | the core | search, booking, payments with the fake provider, sections 0 to 8 of the smoke test |
+| `ai` | ai-service, ai-worker, ai-db | recommendations and semantic search; the first build downloads the embedding model (~90 MB) |
+| `notifications` | notification-service, -bridge, -worker, -beat, notifications-db, MinIO, Mailpit, booking-ticket-listener | emails (http://localhost:8025), PDF tickets, check-in |
+| `flower` | Flower, Celery's dashboard (http://localhost:5555) | with `notifications` |
+| `payments` | Stripe CLI webhook forwarding | Stripe test mode |
+| `chaos` | WireMock provider stubs (with `--env-file infra/chaos/chaos.env`) | the integrations benchmark, provider faults |
+
+```bash
+docker compose --profile notifications up -d --wait     # the core plus notifications
+docker compose --profile ai --profile notifications up   # everything
+```
 
 ### Try it
 
@@ -268,6 +302,12 @@ payments see [docs/smoke-test.md](docs/smoke-test.md#7-stripe-test-mode).
 | `FX_REFRESH_CRON`, `FX_REFRESH_ON_STARTUP` | `0 15 18 * * *`, `true` | Daily refresh (Africa/Windhoek, one instance via ShedLock), and at start-up if none today |
 | `WEATHER_INCLUDE_BUDGET`, `WEATHER_REQUEST_BUDGET` | `400ms`, `3s` | How long tour detail and `/weather` wait for Open-Meteo ([ADR 0012](docs/adr/0012-resilience-policy-for-outbound-calls.md)) |
 | `FRANKFURTER_BASE_URL`, `OPEN_METEO_*_BASE_URL` | the public APIs | Provider endpoints; `infra/chaos/chaos.env` points them at the WireMock stubs |
+| `OPEN_METEO_API_KEY` | empty | Commercial Open-Meteo: switches to the customer hosts with the key |
+| `WARM_UP_ENABLED` | `true` | tour-core sends its hot requests to itself before reporting ready |
+| `NOTIFICATIONS_DB_*`, `MINIO_ROOT_*`, `TICKETS_WRITER_SECRET_KEY`, `TICKETS_READER_SECRET_KEY` | none, required for `notifications` | notification-service's database, object storage and its two least-privilege users |
+| `NOTIFICATION_WORKER_CONCURRENCY`, `NOTIFICATIONS_SEND_RATE_LIMIT` | `2`, `10/s` | Celery processes per worker container, and the per-worker email rate limit |
+| `TICKETS_S3_PUBLIC_ENDPOINT_URL` | `http://localhost:9000` | Where the browser reaches object storage: presigned ticket URLs are signed for this host |
+| `FLOWER_BASIC_AUTH` | none, required for `flower` | `user:password` for Flower |
 
 ## Running the tests
 
@@ -304,7 +344,17 @@ python benchmarks/run_search_benchmark.py --seed   # 100k tours; cold vs warm ca
 python benchmarks/run_integrations_benchmark.py    # tour page while providers are slow or dead (chaos profile)
 ```
 
-CI runs all of this on every push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+notification-service's tests need WeasyPrint's system libraries, so they run in its test image against the
+notifications profile (real Postgres, RabbitMQ, MinIO and Mailpit, and a real Celery worker):
+
+```bash
+docker compose --profile notifications up -d --wait
+docker build --target test -t notification-service:test notification-service
+# then docker run it on the compose network with TEST_* variables: see notification-service/tests/conftest.py
+```
+
+Each producer's tests validate the events it publishes against `docs/events/*.schema.json`. CI runs all of this on
+every push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Roadmap
 
@@ -314,7 +364,7 @@ CI runs all of this on every push: [`.github/workflows/ci.yml`](.github/workflow
 | 1 | Booking core: payment hold → Stripe Checkout → signed webhooks → confirm/expire; locking benchmark with k6 | Done |
 | 2 | Search and caching: dynamic filters, distance sort, keyset pagination, CQRS availability, Redis, rate limiting | Done |
 | 3 | Integrations: currency (Frankfurter, NAD base) and weather (Open-Meteo) behind Resilience4j, chaos profile | Done |
-| 4 | Async workers: tour-core outbox (booking-service's landed in Phase 2), notification-service (Celery), PDF tickets, Mailpit | |
+| 4 | Async workers: tour-core outbox, booking lifecycle events, notification-service (Celery), PDF tickets with QR check-in, compose profiles | Done |
 | 5 | Production ops: Keycloak, OpenTelemetry + Grafana, live deployment with TLS | |
 | 6 | AI: hybrid pgvector + PostGIS search, RAG itinerary generation | |
 
@@ -325,13 +375,18 @@ api-gateway/                 Spring Cloud Gateway, security
 tour-core-service/           Spring Boot, PostGIS, Flyway
 booking-service/             FastAPI, SQLAlchemy, Alembic, payments, reviews, hold sweeper, outbox relay
 ai-recommendation-service/   FastAPI API + RabbitMQ worker, pgvector
+notification-service/        FastAPI admin API, event bridge, Celery workers and Beat, PDF tickets, email
 docs/adr/                    Architecture decision records
-docs/benchmarks/             Measured results: locking under contention, search plans and load tests
+docs/events.md, docs/events/ Every integration event, with its JSON Schema (the producers' contract tests read them)
+docs/benchmarks/             Measured results: locking, search, integrations, notifications, memory
 benchmarks/                  k6 scenarios (booking contention, search, integrations) and the scripts that run them
 infra/chaos/                 WireMock stubs for Frankfurter and Open-Meteo with switchable faults (compose profile chaos)
+infra/minio/                 The tickets bucket and its least-privilege users (compose profile notifications)
 scripts/seed_tours.sql       100k realistic tours and departures for search benchmarks (dev only)
 scripts/dev_token.py         Mint local JWTs (until Keycloak)
 scripts/fake_webhook.py      Send a signed Stripe-format webhook (fake provider)
 scripts/chaos.py             Switch the provider stubs between healthy, slow, errors and dead
-docker-compose.yml           Full local stack
+scripts/ticket_keys.py       Generate the Ed25519 key pair for ticket check-in tokens (into secrets/, git-ignored)
+scripts/read_ticket_qr.py    Read the check-in token from a ticket PDF's QR code, as a scanner would
+docker-compose.yml           Local stack: the core by default, optional pieces as profiles
 ```
