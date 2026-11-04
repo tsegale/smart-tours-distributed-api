@@ -9,7 +9,7 @@ of confirmed bookings turns into emails with PDF tickets, and what the stack cos
 **Not measured yet.** The run (500 `booking.confirmed` events, 1 and 2 worker processes) was stopped twice on
 2026-11-04 before it finished, both times because the 8 GB laptop ran critically low on memory with the
 notifications profile up. One measured data point so far, from the smoke test: a single confirmation on a cold
-worker rendered its PDF in 8.6 s and was sent 14 s after the event.
+worker rendered its PDF in 8.6 s and was sent 13.7 s after the bridge recorded the event (worker and bridge logs).
 
 <!-- bench:start -->
 <!-- bench:end -->
