@@ -2,9 +2,12 @@
 FROM python:3.12-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
-# WeasyPrint renders with Pango and HarfBuzz; DejaVu is the ticket's font.
+# WeasyPrint renders with Pango and HarfBuzz; DejaVu is the ticket's font. The font cache is built here, as root:
+# the app user has no home directory, so without a system cache fontconfig would rescan the fonts at run time.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
+    fontconfig \
+ && fc-cache -f \
  && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
