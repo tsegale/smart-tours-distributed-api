@@ -29,7 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * database, and the failures must show up in {@code cache.errors}. Uses a Redis of its own, so
  * stopping it can't affect the other tests (hence not extending {@code IntegrationTest}).
  */
-@SpringBootTest
+// The RabbitMQ is shared, so its queues must be declared with the same retry TTL as IntegrationTest's.
+@SpringBootTest(properties = "smarttours.messaging.retry-delay=1s")
 @AutoConfigureMockMvc
 @ImportTestcontainers(SharedContainers.class)
 @Testcontainers(disabledWithoutDocker = true)
