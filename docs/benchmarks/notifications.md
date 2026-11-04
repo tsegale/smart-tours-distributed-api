@@ -6,10 +6,36 @@ of confirmed bookings turns into emails with PDF tickets, and what the stack cos
 
 ## Delivery under a burst
 
-**Not measured yet.** The run (500 `booking.confirmed` events, 1 and 2 worker processes) was stopped twice on
-2026-11-04 before it finished, both times because the 8 GB laptop ran critically low on memory with the
-notifications profile up. One measured data point so far, from the smoke test: a single confirmation on a cold
-worker rendered its PDF in 8.6 s and was sent 13.7 s after the bridge recorded the event (worker and bridge logs).
+`benchmarks/run_notifications_benchmark.py`, 2026-11-04: 500 `booking.confirmed` events published at once to
+`smarttours.events` from a container on the compose network, each with a contact email, so each one renders a PDF
+ticket (WeasyPrint), stores it in MinIO and sends one email with the PDF attached to Mailpit. Latency is the
+event's `occurredAt` to the notification's `sent_at`, both from the Docker VM's clock. The send rate limit was
+lifted for the run; the core services were stopped (they are not on this path).
+
+| Worker processes | Sent | Failed | p50 (s) | p95 (s) | p99 (s) | Max (s) | Throughput (emails/s) | PDF render p50 / p95 (ms) |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | 500 | 0 | 343.9 | 352.2 | 352.8 | 352.8 | 1.37 | 377 / 1,084 |
+| 2 | not measured | | | | | | | |
+
+Read the latency as queueing, not as per-email cost: a burst of 500 puts 500 `render_ticket` tasks into one FIFO
+queue, each enqueues its `send_email` behind the remaining renders, so almost every email waits for almost every
+render. One email costs about 0.7 s of worker time (1 / 1.37 emails/s), roughly half of it the PDF. With the
+Phase 4 design that cost is the number to scale on; a separate queue for `send_email` (served first) would turn
+the 344 s p50 into "render time of the emails ahead of you", and is listed under what to tighten.
+
+What was not measured, and why:
+- **2 worker processes.** Two attempts on the 8 GB laptop ended with the host at 75 to 85 MiB free and Windows
+  compressing the Docker VM's memory (3.8 GB in Memory Compression, the VM's working set down to 263 MiB). Renders
+  slowed from 377 ms to 1 to 4 s, so the run measured the laptop's paging, not the pipeline. It was stopped and its
+  rows removed.
+- **Peak memory per container during the run.** The sampler thread crashed at the end of the 1-process run (a bug
+  in the script, since fixed), so only the idle figures below exist.
+- The 1-process run used the image before the font cache fix (fontconfig had no cache, see the commit history);
+  render times after the fix were not measured under load.
+
+The smoke test gives the single-email case: one confirmation on a cold worker rendered its PDF in 8.6 s and was
+sent 13.7 s after the bridge recorded the event (worker and bridge logs); a warm render of the same ticket takes
+about 0.4 s.
 
 <!-- bench:start -->
 <!-- bench:end -->
