@@ -33,7 +33,7 @@ flowchart LR
     ai --> aidb
     mq -- booking.* --> bridge[notification-bridge]
     bridge --> notifdb[(PostgreSQL<br/>notifications + outbox)]
-    bridge -->|Celery tasks, vhost celery| celery[notification-worker<br/>Celery + Beat]
+    bridge -->|Celery tasks, vhost celery| celery[notification workers<br/>render, email, Beat]
     celery -->|PDF tickets| minio[(MinIO<br/>private bucket)]
     celery -->|SMTP| mailpit([Mailpit])
     celery -- ticket.rendered --> mq
@@ -305,7 +305,7 @@ payments see [docs/smoke-test.md](docs/smoke-test.md#7-stripe-test-mode).
 | `OPEN_METEO_API_KEY` | empty | Commercial Open-Meteo: switches to the customer hosts with the key |
 | `WARM_UP_ENABLED` | `true` | tour-core sends its hot requests to itself before reporting ready |
 | `NOTIFICATIONS_DB_*`, `MINIO_ROOT_*`, `TICKETS_WRITER_SECRET_KEY`, `TICKETS_READER_SECRET_KEY` | none, required for `notifications` | notification-service's database, object storage and its two least-privilege users |
-| `NOTIFICATION_WORKER_CONCURRENCY`, `NOTIFICATIONS_SEND_RATE_LIMIT` | `2`, `10/s` | Celery processes per worker container, and the per-worker email rate limit |
+| `NOTIFICATION_WORKER_CONCURRENCY`, `NOTIFICATION_EMAIL_WORKER_CONCURRENCY`, `NOTIFICATIONS_SEND_RATE_LIMIT` | `2`, `2`, `10/s` | Celery processes in the render worker and in the email worker, and the per-worker email rate limit |
 | `TICKETS_S3_PUBLIC_ENDPOINT_URL` | `http://localhost:9000` | Where the browser reaches object storage: presigned ticket URLs are signed for this host |
 | `FLOWER_BASIC_AUTH` | none, required for `flower` | `user:password` for Flower |
 

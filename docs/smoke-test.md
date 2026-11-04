@@ -393,7 +393,7 @@ checkin "${TOKEN%?}x" | json "d['status'], d['type']"                           
 echo "as a customer:  $(code -X POST $GW/api/check-ins -H "Authorization: Bearer $CAROL"   -H 'Content-Type: application/json' -d "{\"token\":\"$TOKEN\"}")  (expect 403)"
 
 # What the service did, one JSON line per step, tied together by booking_id
-docker compose --profile notifications logs notification-worker notification-bridge | grep "\"booking_id\": $B5"
+docker compose --profile notifications logs notification-worker notification-email-worker notification-bridge | grep "\"booking_id\": $B5"
 ```
 
 ## Reset

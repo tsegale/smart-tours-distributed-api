@@ -505,13 +505,13 @@ services:
           memory: 128M
     restart: unless-stopped
 
-  # Renders PDFs and sends email. Prefork pool; NOTIFICATION_WORKER_CONCURRENCY processes (the benchmark compares 1
-  # and 2). Scale out with --scale notification-worker=N.
+  # Renders PDF tickets: the render queue only. Prefork pool; NOTIFICATION_WORKER_CONCURRENCY processes (the
+  # benchmark compares 1 and 2). Scale out with --scale notification-worker=N. The only reader of the signing key.
   notification-worker:
     image: smarttours/notification-service:local
     pull_policy: never
     profiles: [notifications]
-    command: ["sh", "-c", "exec celery -A app.celery_app worker --loglevel=INFO --concurrency=$${NOTIFICATION_WORKER_CONCURRENCY:-2} --max-memory-per-child=200000"]
+    command: ["sh", "-c", "exec celery -A app.celery_app worker --hostname=render@%h --queues=$${CELERY_TASK_QUEUE:-notifications.tasks}.render --loglevel=INFO --concurrency=$${NOTIFICATION_WORKER_CONCURRENCY:-2} --max-memory-per-child=200000"]
     environment:
       <<: *notification-env
       NOTIFICATION_WORKER_CONCURRENCY: ${NOTIFICATION_WORKER_CONCURRENCY:-2}
@@ -520,11 +520,30 @@ services:
       notification-service: { condition: service_healthy }
       rabbitmq-setup: { condition: service_completed_successfully }
       minio-setup: { condition: service_completed_successfully }
-      mailpit: { condition: service_started }
     deploy:
       resources:
         limits:
           memory: 512M
+    restart: unless-stopped
+
+  # Sends email (its own queue, so emails never wait behind a render backlog) and runs Beat's short jobs.
+  notification-email-worker:
+    image: smarttours/notification-service:local
+    pull_policy: never
+    profiles: [notifications]
+    command: ["sh", "-c", "exec celery -A app.celery_app worker --hostname=email@%h --queues=$${CELERY_TASK_QUEUE:-notifications.tasks}.email,$${CELERY_TASK_QUEUE:-notifications.tasks} --loglevel=INFO --concurrency=$${NOTIFICATION_EMAIL_WORKER_CONCURRENCY:-2} --max-memory-per-child=150000"]
+    environment:
+      <<: *notification-env
+      NOTIFICATION_EMAIL_WORKER_CONCURRENCY: ${NOTIFICATION_EMAIL_WORKER_CONCURRENCY:-2}
+    depends_on:
+      notification-service: { condition: service_healthy }
+      rabbitmq-setup: { condition: service_completed_successfully }
+      minio-setup: { condition: service_completed_successfully }
+      mailpit: { condition: service_started }
+    deploy:
+      resources:
+        limits:
+          memory: 384M
     restart: unless-stopped
 
   # Beat must be a singleton: two schedulers enqueue every job twice. The tasks are idempotent (a second reminder

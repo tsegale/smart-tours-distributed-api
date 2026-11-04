@@ -91,3 +91,18 @@ SendGrid adapter implements the same protocol and is chosen by configuration.
 - Two RabbitMQ consumers' worth of topology to operate (the bridge's queue, retry queue and DLQ, and Celery's
   queue and DLQ), all visible in the management UI and in Flower (`--profile flower`).
 - Duplicate emails remain possible in one narrow window (above) and are made recognisable, not impossible.
+
+## Update (Phase 5): renders and emails on separate queues
+The Phase 4 benchmark put every task on one FIFO queue: 500 confirmations queued 500 renders, each render's email
+went in behind the remaining renders, and the median email arrived 344 s after its event. Since Phase 5 there are
+three queues on the same broker, each dead-lettering into the same DLQ:
+
+| Queue | Tasks | Worker |
+| --- | --- | --- |
+| `notifications.tasks.render` | `render_ticket` | `notification-worker` (the only process with the signing key) |
+| `notifications.tasks.email` | `send_email` | `notification-email-worker` |
+| `notifications.tasks` | Beat's reminder, re-dispatch and outbox jobs | `notification-email-worker` |
+
+A confirmation is still a chain (render, then send) per booking, so its email is published when its own ticket is
+rendered and then waits only for other emails. Renders scale with `notification-worker`, sends with
+`notification-email-worker`, independently. Numbers before and after: docs/benchmarks/notifications.md.

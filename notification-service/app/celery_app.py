@@ -11,7 +11,14 @@ Hardening:
 - worker_prefetch_multiplier=1: a worker holds one message per process, so a slow PDF doesn't park others behind it.
 - Retries with exponential backoff and jitter, for transient errors only (app.tasks).
 
-The task queue is a classic durable queue with a dead-letter exchange. Quorum queues would need Celery's native
+Three queues, so slow work never delays fast work:
+- <base>.render: render_ticket only, served by its own worker pool (notification-worker in compose).
+- <base>.email: send_email only, served by notification-email-worker. A burst of 500 confirmations queues 500
+  renders, but each email is enqueued by its own booking's render (a chain) and then waits only for other emails.
+- <base>: everything else (Beat's reminder, re-dispatch and outbox jobs, all short), also notification-email-worker.
+All three dead-letter into one DLQ; a dead-lettered message's x-death header names the queue it came from.
+
+The queues are classic durable queues with a dead-letter exchange. Quorum queues would need Celery's native
 delayed delivery for countdown retries; for one worker pool on one broker that buys nothing yet.
 """
 
@@ -27,8 +34,21 @@ from .logs import configure_logging
 settings = get_settings()
 
 TASK_QUEUE = settings.celery_task_queue
+RENDER_QUEUE = f"{TASK_QUEUE}.render"
+EMAIL_QUEUE = f"{TASK_QUEUE}.email"
 DEAD_LETTER_EXCHANGE = f"{TASK_QUEUE}.dlx"
 DEAD_LETTER_QUEUE = f"{TASK_QUEUE}.dlq"
+
+
+def _queue(name: str) -> Queue:
+    return Queue(
+        name,
+        Exchange(TASK_QUEUE, type="direct", durable=True),
+        routing_key=name,
+        durable=True,
+        queue_arguments={"x-dead-letter-exchange": DEAD_LETTER_EXCHANGE},
+    )
+
 
 app = Celery("notifications", broker=settings.celery_broker_url, include=["app.tasks"])
 app.conf.update(
@@ -44,15 +64,11 @@ app.conf.update(
     task_default_queue=TASK_QUEUE,
     task_default_exchange=TASK_QUEUE,
     task_default_routing_key=TASK_QUEUE,
-    task_queues=(
-        Queue(
-            TASK_QUEUE,
-            Exchange(TASK_QUEUE, type="direct", durable=True),
-            routing_key=TASK_QUEUE,
-            durable=True,
-            queue_arguments={"x-dead-letter-exchange": DEAD_LETTER_EXCHANGE},
-        ),
-    ),
+    task_queues=(_queue(TASK_QUEUE), _queue(RENDER_QUEUE), _queue(EMAIL_QUEUE)),
+    task_routes={
+        "notifications.render_ticket": {"queue": RENDER_QUEUE},
+        "notifications.send_email": {"queue": EMAIL_QUEUE},
+    },
     broker_connection_retry_on_startup=True,
     worker_hijack_root_logger=False,
     timezone="UTC",

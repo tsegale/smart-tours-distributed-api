@@ -73,7 +73,7 @@ def _write_test_keys() -> Ed25519PrivateKey:
 
 SIGNING_KEY = _write_test_keys()
 
-from app.celery_app import TASK_QUEUE, declare_dead_letter_queue  # noqa: E402
+from app.celery_app import EMAIL_QUEUE, RENDER_QUEUE, TASK_QUEUE, declare_dead_letter_queue  # noqa: E402
 from app.celery_app import app as celery_app  # noqa: E402
 from app.database import engine  # noqa: E402
 
@@ -113,8 +113,10 @@ def celery_worker() -> Iterator[object]:
     """A real Celery worker on the real broker, in this process (one thread, solo pool)."""
     declare_dead_letter_queue()
     with celery_app.connection_for_write() as connection:
-        if _queue_exists(connection, TASK_QUEUE):
-            connection.default_channel.queue_purge(TASK_QUEUE)  # tasks left over from an earlier run
+        for queue in (TASK_QUEUE, RENDER_QUEUE, EMAIL_QUEUE):
+            if _queue_exists(connection, queue):
+                connection.default_channel.queue_purge(queue)  # tasks left over from an earlier run
+    # Consumes all three queues, as the two compose workers do between them.
     with start_worker(celery_app, pool="solo", concurrency=1, perform_ping_check=False, shutdown_timeout=30) as worker:
         yield worker
 

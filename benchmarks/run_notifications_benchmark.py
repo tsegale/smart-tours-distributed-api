@@ -43,7 +43,7 @@ from run_integrations_benchmark import vm_memory
 REPORT = ROOT / "docs" / "benchmarks" / "notifications.md"
 START, END = "<!-- bench:start -->", "<!-- bench:end -->"
 MAILPIT = "http://127.0.0.1:8025"
-WATCHED = ("notification-worker", "notification-bridge", "notifications-db", "rabbitmq", "minio", "mailpit")
+WATCHED = ("notification-worker", "notification-email-worker", "notification-bridge", "notifications-db", "rabbitmq", "minio", "mailpit")
 
 PUBLISHER = r"""
 import json, os, sys, uuid
