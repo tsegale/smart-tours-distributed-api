@@ -79,7 +79,10 @@ price 1.0 / 1.0, serialisation and write 5.3 / 24.6. Three minor GC pauses in 30
   8 GB laptop; on a host with spare memory, G1 and more CPU for the container are worth measuring again.
 - **The weather stage can exceed the 400 ms include budget.** The budget bounds the wait for the provider, not
   the Redis reads and writes around it, each of which may take up to its 250 ms timeout. Run A's weather p99
-  was 1.3 s. Bounding the whole stage is listed in the Phase 5 to-do.
+  was 1.3 s. Since Phase 5 the whole stage has one budget: the departure query, the cache read and the provider
+  wait share one deadline, and the step is cut off at 400 ms even if a synchronous call overruns
+  (`DepartureWeather`, tested by `WeatherBudgetTest`; the cut-offs are counted in `weather.stage.over.budget`).
+  This run's numbers are from before that change.
 
 ## First request after a restart (Phase 4 warm-up)
 

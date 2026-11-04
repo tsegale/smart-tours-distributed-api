@@ -84,6 +84,10 @@ retries at once; the time limit is per attempt; the call runs on the provider's 
 - **How long callers wait** is decided per call site, not by the policy: tour detail with `include=weather` waits
   **400 ms** (`WEATHER_INCLUDE_BUDGET`) and then answers without weather; `GET /weather` waits **3 s**, one
   attempt and the start of a retry. A fetch that outlives the caller's wait carries on and fills the cache for the next one.
+  The budget covers the **whole step** (Phase 5): finding the departure, the cache read and the provider wait share
+  one deadline, so a slow Redis read shortens the provider wait instead of adding to it, and tour detail stops
+  waiting at the budget even if a synchronous call overruns it (the step runs on a virtual thread; the cut-off
+  answers `weatherStatus: "unavailable"` and is counted in `weather.stage.over.budget`).
 
 ### Fallback order
 Exchange rates: in-process copy, Redis, database, then no display price with the reason (ADR 0011). A provider

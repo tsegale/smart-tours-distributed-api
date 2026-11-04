@@ -20,12 +20,13 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Weather for a departure date at a tour's location. The tour page must never fail or slow down because of
- * weather, so a lookup never throws (except for a past date, the caller's mistake) and never waits longer
- * than the caller's budget:
+ * weather, so a lookup never throws (except for a past date, the caller's mistake) and never waits past the
+ * caller's deadline, which covers the whole lookup, the cache read included:
  * <ol>
  *   <li>a fresh cache entry is returned at once;</li>
- *   <li>otherwise one fetch per key and instance is started (concurrent misses share it), and awaited up to
- *       the budget. A fetch that outlives the budget carries on in the background and fills the cache;</li>
+ *   <li>otherwise one fetch per key and instance is started (concurrent misses share it), and awaited for
+ *       what is left until the deadline. A fetch that outlives it carries on in the background and fills the
+ *       cache;</li>
  *   <li>if it fails or isn't done in time, the expired entry is served marked stale, if there is one;</li>
  *   <li>else {@code weather: null, weatherStatus: unavailable}.</li>
  * </ol>
@@ -56,6 +57,10 @@ public class WeatherService {
     }
 
     public WeatherLookup lookup(double latitude, double longitude, LocalDate date, Duration budget) {
+        return lookup(latitude, longitude, date, Deadline.after(budget));
+    }
+
+    public WeatherLookup lookup(double latitude, double longitude, LocalDate date, Deadline deadline) {
         LocalDate today = today();
         if (date.isBefore(today)) {
             throw new InvalidParameterException("date", "date " + date + " is in the past (today is " + today
@@ -77,15 +82,17 @@ public class WeatherService {
         CompletableFuture<WeatherReport> fetch = flights.run(key, () -> forecast
                 ? fetchForecast(key, cell, date)
                 : fetchClimateNormal(key, cell, date, windows));
-        // A copy, so the time-out only ends this caller's wait, not the shared fetch.
+        // A copy, so the time-out only ends this caller's wait, not the shared fetch. The cache read above has
+        // already spent part of the budget: only the rest is waited for.
+        Duration wait = deadline.remaining();
         return fetch.copy()
-                .orTimeout(budget.toMillis(), TimeUnit.MILLISECONDS)
+                .orTimeout(wait.toNanos(), TimeUnit.NANOSECONDS)
                 .handle((report, failure) -> {
                     if (failure == null) {
                         count(type, "fetched");
                         return WeatherLookup.ok(report);
                     }
-                    log.debug("Weather for {} unavailable within {}: {}", key, budget, Failures.unwrap(failure).toString());
+                    log.debug("Weather for {} unavailable within {}: {}", key, wait, Failures.unwrap(failure).toString());
                     if (cached != null) {
                         count(type, "stale");
                         return WeatherLookup.stale(cached.report());
