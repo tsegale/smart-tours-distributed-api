@@ -2,11 +2,16 @@
 FROM python:3.12-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
-# WeasyPrint renders with Pango and HarfBuzz; DejaVu is the ticket's font. The font cache is built here, as root:
-# the app user has no home directory, so without a system cache fontconfig would rescan the fonts at run time.
+# WeasyPrint renders with Pango and HarfBuzz; DejaVu is the ticket's font. The font cache is built here, as root,
+# because the app user can't write one. A cache records its directory's mtime to the nanosecond, but exporting the
+# image layer keeps whole seconds only: fontconfig would then try to rewrite every cache on each load (once per
+# render) and log "No writable cache directories". So the directories' mtimes are truncated to whole seconds first,
+# and the caches match the image as it ships. Render time is the same either way (docs/benchmarks/notifications.md).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
     fontconfig \
+ && mkdir -p /usr/local/share/fonts \
+ && find /usr/share/fonts /usr/local/share/fonts -type d -exec sh -c 'touch -m -d "@$(stat -c %Y "$1")" "$1"' _ {} \; \
  && fc-cache -f \
  && rm -rf /var/lib/apt/lists/*
 

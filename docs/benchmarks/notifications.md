@@ -29,9 +29,16 @@ still takes about 6 minutes. That part scales with render processes (`NOTIFICATI
 `--scale notification-worker=N`), which is what the 2-process row would show.
 
 Throughput is the render rate (about 0.75 s of worker time per ticket including storage), unchanged by the split.
-The Phase 5 run had the font cache in the image (fontconfig no longer scans fonts per process) but no faster
-renders: 457 ms against 377 ms at the median, with the host at 356 MiB free against about 700 for the Phase 4 run.
-On this laptop that difference is noise, not a regression or a gain.
+The Phase 5 run's renders were slower than Phase 4's, 457 ms against 377 ms at the median, with the host at 356 MiB
+free against about 700. Rendering alone on an otherwise idle Docker VM (40 renders of the real ticket template in
+one process, 4 runs each) gives 268 ms at the median, so memory pressure and the burst's concurrent load account
+for the rest on this laptop; the comparison between the two runs says nothing about the code.
+
+**The "No writable cache directories" message** on every render is fixed, and it was harmless: it cost no measurable
+time. Each font cache recorded its directory's mtime to the nanosecond, the image layer keeps whole seconds, so
+fontconfig saw the caches as out of date and tried to rewrite them, which the app user can't. It still read and used
+them. With the mtimes truncated before the caches are built, the message count on `import weasyprint` went from 4
+to 0, and root no longer rewrites them. Median render across those runs: 268 ms before the fix and 267.5 ms after.
 
 What was not measured, and why:
 - **2 render processes.** Two attempts on the 8 GB laptop ended with the host at 75 to 85 MiB free and Windows
