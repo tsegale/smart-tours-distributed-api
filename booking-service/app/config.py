@@ -1,5 +1,4 @@
 from functools import lru_cache
-from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -69,8 +68,11 @@ class Settings(BaseSettings):
     tickets_s3_access_key: str = "tickets-reader"
     tickets_s3_secret_key: str = ""
     ticket_url_ttl_s: int = Field(default=300, gt=0, le=3600)
-    # The public half of notification-service's signing key: verifies check-in tokens, can't mint them.
-    ticket_verify_key_file: Path = Path("/run/secrets/ticket-verify/ticket_verify_key.pem")
+    # notification-service's published public keys (JWKS): verify check-in tokens by kid, can't mint them.
+    ticket_jwks_url: str = "http://127.0.0.1:8084/.well-known/jwks.json"
+    ticket_jwks_ttl_s: int = Field(default=300, gt=0)
+    ticket_jwks_min_refetch_s: int = Field(default=30, ge=0)
+    ticket_jwks_timeout_s: float = Field(default=2.0, gt=0)
     ticket_clock_leeway_s: int = Field(default=60, ge=0)
     # ticket.rendered consumer (app.jobs.ticket_listener): the topology of ADR 0005.
     ticket_queue_name: str = "booking.tickets"

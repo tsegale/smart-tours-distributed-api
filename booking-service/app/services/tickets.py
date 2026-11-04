@@ -2,9 +2,10 @@
 
 - Download: the owner gets a 302 to a presigned URL for the PDF in object storage, valid for a few minutes and
   signed by a read-only user. The bucket stays private; the URL is the only way in, and it expires.
-- Check-in: the QR code holds a compact JWS (EdDSA) that notification-service signed. booking-service holds only the
-  public key, so it can verify tickets but not mint them. A scan is accepted once, on the day of departure in the
-  tour's time zone, for a confirmed booking whose reference and departure match the token.
+- Check-in: the QR code holds a compact JWS (EdDSA) that notification-service signed. booking-service has only the
+  public keys (notification-service's JWKS, chosen by the token's kid: app.services.ticket_keys), so it can verify
+  tickets but not mint them, and keys can rotate without a deploy. A scan is accepted once, on the day of departure
+  in the tour's time zone, for a confirmed booking whose reference and departure match the token.
 """
 
 import logging
@@ -12,15 +13,12 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import boto3
 import jwt
 from botocore.config import Config
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
@@ -37,6 +35,7 @@ from ..errors import (
     WrongDayError,
 )
 from ..models import Booking, BookingStatus, BookingTicket
+from .ticket_keys import TicketKeySet, get_ticket_keys
 
 log = logging.getLogger(__name__)
 
@@ -111,22 +110,24 @@ class CheckIn:
     checked_in_at: datetime
 
 
-@lru_cache
-def _verify_key(path: Path) -> Ed25519PublicKey:
-    key = serialization.load_pem_public_key(path.read_bytes())
-    if not isinstance(key, Ed25519PublicKey):
-        raise ValueError(f"{path} is not an Ed25519 public key")
-    return key
-
-
-def verify_token(token: str, settings: Settings, now: datetime | None = None) -> dict[str, Any]:
-    """The token's claims, or a Problem: expired, or invalid (tampered, foreign, malformed)."""
-    if not settings.ticket_verify_key_file.is_file():
-        raise TicketsUnavailableError("Check-in is not configured (no ticket verification key)")
+def verify_token(
+    token: str, settings: Settings, now: datetime | None = None, keys: TicketKeySet | None = None
+) -> dict[str, Any]:
+    """The token's claims, or a Problem: expired, invalid (tampered, foreign, malformed, unknown key), or 503 when
+    the keys can't be fetched."""
+    try:
+        kid = jwt.get_unverified_header(token).get("kid")
+    except jwt.InvalidTokenError as exc:
+        log.warning("checkin.invalid_token reason=%s", exc)
+        raise TicketInvalidError("This ticket is not valid: it was altered or not issued by Smart Tours") from exc
+    key = (keys or get_ticket_keys()).key(kid) if isinstance(kid, str) else None
+    if key is None:
+        log.warning("checkin.invalid_token reason=unknown_kid kid=%s", kid)
+        raise TicketInvalidError("This ticket is not valid: it was altered or not issued by Smart Tours")
     try:
         return jwt.decode(
             token,
-            _verify_key(settings.ticket_verify_key_file),
+            key,
             algorithms=[ALGORITHM],
             audience=AUDIENCE,
             issuer=ISSUER,

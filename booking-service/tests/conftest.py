@@ -13,6 +13,7 @@ Stripe's own API is mocked with respx in test_stripe_provider.py.
 import os
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 if not TEST_DATABASE_URL:
@@ -30,27 +31,16 @@ os.environ["STRIPE_WEBHOOK_SECRET"] = WEBHOOK_SECRET
 os.environ["STRIPE_SECRET_KEY"] = ""
 
 
-def _ticket_keys():
-    """A test key pair for check-in tokens: the public half is the configured verify key, as in production."""
-    import tempfile
-
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-    key = Ed25519PrivateKey.generate()
-    path = os.path.join(tempfile.mkdtemp(prefix="ticket-verify-"), "ticket_verify_key.pem")
-    with open(path, "wb") as f:
-        f.write(
-            key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
-        )
-    return key, path
-
-
-TICKET_SIGNING_KEY, _verify_key_path = _ticket_keys()
-os.environ["TICKET_VERIFY_KEY_FILE"] = _verify_key_path
+# Check-in tokens: a test signing key, published (as notification-service does) in a JWKS under TICKET_KID.
+TICKET_SIGNING_KEY = Ed25519PrivateKey.generate()
+TICKET_KID = "test-tickets-1"
+TICKET_JWKS_URL = "http://notification-service.test/.well-known/jwks.json"
+os.environ["TICKET_JWKS_URL"] = TICKET_JWKS_URL
 os.environ["TICKETS_S3_PUBLIC_ENDPOINT_URL"] = "http://localhost:9000"
 os.environ["TICKETS_S3_SECRET_KEY"] = "test-reader-secret"
 
+import httpx  # noqa: E402
+import jwt  # noqa: E402
 import respx  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -200,6 +190,39 @@ def tour_core():
             side_effect=lambda request, tour_id: respx.MockResponse(200, json={**TOUR, "id": int(tour_id)})
         )
         yield mock
+
+
+def jwk(key: Ed25519PrivateKey, kid: str) -> dict:
+    public = jwt.algorithms.OKPAlgorithm.to_jwk(key.public_key(), as_dict=True)
+    return {**public, "kid": kid, "alg": "EdDSA", "use": "sig"}
+
+
+class TicketJwks:
+    """notification-service's JWKS endpoint, faked: tests change `keys` (rotation) or `down` (outage)."""
+
+    def __init__(self) -> None:
+        self.keys = [jwk(TICKET_SIGNING_KEY, TICKET_KID)]
+        self.down = False
+        self.requests = 0
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == TICKET_JWKS_URL
+        self.requests += 1
+        if self.down:
+            return httpx.Response(503, json={"title": "unavailable"})
+        return httpx.Response(200, json={"keys": self.keys}, headers={"content-type": "application/jwk-set+json"})
+
+
+@pytest.fixture(autouse=True)
+def ticket_jwks(monkeypatch) -> TicketJwks:
+    """A fresh key cache per test, fetching from the fake JWKS."""
+    from app.services import tickets
+    from app.services.ticket_keys import TicketKeySet
+
+    endpoint = TicketJwks()
+    keys = TicketKeySet(get_settings(), transport=httpx.MockTransport(endpoint.handle))
+    monkeypatch.setattr(tickets, "get_ticket_keys", lambda: keys)
+    return endpoint
 
 
 @pytest.fixture(autouse=True)

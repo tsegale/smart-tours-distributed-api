@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.database import SessionLocal
 from app.jobs.ticket_listener import Action, MalformedEventError, decide, handle
 from app.models import Booking, BookingTicket
-from tests.conftest import ALICE, BOB, OPERATOR, TICKET_SIGNING_KEY
+from tests.conftest import ALICE, BOB, OPERATOR, TICKET_KID, TICKET_SIGNING_KEY
 from tests.stripe_events import checkout_event, deliver
 from tests.test_webhooks import COMPLETED
 
@@ -32,8 +32,8 @@ def confirmed(client, departure, book, starts_at: str | None = None) -> dict:
     return client.get(f"/api/bookings/{booking['id']}", headers=ALICE).json()
 
 
-def token_for(booking: dict, *, key: Ed25519PrivateKey = TICKET_SIGNING_KEY, expires_in: timedelta = timedelta(days=1),
-              **overrides) -> str:  # fmt: skip
+def token_for(booking: dict, *, key: Ed25519PrivateKey = TICKET_SIGNING_KEY, kid: str = TICKET_KID,
+              expires_in: timedelta = timedelta(days=1), **overrides) -> str:  # fmt: skip
     now = datetime.now(UTC)
     claims = {
         "iss": "smarttours-notifications",
@@ -48,7 +48,7 @@ def token_for(booking: dict, *, key: Ed25519PrivateKey = TICKET_SIGNING_KEY, exp
         "dep": booking["starts_at"],
         **overrides,
     }
-    return jwt.encode(claims, key, algorithm="EdDSA", headers={"kid": "tickets-1", "typ": "checkin+jwt"})
+    return jwt.encode(claims, key, algorithm="EdDSA", headers={"kid": kid, "typ": "checkin+jwt"})
 
 
 def scan(client, token: str, headers=OPERATOR):
