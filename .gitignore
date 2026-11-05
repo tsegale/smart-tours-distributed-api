@@ -44,3 +44,6 @@ replay_pid*
 
 # Benchmark output (raw k6 summaries, minted tokens)
 benchmarks/out/
+
+# Private working notes, such as the Part B brief
+local/
