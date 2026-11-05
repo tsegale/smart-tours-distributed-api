@@ -1,0 +1,19 @@
+# Reviewed gitleaks findings, by exact fingerprint (commit:file:rule:line), so a new secret anywhere still fails CI.
+# None of these is a live credential. Add a line only after looking at the finding.
+#
+# f3557cb6b applications.yml: a real JWT secret, committed early on. Treated as leaked and unused since (ADR 0004).
+# Everything else: test-only keys and fixtures, a compose service named keycloak-db, curl with $$VARIABLES from the
+# environment, and a function argument named secret.
+086fe8c9a4a3edbd278cb9c456b5ee9f625cf38f:api-gateway/src/test/java/com/smarttours/gateway/util/JwtUtilTest.java:generic-api-key:19
+22181c73e96b588573c237b6dbe2e166ecadceb4:docker-compose.yml:curl-auth-user:393
+22181c73e96b588573c237b6dbe2e166ecadceb4:docker-compose.yml:curl-auth-user:400
+247ddbc196d13e148d0ca693689470e43d0d8e70:api-gateway/src/test/java/com/smarttours/gateway/security/IssuerTestSupport.java:generic-api-key:29
+247ddbc196d13e148d0ca693689470e43d0d8e70:docker-compose.yml:generic-api-key:418
+638fbe63e2449b3efaea7c76e0d76aceadf7f73d:api-gateway/src/test/java/com/smarttours/gateway/ratelimit/RateLimitTestSupport.java:generic-api-key:23
+74071437b3c45e4077f4ed54e39ea0d5286ccc9f:api-gateway/src/test/java/com/smarttours/gateway/security/SecurityConfigTest.java:generic-api-key:36
+7c41991402e4dbc4e03e31661327b582cad462c0:booking-service/app/payments/stripe_events.py:generic-api-key:25
+87f9ac119921e04d18198f38e9749e2491a2657d:booking-service/tests/test_tickets.py:generic-api-key:35
+a72e47b5136ea947bb3fea6ce8136449045304d7:api-gateway/src/test/java/com/smarttours/gateway/TicketRouteTest.java:generic-api-key:42
+d6b626697bcba0834ddc0cde23f15c1a0b00ce3b:booking-service/tests/test_tickets.py:generic-api-key:35
+e518416cbfe6209bcc96aab4d0d3825d3c8df1ad:api-gateway/src/test/java/com/smarttours/gateway/WebhookRouteTest.java:generic-api-key:29
+f3557cb6b0e789e5c537b295af195fb9f14b62fc:api-gateway/src/main/resources/applications.yml:generic-api-key:6

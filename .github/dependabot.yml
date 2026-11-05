@@ -1,0 +1,41 @@
+# Weekly version bumps for everything this repo pins. Grouped per ecosystem and directory, so a framework's family of
+# packages arrives as one pull request that CI can pass or fail as a whole.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directories: ["/api-gateway", "/tour-core-service"]
+    schedule: { interval: weekly }
+    groups:
+      maven: { patterns: ["*"] }
+
+  - package-ecosystem: pip
+    directories: ["/booking-service", "/ai-recommendation-service", "/notification-service"]
+    schedule: { interval: weekly }
+    groups:
+      # Released together and pinned to each other: bumping one alone can't install.
+      opentelemetry: { patterns: ["opentelemetry-*"] }
+      pip: { patterns: ["*"], exclude-patterns: ["opentelemetry-*"] }
+
+  - package-ecosystem: docker
+    directories:
+      - "/api-gateway"
+      - "/tour-core-service"
+      - "/booking-service"
+      - "/ai-recommendation-service"
+      - "/notification-service"
+      - "/infra/keycloak"
+    schedule: { interval: weekly }
+    groups:
+      docker: { patterns: ["*"] }
+
+  - package-ecosystem: docker-compose
+    directory: "/"
+    schedule: { interval: weekly }
+    groups:
+      compose: { patterns: ["*"] }
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly }
+    groups:
+      actions: { patterns: ["*"] }
