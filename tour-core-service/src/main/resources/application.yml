@@ -10,6 +10,15 @@ spring:
     url: ${TOURS_DB_URL:jdbc:postgresql://127.0.0.1:5433/tours}
     username: ${TOURS_DB_USER:tours}
     password: ${TOURS_DB_PASSWORD:change-me-tours}
+    # With the database down, answer in about 2 s instead of Hikari's default 30 s, which left every search hanging
+    # past its client's timeout. The handler turns this into a retryable 503.
+    hikari:
+      connection-timeout: 2000
+      validation-timeout: 1000
+      data-source-properties:
+        connectTimeout: 2
+        loginTimeout: 2
+        socketTimeout: 30
   jpa:
     open-in-view: false
     hibernate:

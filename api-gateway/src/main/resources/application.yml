@@ -64,6 +64,10 @@ spring:
       server:
         webflux:
           httpclient:
+            # A hung upstream answers 504 rather than holding the request open indefinitely. Above every service's own
+            # bounds (Stripe's 10 s, the weather budget, the 2 s database wait); a route can override it.
+            connect-timeout: 2000
+            response-timeout: 30s
             pool:
               # Retire pooled upstream connections before the services close them (uvicorn runs
               # with a 75 s keep-alive). Reusing a connection the server is closing gives

@@ -1,5 +1,9 @@
 package com.smarttours.core.common;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import com.smarttours.core.fx.ExchangeRatesUnavailableException;
 import com.smarttours.core.fx.UnsupportedCurrencyException;
 import com.smarttours.core.search.InvalidSearchException;
@@ -24,6 +28,7 @@ import java.net.URI;
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
     static final String PROBLEM_BASE = "https://smarttours.dev/problems/";
 
     @ExceptionHandler(TourNotFoundException.class)
@@ -87,6 +92,17 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "Exchange rates unavailable", ex.getMessage() + "; give minPrice/maxPrice in NAD instead");
         problem.setProperty("currency", ex.getCurrency());
         return problem;
+    }
+
+    /** The database is out of reach. Says nothing about the request, so it's a retryable 503, not a 500. */
+    @ExceptionHandler({CannotCreateTransactionException.class, DataAccessResourceFailureException.class})
+    ResponseEntity<ProblemDetail> handleDatabaseUnavailable(Exception ex) {
+        log.error("Database unavailable: {}", ex.getMessage());
+        ProblemDetail problem = problem(HttpStatus.SERVICE_UNAVAILABLE, "database-unavailable",
+                "Temporarily unavailable", "The catalogue can't be reached right now. Try again shortly.");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "5")
+                .body(problem);
     }
 
     @ExceptionHandler(InvalidParameterException.class)

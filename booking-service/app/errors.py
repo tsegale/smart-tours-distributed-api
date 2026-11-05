@@ -1,9 +1,15 @@
 """Domain errors, rendered as RFC 9457 Problem Details (application/problem+json)."""
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+log = logging.getLogger(__name__)
 
 PROBLEM_JSON = "application/problem+json"
 PROBLEM_BASE = "https://smarttours.dev/problems/"
@@ -120,6 +126,25 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def _domain(request: Request, exc: DomainError) -> JSONResponse:
         return _problem(exc.status, exc.slug, exc.title, exc.detail, request, **exc.extra)
+
+    @app.exception_handler(OperationalError)
+    @app.exception_handler(PoolTimeoutError)
+    async def _database_unavailable(request: Request, exc: Exception) -> JSONResponse:
+        # A query the server answered has a SQLSTATE (and is a bug or a conflict to surface as such); none means it was
+        # never reached. That says nothing about the request, so it's a retryable 503.
+        sqlstate = getattr(getattr(exc, "orig", None), "sqlstate", None)
+        if sqlstate is not None:
+            raise exc
+        log.error("database unavailable: %s", exc.__class__.__name__)
+        response = _problem(
+            503,
+            "database-unavailable",
+            "Temporarily unavailable",
+            "Bookings can't be reached right now. Try again shortly.",
+            request,
+        )
+        response.headers["Retry-After"] = "5"
+        return response
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:

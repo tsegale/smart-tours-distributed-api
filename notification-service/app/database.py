@@ -10,6 +10,8 @@ engine = create_engine(
     pool_size=settings.db_pool_size,
     max_overflow=settings.db_max_overflow,
     pool_pre_ping=True,
+    pool_timeout=5,
+    connect_args={"connect_timeout": 3},  # a database that's down fails in seconds, not libpq's long default
 )
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

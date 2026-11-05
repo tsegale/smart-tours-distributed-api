@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     db_max_overflow: int = 20
     # How long a request waits for a contested row lock before giving up with 409.
     lock_timeout_ms: int = 5000
+    # With the database down, answer 503 in seconds rather than after libpq's and the pool's long defaults.
+    db_connect_timeout_s: int = 3
+    db_pool_timeout_s: float = 5.0
 
     # --- tour-core-service, called directly on the internal network for price snapshots
     tour_service_url: str = "http://127.0.0.1:8081"
