@@ -362,7 +362,7 @@ services:
   # Forwards Stripe events to booking-service. Its signing secret (whsec_...) goes into
   # STRIPE_WEBHOOK_SECRET in .env; see docs/smoke-test.md.
   stripe-cli:
-    <<: *no-capabilities
+    <<: *locked-down
     image: stripe/stripe-cli:v1.55.3
     profiles: [payments]
     command:
@@ -378,7 +378,7 @@ services:
   # WireMock standing in for Frankfurter and Open-Meteo, with a switchable fault per provider
   # (python scripts/chaos.py <fx|weather|all> <healthy|slow|errors|dead>). docs/smoke-test.md section 9.
   provider-stubs:
-    <<: *no-capabilities
+    <<: *locked-down
     image: wiremock/wiremock:3.13.2
     profiles: [chaos]
     command: ["--global-response-templating", "--no-request-journal", "--disable-banner"]
