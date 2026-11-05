@@ -38,7 +38,7 @@ Google SRE workbook. Rules are code: `infra/observability/alerting/rules.yaml`.
 | Email delivery burn | Late ratio over 14.4 x 5%, over both 1 h and 5 min | 2 min |
 | DLQ not empty | Any `*.dlq` queue holds a message | 1 min |
 | Relay lag | Oldest unpublished outbox event older than 60 s | 1 min |
-| Breaker open | A provider's circuit breaker open or half-open, without closing | 5 min |
+| Breaker open | A provider's circuit breaker open over 80% of the last 5 minutes | 1 min |
 | Failed notifications | Any notification in status FAILED | 1 min |
 
 ## Fire drill
@@ -61,8 +61,8 @@ waits until Grafana reports it firing. Every rule fired on 2026-11-05, on the Do
 **Two rules couldn't fire, or nearly:**
 - **Circuit breaker open** was `state="open" == 1` for 5 minutes. A breaker under sustained failure goes
   `OPEN -> HALF_OPEN -> OPEN` every 30 s here, which reset that timer every time, so it could never fire on the fault it
-  exists for. It now counts open or half-open as "not recovered". Over the drill the forecast breaker stayed in those
-  two states without a gap.
+  exists for. Counting open or half-open as "not recovered" fired, but then kept firing on a healthy provider, see
+  below. The rule now measures time spent open: over 80% of the last 5 minutes.
 - **Search latency burn** first matched `le="500.0"`, which no series has: this one was found before the drill by querying
   real data. The label is `le="500"`. `le="300"` on the email rule and `task` on the Celery panel were checked against
   real series and are right.
@@ -75,12 +75,12 @@ waits until Grafana reports it firing. Every rule fired on 2026-11-05, on the Do
 - *A first event in a new process is invisible to `rate()`*, which starts from the first sample. Burn rates need a
   second late email or failed request to move, so the drill sends one on-time email first and pauses the worker rather
   than restarting it. A sustained problem still fires. One isolated failure right after a restart doesn't.
-- *The breaker rule can outlast the fault.* A breaker stays half-open until a call probes it. A provider that recovers
-  while nothing calls it keeps the alert firing until the next call closes the breaker. It fired on
-  `open-meteo-archive`, which is rarely called, for that reason: its half-open state had carried over from an earlier
-  fault. So it fired on a real fault, but not on the provider a first reading of the label suggests.
+- *A breaker stuck half-open must not alert.* A breaker stays half-open until a call probes it, so a provider that
+  recovered while nothing called it looked unrecovered indefinitely. The drill's first version of this rule fired on
+  `open-meteo-archive` for exactly that reason. Measuring time spent open doesn't have that problem.
 - *The drill found a behaviour to fix:* during the `tours-db` outage all 144 searches got no answer within the client's
-  15 s. The alert was right, but search hangs instead of failing fast when its database is down. Not fixed here.
+  15 s. Search now fails in about 2 s with a retryable 503 (`DatabaseOutageIntegrationTest`), booking likewise, and the
+  gateway answers 504 for a hung service.
 - Permanent SMTP failures also dead-letter, so *Notifications failed* comes with *DLQ not empty* on
   `notifications.tasks.dlq`. The drill leaves that message there; purge it after looking at it.
 

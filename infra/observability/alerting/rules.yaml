@@ -336,7 +336,7 @@
           "uid": "breaker-open",
           "title": "Circuit breaker open",
           "condition": "C",
-          "for": "5m",
+          "for": "1m",
           "noDataState": "OK",
           "execErrState": "Error",
           "annotations": {
@@ -356,7 +356,7 @@
               "datasourceUid": "prometheus",
               "model": {
                 "refId": "A",
-                "expr": "sum by (name) (resilience4j_circuitbreaker_state{state=~\"open|half_open\"}) == 1",
+                "expr": "max by (name) (avg_over_time(resilience4j_circuitbreaker_state{state=\"open\"}[5m])) > 0.8",
                 "instant": true,
                 "range": false
               }
