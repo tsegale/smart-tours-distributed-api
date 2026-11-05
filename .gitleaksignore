@@ -17,3 +17,5 @@ a72e47b5136ea947bb3fea6ce8136449045304d7:api-gateway/src/test/java/com/smarttour
 d6b626697bcba0834ddc0cde23f15c1a0b00ce3b:booking-service/tests/test_tickets.py:generic-api-key:35
 e518416cbfe6209bcc96aab4d0d3825d3c8df1ad:api-gateway/src/test/java/com/smarttours/gateway/WebhookRouteTest.java:generic-api-key:29
 f3557cb6b0e789e5c537b295af195fb9f14b62fc:api-gateway/src/main/resources/applications.yml:generic-api-key:6
+52e2a8b5231a2a4e3a47a619cb2b8db9094c236e:docker-compose.yml:curl-auth-user:565
+52e2a8b5231a2a4e3a47a619cb2b8db9094c236e:docker-compose.yml:curl-auth-user:567
