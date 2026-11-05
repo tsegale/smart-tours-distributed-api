@@ -55,7 +55,7 @@ services:
   # ---------------------------------------------------------------- data stores
   tours-db:
     <<: *data-store
-    image: postgis/postgis:16-3.4
+    image: postgis/postgis:18-3.6
     environment:
       POSTGRES_DB: tours
       POSTGRES_USER: ${TOURS_DB_USER:?set TOURS_DB_USER in .env}
@@ -73,7 +73,7 @@ services:
 
   bookings-db:
     <<: *data-store
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: bookings
       POSTGRES_USER: ${BOOKINGS_DB_USER:?set BOOKINGS_DB_USER in .env}
@@ -111,7 +111,7 @@ services:
   # Rate-limit token buckets (gateway). Default policy: never evicts, so a bucket can't vanish under pressure.
   redis:
     <<: *data-store
-    image: redis:7.4-alpine
+    image: redis:8.10-alpine
     ports: ["127.0.0.1:6379:6379"]
     healthcheck: &redis-healthcheck
       test: ["CMD", "redis-cli", "ping"]
@@ -128,7 +128,7 @@ services:
   # Separate from the limiter's Redis so cache pressure or a cache flush never touches rate-limit state.
   redis-cache:
     <<: *data-store
-    image: redis:7.4-alpine
+    image: redis:8.10-alpine
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
     ports: ["127.0.0.1:6380:6379"]
     healthcheck: *redis-healthcheck
@@ -140,7 +140,7 @@ services:
 
   rabbitmq:
     <<: *data-store
-    image: rabbitmq:4.1-management-alpine
+    image: rabbitmq:4.4-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?set RABBITMQ_USER in .env}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}
@@ -363,7 +363,7 @@ services:
   # STRIPE_WEBHOOK_SECRET in .env; see docs/smoke-test.md.
   stripe-cli:
     <<: *no-capabilities
-    image: stripe/stripe-cli:v1.55.3
+    image: stripe/stripe-cli:v1.55.6
     profiles: [payments]
     command:
       - listen
@@ -467,7 +467,7 @@ services:
   # Its own database, like every other service.
   keycloak-db:
     <<: *data-store
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     profiles: [auth]
     environment:
       POSTGRES_DB: keycloak
@@ -532,7 +532,7 @@ services:
   # docker compose --profile notifications up -d: booking emails with PDF tickets (ADRs 0014, 0015).
   notifications-db:
     <<: *data-store
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     profiles: [notifications]
     environment:
       POSTGRES_DB: notifications
@@ -553,7 +553,7 @@ services:
   # One-shot: creates the vhost and grants the app user on it, through the management API (idempotent PUTs).
   rabbitmq-setup:
     <<: *no-capabilities
-    image: curlimages/curl:8.22.0
+    image: curlimages/curl:8.23.0
     profiles: [notifications]
     entrypoint: ["sh", "-c"]
     command:
@@ -614,7 +614,7 @@ services:
   # SMTP sink with a web UI and an API (tests assert on it): http://localhost:8025
   mailpit:
     <<: *no-capabilities
-    image: axllent/mailpit:v1.31.6
+    image: axllent/mailpit:v1.33.0
     profiles: [notifications]
     environment:
       MP_ENABLE_CHAOS: "true" # SMTP failures on demand, through its API (docs/smoke-test.md, tests)
