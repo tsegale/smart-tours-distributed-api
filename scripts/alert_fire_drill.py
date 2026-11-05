@@ -295,10 +295,16 @@ def drill_breaker() -> list[dict]:
         with Load(request, threads=2, pause_s=1.0) as load:
             result = wait_until_firing("Circuit breaker open", 720)
         print(f"  statuses during the fault: {load.statuses}")
-        return [result]
     finally:
         subprocess.run([sys.executable, str(ROOT / "scripts" / "chaos.py"), "all", "healthy"], check=True, cwd=ROOT,
                        stdout=subprocess.DEVNULL)  # fmt: skip
+    # With no traffic left: a breaker stuck half-open must not keep the alert on.
+    began = time.monotonic()
+    while time.monotonic() - began < 480 and rule_state("Circuit breaker open")["state"] != "inactive":
+        time.sleep(10)
+    state = rule_state("Circuit breaker open")["state"]
+    result["resolved_without_traffic_after_s"] = round(time.monotonic() - began) if state == "inactive" else None
+    return [result]
 
 
 def drill_email() -> list[dict]:

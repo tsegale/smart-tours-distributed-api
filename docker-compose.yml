@@ -446,6 +446,8 @@ services:
       - "127.0.0.1:9090:9090" # Prometheus
     environment:
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/grafana/conf/provisioning/dashboards/smart-tours/service-red.json
+      # A zero sample at each OTLP series' start time, so that rate() can see its first value.
+      PROMETHEUS_EXTRA_ARGS: --enable-feature=created-timestamp-zero-ingestion
     volumes:
       - ./infra/observability/prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
       - ./infra/observability/dashboards-provider.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/smart-tours.yaml:ro

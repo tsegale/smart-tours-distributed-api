@@ -54,7 +54,7 @@ waits until Grafana reports it firing. Every rule fired on 2026-11-05, on the Do
 | Search availability burn | `tours-db` stopped under search traffic | 18:45:13 | 363 s | |
 | Search latency burn | Same outage | 18:45:13 | active from 18:41:00 | |
 | Booking availability burn | `bookings-db` stopped under booking traffic: answered 500 | 18:52:44 | active from 18:49:00, see below | |
-| Circuit breaker open | Provider stubs answering errors, weather requests continuing | 20:04:41 | 321 s | `open-meteo-archive` |
+| Circuit breaker open | Provider stubs answering errors, weather requests continuing | 22:24:21 | 366 s, resolved 72 s after recovery with no traffic | `open-meteo-forecast` |
 | Email delivery burn | Email worker paused, five confirmations, their status change moved 10 minutes back | 21:23:41 | 176 s | |
 | Notifications failed | Mailpit refusing recipients with 550 | 21:25:41 | 91 s | |
 
@@ -72,15 +72,17 @@ waits until Grafana reports it firing. Every rule fired on 2026-11-05, on the Do
   whose script run failed on a Grafana timeout after the fault was on. Its active time, 18:49:00, is in that outage.
 - *Email* used a shortcut: rather than wait 10 real minutes, the booking's status change was moved back in the database
   while the worker was paused. Everything after that is the real pipeline and metric.
-- *A first event in a new process is invisible to `rate()`*, which starts from the first sample. Burn rates need a
-  second late email or failed request to move, so the drill sends one on-time email first and pauses the worker rather
-  than restarting it. A sustained problem still fires. One isolated failure right after a restart doesn't.
+- *A first event in a new process used to be invisible to `rate()`*, which starts from the first sample. Prometheus now
+  adds a zero sample at each OTLP series' start time (`created-timestamp-zero-ingestion`): after the very first hold
+  of a process, `increase(booking_holds_total[5m])` read 1.17.
 - *A breaker stuck half-open must not alert.* A breaker stays half-open until a call probes it, so a provider that
   recovered while nothing called it looked unrecovered indefinitely. The drill's first version of this rule fired on
-  `open-meteo-archive` for exactly that reason. Measuring time spent open doesn't have that problem.
+  `open-meteo-archive` for exactly that reason. Measuring time spent open doesn't: it fired on the failing provider
+  and cleared on its own. The API answered 200 throughout, on its stale-or-unavailable fallback.
 - *The drill found a behaviour to fix:* during the `tours-db` outage all 144 searches got no answer within the client's
-  15 s. Search now fails in about 2 s with a retryable 503 (`DatabaseOutageIntegrationTest`), booking likewise, and the
-  gateway answers 504 for a hung service.
+  15 s. With `tours-db` stopped, search now answers a retryable 503 in 2.1 to 4.8 s on a settled machine
+  (`DatabaseOutageIntegrationTest`), booking likewise, and the gateway answers 504 for a hung service. A stopped
+  container's name also takes about 3.5 s to fail in Docker's DNS, part of that spread.
 - Permanent SMTP failures also dead-letter, so *Notifications failed* comes with *DLQ not empty* on
   `notifications.tasks.dlq`. The drill leaves that message there; purge it after looking at it.
 
