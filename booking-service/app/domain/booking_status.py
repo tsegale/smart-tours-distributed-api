@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from ..business_metrics import status_changes
 from ..errors import IllegalTransitionError
 from ..models import BookingStatus
 
@@ -76,6 +77,7 @@ def transition(booking: "Booking", target: BookingStatus, reason: str) -> Status
     ensure_can_transition(current, target, booking.id)
     now = datetime.now(UTC)
     booking.status = target
+    status_changes.add(1, {"status": target.value})
     if target == S.CONFIRMED:
         booking.confirmed_at = now
     if target in (S.CANCELLED, S.REFUNDED) and booking.cancelled_at is None:

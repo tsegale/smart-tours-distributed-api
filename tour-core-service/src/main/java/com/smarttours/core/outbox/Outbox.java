@@ -23,17 +23,21 @@ public class Outbox {
 
     private final JdbcClient jdbc;
     private final JsonMapper json;
+    private final TraceParents traces;
 
-    public Outbox(JdbcClient jdbc, JsonMapper json) {
+    public Outbox(JdbcClient jdbc, JsonMapper json, TraceParents traces) {
         this.jdbc = jdbc;
         this.json = json;
+        this.traces = traces;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(String aggregateType, Object aggregateId, OutboxEvent event) {
         jdbc.sql("""
-                        INSERT INTO outbox (id, aggregate_type, aggregate_id, event_type, payload, occurred_at)
-                        VALUES (:id, :aggregateType, :aggregateId, :eventType, CAST(:payload AS jsonb), :occurredAt)
+                        INSERT INTO outbox (id, aggregate_type, aggregate_id, event_type, payload, occurred_at,
+                                            traceparent)
+                        VALUES (:id, :aggregateType, :aggregateId, :eventType, CAST(:payload AS jsonb), :occurredAt,
+                                :traceparent)
                         """)
                 .param("id", event.eventId())
                 .param("aggregateType", aggregateType)
@@ -41,6 +45,7 @@ public class Outbox {
                 .param("eventType", event.eventType())
                 .param("payload", json.writeValueAsString(event))
                 .param("occurredAt", Timestamp.from(event.occurredAt()))
+                .param("traceparent", traces.current())
                 .update();
     }
 

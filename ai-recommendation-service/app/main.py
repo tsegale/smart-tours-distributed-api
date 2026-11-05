@@ -1,4 +1,3 @@
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -11,8 +10,10 @@ from sqlalchemy.orm import Session
 from . import repository
 from .database import engine, get_db
 from .embeddings import Embedder, document_text, get_embedder
+from .telemetry import configure_logging, configure_telemetry, instrument_fastapi
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+configure_logging("ai-recommendation-service")
+configure_telemetry("ai-recommendation-service")
 
 
 @asynccontextmanager
@@ -30,6 +31,7 @@ app = FastAPI(
     description="Semantic tour recommendations and search over sentence embeddings stored in pgvector.",
     lifespan=lifespan,
 )
+instrument_fastapi(app)
 
 DbSession = Annotated[Session, Depends(get_db)]
 EmbedderDep = Annotated[Embedder, Depends(get_embedder)]

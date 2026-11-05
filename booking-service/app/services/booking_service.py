@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ..business_metrics import holds_created
 from ..clients.tour_client import TourClient
 from ..config import Settings
 from ..domain.booking_status import ensure_can_transition, transition
@@ -154,6 +155,7 @@ def hold_seats(
             BookingStatus.PENDING_PAYMENT,
             strategy.name,
         )
+        holds_created.add(1)
         return booking, True
     except IntegrityError as exc:
         db.rollback()  # also gives the seats back

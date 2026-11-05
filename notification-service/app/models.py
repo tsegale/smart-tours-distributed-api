@@ -133,3 +133,5 @@ class OutboxEvent(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # W3C trace context of the transaction that wrote this row; the relay publishes inside it (ADR 0017).
+    traceparent: Mapped[str | None] = mapped_column(String(55))

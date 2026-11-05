@@ -18,6 +18,7 @@ import time
 from collections.abc import Callable
 
 import pika
+from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.exceptions import AMQPConnectionError, ChannelClosedByBroker
 
@@ -27,6 +28,7 @@ from .dispatch import dispatch
 from .events import ROUTING_KEYS, PoisonMessageError, parse_booking_event
 from .intake import record_booking_event
 from .logs import configure_logging
+from .telemetry import configure_telemetry
 
 log = logging.getLogger("notifications.bridge")
 
@@ -130,7 +132,9 @@ def declare_topology(channel: BlockingChannel, settings: Settings) -> None:
 
 
 def run() -> None:
-    configure_logging()
+    configure_logging("notification-bridge")
+    configure_telemetry("notification-bridge")
+    CeleryInstrumentor().instrument()  # the tasks it enqueues carry the trace in their headers
     settings = get_settings()
     stopping = False
     backoff = 1.0

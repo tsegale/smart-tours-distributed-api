@@ -17,6 +17,7 @@ from ..config import get_settings
 from ..database import SessionLocal, engine
 from ..messaging import RabbitPublisher
 from ..services.outbox_relay import prune_published, relay_batch
+from ..telemetry import configure_logging, configure_telemetry
 
 log = logging.getLogger("app.jobs.outbox_relay")
 
@@ -27,7 +28,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Relay outbox events to RabbitMQ")
     parser.add_argument("--once", action="store_true", help="publish everything pending once, then exit")
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging("booking-outbox-relay")
+    configure_telemetry("booking-outbox-relay", database=False)
 
     settings = get_settings()
     publisher = RabbitPublisher(settings.rabbitmq_url, settings.events_exchange)

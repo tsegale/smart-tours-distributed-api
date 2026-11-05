@@ -24,8 +24,12 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:smarttours}
     password: ${RABBITMQ_PASSWORD:change-me-rabbit}
+    # Sends and receives join the trace: traceparent goes in each message's headers (ADR 0017).
+    template:
+      observation-enabled: true
     listener:
       simple:
+        observation-enabled: true
         # Listeners decide retry versus DLQ themselves (RetryingHandler). Anything that still escapes
         # is rejected without requeue, so it can't spin in a redelivery loop.
         default-requeue-rejected: false
@@ -160,6 +164,38 @@ springdoc:
   default-produces-media-type: application/json
 
 management:
+  # OpenTelemetry (ADR 0017). Off by default: without OTEL_ENABLED nothing is exported or sampled, and nothing
+  # expects a collector. The observability profile turns it on (infra/observability/observability.env).
+  tracing:
+    export:
+      enabled: ${OTEL_ENABLED:false}
+    sampling:
+      probability: ${OTEL_TRACES_SAMPLE_RATIO:0.0}
+  opentelemetry:
+    resource-attributes:
+      service.version: ${SERVICE_VERSION:1.0.0}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/logs
+  otlp:
+    logging:
+      export:
+        enabled: ${OTEL_ENABLED:false}
+    metrics:
+      export:
+        enabled: ${OTEL_ENABLED:false}
+        url: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/metrics
+        step: 15s
+  metrics:
+    distribution:
+      # Histograms for the RED dashboards' latency percentiles and the latency SLOs.
+      percentiles-histogram:
+        http.server.requests: true
   # Redis only caches (ADR 0009): when it is down the service still answers from the database, so it
   # must not report itself unhealthy. Cache failures are counted in cache.errors.
   health:
@@ -178,3 +214,17 @@ management:
     health:
       probes:
         enabled: true
+
+# JSON on stdout, with trace_id and span_id once a span is active.
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        version: ${SERVICE_VERSION:1.0.0}
+    json:
+      rename:
+        traceId: trace_id
+        spanId: span_id

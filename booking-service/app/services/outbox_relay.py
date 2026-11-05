@@ -37,6 +37,7 @@ class OutboundMessage:
     routing_key: str
     payload: dict[str, Any]
     occurred_at: datetime
+    traceparent: str | None = None
 
 
 class Publisher(Protocol):
@@ -61,7 +62,9 @@ def relay_batch(session_factory: Callable[[], Session], publisher: Publisher, ba
             if not rows:
                 db.rollback()
                 return 0
-            publisher.publish([OutboundMessage(r.id, r.event_type, r.payload, r.occurred_at) for r in rows])
+            publisher.publish(
+                [OutboundMessage(r.id, r.event_type, r.payload, r.occurred_at, r.traceparent) for r in rows]
+            )
             db.execute(
                 update(OutboxEvent)
                 .where(OutboxEvent.id.in_([r.id for r in rows]))

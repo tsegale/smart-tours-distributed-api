@@ -14,6 +14,7 @@ from ..config import get_settings
 from ..database import SessionLocal, engine
 from ..payments import get_payment_provider
 from ..services.sweeper import expire_overdue_holds, retry_pending_refunds
+from ..telemetry import configure_logging, configure_telemetry
 
 log = logging.getLogger("app.jobs.expire_holds")
 
@@ -36,7 +37,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Expire unpaid seat holds")
     parser.add_argument("--once", action="store_true", help="run one sweep and exit")
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging("booking-sweeper")
+    configure_telemetry("booking-sweeper", database=False)
 
     stop = threading.Event()
     for sig in (signal.SIGTERM, signal.SIGINT):

@@ -3,6 +3,8 @@ package com.smarttours.core.outbox;
 import com.smarttours.core.config.RabbitMQConfig;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
@@ -57,15 +59,17 @@ public class OutboxRelay {
     private final RabbitTemplate rabbit;
     private final TransactionTemplate transactions;
     private final OutboxProperties properties;
+    private final TraceParents traces;
     private final Counter published;
     private final Counter failures;
 
     public OutboxRelay(JdbcClient jdbc, RabbitTemplate rabbit, TransactionTemplate transactions,
-                       OutboxProperties properties, MeterRegistry meters) {
+                       OutboxProperties properties, TraceParents traces, MeterRegistry meters) {
         this.jdbc = jdbc;
         this.rabbit = rabbit;
         this.transactions = transactions;
         this.properties = properties;
+        this.traces = traces;
         this.published = Counter.builder("outbox.published").description("Events confirmed by the broker")
                 .register(meters);
         this.failures = Counter.builder("outbox.relay.failures").description("Batches not confirmed, retried later")
@@ -90,7 +94,7 @@ public class OutboxRelay {
     public int relayBatch() {
         Integer count = transactions.execute(status -> {
             List<Row> rows = jdbc.sql("""
-                            SELECT id, event_type, payload::text AS payload, occurred_at
+                            SELECT id, event_type, payload::text AS payload, occurred_at, traceparent
                             FROM outbox
                             WHERE published_at IS NULL
                             ORDER BY occurred_at, id
@@ -99,7 +103,8 @@ public class OutboxRelay {
                             """)
                     .param("limit", properties.batchSize())
                     .query((rs, n) -> new Row(rs.getObject("id", UUID.class), rs.getString("event_type"),
-                            rs.getString("payload"), rs.getTimestamp("occurred_at").toInstant()))
+                            rs.getString("payload"), rs.getTimestamp("occurred_at").toInstant(),
+                            rs.getString("traceparent")))
                     .list();
             if (rows.isEmpty()) {
                 return 0;
@@ -141,7 +146,7 @@ public class OutboxRelay {
         List<CorrelationData> pending = new ArrayList<>(rows.size());
         for (Row row : rows) {
             CorrelationData correlation = new CorrelationData(row.id().toString());
-            rabbit.send(RabbitMQConfig.EVENTS_EXCHANGE, row.eventType(), message(row), correlation);
+            sendInItsTrace(row, correlation);
             pending.add(correlation);
         }
         long deadline = System.nanoTime() + properties.confirmTimeout().toNanos();
@@ -151,6 +156,20 @@ public class OutboxRelay {
                 throw new OutboxPublishException("broker nacked event " + correlation.getId() + ": "
                         + confirm.reason());
             }
+        }
+    }
+
+    /** Inside the trace of the transaction that wrote the row, so the consumer continues that trace (ADR 0017). */
+    private void sendInItsTrace(Row row, CorrelationData correlation) {
+        Span span = traces.continueFrom(row.traceparent(), "outbox.relay " + row.eventType());
+        if (span == null) {
+            rabbit.send(RabbitMQConfig.EVENTS_EXCHANGE, row.eventType(), message(row), correlation);
+            return;
+        }
+        try (Tracer.SpanInScope ignored = traces.inScope(span)) {
+            rabbit.send(RabbitMQConfig.EVENTS_EXCHANGE, row.eventType(), message(row), correlation);
+        } finally {
+            span.end();
         }
     }
 
@@ -168,7 +187,12 @@ public class OutboxRelay {
     }
 
     private static Message message(Row row) {
-        return MessageBuilder.withBody(row.payload().getBytes(StandardCharsets.UTF_8))
+        MessageBuilder builder = MessageBuilder.withBody(row.payload().getBytes(StandardCharsets.UTF_8));
+        if (row.traceparent() != null) {
+            // The template's observation replaces this with its own span; it stays if observation is off.
+            builder.setHeader(TraceParents.HEADER, row.traceparent());
+        }
+        return builder
                 .setContentType(MessageProperties.CONTENT_TYPE_JSON)
                 .setContentEncoding(StandardCharsets.UTF_8.name())
                 .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
@@ -178,7 +202,7 @@ public class OutboxRelay {
                 .build();
     }
 
-    private record Row(UUID id, String eventType, String payload, Instant occurredAt) {
+    private record Row(UUID id, String eventType, String payload, Instant occurredAt, String traceparent) {
     }
 
     /** A batch the broker didn't confirm; nothing in it is marked published. */

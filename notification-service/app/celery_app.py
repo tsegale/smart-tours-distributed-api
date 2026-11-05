@@ -23,13 +23,17 @@ delayed delivery for countdown retries; for one worker pool on one broker that b
 """
 
 import logging
+import os
 
 from celery import Celery
-from celery.signals import setup_logging, worker_init
+from celery.signals import setup_logging, worker_init, worker_process_init, worker_process_shutdown
 from kombu import Exchange, Queue
+from opentelemetry import metrics, trace
+from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
 from .config import get_settings
 from .logs import configure_logging
+from .telemetry import configure_telemetry
 
 settings = get_settings()
 
@@ -90,9 +94,29 @@ def declare_dead_letter_queue() -> None:
         Queue(DEAD_LETTER_QUEUE, exchange, durable=True).declare(channel=channel)
 
 
+def _process_name() -> str:
+    """Render and email workers run the same code: compose tells them apart."""
+    return os.environ.get("OTEL_SERVICE_NAME", "notification-worker")
+
+
 @setup_logging.connect
 def _logging(**_) -> None:
-    configure_logging()
+    configure_logging(_process_name())
+
+
+@worker_process_init.connect(weak=False)
+def _telemetry(**_) -> None:
+    # In each pool process, after the fork: the exporters' background threads don't survive one.
+    configure_telemetry(_process_name())
+    CeleryInstrumentor().instrument()
+
+
+@worker_process_shutdown.connect(weak=False)
+def _flush_telemetry(**_) -> None:
+    # Pool processes exit without running atexit hooks, which would lose what's still buffered.
+    for provider in (trace.get_tracer_provider(), metrics.get_meter_provider()):
+        if hasattr(provider, "force_flush"):
+            provider.force_flush()
 
 
 @worker_init.connect

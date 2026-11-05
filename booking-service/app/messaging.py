@@ -9,9 +9,11 @@ import logging
 from collections.abc import Sequence
 
 import pika
+from opentelemetry import propagate
 from pika.adapters.blocking_connection import BlockingChannel, BlockingConnection
 
 from .services.outbox_relay import OutboundMessage
+from .telemetry import continuing
 
 log = logging.getLogger(__name__)
 
@@ -44,18 +46,24 @@ class RabbitPublisher:
         try:
             channel = self._ensure_channel()
             for message in messages:
-                channel.basic_publish(
-                    exchange=self._exchange,
-                    routing_key=message.routing_key,
-                    body=json.dumps(message.payload, separators=(",", ":")).encode(),
-                    properties=pika.BasicProperties(
-                        content_type="application/json",
-                        delivery_mode=pika.DeliveryMode.Persistent,
-                        message_id=str(message.event_id),
-                        type=message.routing_key,
-                        timestamp=int(message.occurred_at.timestamp()),
-                    ),
-                )
+                # Inside the trace of the transaction that wrote the row, so the consumer continues that trace.
+                # The header is written here, so it survives even with this process's own exporter off.
+                with continuing(message.traceparent):
+                    headers: dict[str, str] = {}
+                    propagate.inject(headers)
+                    channel.basic_publish(
+                        exchange=self._exchange,
+                        routing_key=message.routing_key,
+                        body=json.dumps(message.payload, separators=(",", ":")).encode(),
+                        properties=pika.BasicProperties(
+                            content_type="application/json",
+                            delivery_mode=pika.DeliveryMode.Persistent,
+                            message_id=str(message.event_id),
+                            type=message.routing_key,
+                            timestamp=int(message.occurred_at.timestamp()),
+                            headers=headers,
+                        ),
+                    )
         except pika.exceptions.AMQPError as exc:
             # Unconfirmed: drop the connection so the next batch starts on a fresh one.
             self.close()

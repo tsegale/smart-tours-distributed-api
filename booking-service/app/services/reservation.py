@@ -28,6 +28,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import set_committed_value
 
+from ..business_metrics import seat_conflicts
 from ..config import Settings
 from ..errors import ConflictError, NotEnoughSlotsError, NotFoundError
 from ..models import TourAvailability
@@ -35,6 +36,11 @@ from ..models import TourAvailability
 log = logging.getLogger(__name__)
 
 LOCK_NOT_AVAILABLE = "55P03"  # Postgres SQLSTATE raised when lock_timeout expires
+
+
+def _departure_busy(**details: object) -> ConflictError:
+    seat_conflicts.add(1, {"reason": "busy"})
+    return ConflictError("This departure is busy; please retry", **details)
 
 
 def _busy(exc: OperationalError) -> bool:
@@ -46,6 +52,7 @@ def _not_found(availability_id: int) -> NotFoundError:
 
 
 def _not_enough(requested: int, remaining: int) -> NotEnoughSlotsError:
+    seat_conflicts.add(1, {"reason": "not_enough_seats"})
     return NotEnoughSlotsError(f"Requested {requested} slots but only {remaining} remain", slots_remaining=remaining)
 
 
@@ -62,7 +69,7 @@ def lock_availability(db: Session, availability_id: int) -> TourAvailability:
         availability = db.execute(stmt).scalar_one_or_none()
     except OperationalError as exc:
         if _busy(exc):
-            raise ConflictError("This departure is busy; please retry", retryable=True) from exc
+            raise _departure_busy(retryable=True) from exc
         raise
     if availability is None:
         raise _not_found(availability_id)
@@ -122,7 +129,7 @@ class OptimisticReservation:
                 ).one_or_none()
             except OperationalError as exc:
                 if _busy(exc):
-                    raise ConflictError("This departure is busy; please retry", retryable=True) from exc
+                    raise _departure_busy(retryable=True) from exc
                 raise
             if swapped is not None:
                 # Record the new values as loaded, not as changes: a dirty object would make the
@@ -135,7 +142,7 @@ class OptimisticReservation:
                 # Full jitter (AWS architecture blog): spread retries out instead of retrying in lockstep.
                 time.sleep(random.uniform(0, min(self._cap_s, self._base_s * 2**attempt)))
         log.info("optimistic reservation gave up on availability %s after %s attempts", availability_id, attempt)
-        raise ConflictError("This departure is busy; please retry", retryable=True, attempts=self._max_attempts)
+        raise _departure_busy(retryable=True, attempts=self._max_attempts)
 
 
 class AtomicReservation:
@@ -155,7 +162,7 @@ class AtomicReservation:
             ).one_or_none()
         except OperationalError as exc:
             if _busy(exc):
-                raise ConflictError("This departure is busy; please retry", retryable=True) from exc
+                raise _departure_busy(retryable=True) from exc
             raise
         # Re-read in the same transaction: our own UPDATE (if any) is visible, and the row is
         # locked by it, so the values are current.

@@ -1,8 +1,8 @@
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from sqlalchemy import text
 
 from .clients.tour_client import close_tour_client
@@ -11,8 +11,11 @@ from .errors import register_error_handlers
 from .metrics import render
 from .payments import get_payment_provider
 from .routers import availability, bookings, checkins, webhooks
+from .telemetry import configure_logging, configure_telemetry, instrument_fastapi
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+configure_logging("booking-service")
+configure_telemetry("booking-service")
+HTTPXClientInstrumentor().instrument()
 
 
 @asynccontextmanager
@@ -48,6 +51,7 @@ def create_app() -> FastAPI:
         body, content_type = render()
         return Response(content=body, media_type=content_type)
 
+    instrument_fastapi(app)
     return app
 
 

@@ -13,6 +13,7 @@ from functools import lru_cache
 from botocore.exceptions import BotoCoreError, ClientError
 from celery import Task
 from celery.exceptions import Reject
+from opentelemetry import metrics
 from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
 
@@ -27,6 +28,14 @@ from .models import BookingSnapshot, Notification, NotificationStatus, Notificat
 
 log = logging.getLogger("notifications.tasks")
 settings = get_settings()
+
+# From the booking changing status to the email being accepted by SMTP: the email SLO (docs/slo.md).
+delivery_seconds = metrics.get_meter("smarttours.notifications").create_histogram(
+    "notification.delivery.duration",
+    unit="s",
+    description="From the booking's status change to the email being sent",
+    explicit_bucket_boundaries_advisory=[1, 5, 10, 30, 60, 120, 300, 600, 1800, 3600],
+)
 
 # Which booking status a notification still makes sense for, when its turn comes.
 STILL_TRUE_WHEN: dict[NotificationType, str] = {
@@ -207,7 +216,11 @@ def send_email(self: Task, notification_id: int) -> None:
         notification.sent_at = datetime.now(UTC)
         notification.attempts += 1
         notification.last_error = None
+        delivered = (notification.sent_at - booking.status_changed_at).total_seconds()
+        kind = str(notification.type)
         db.commit()
+    if kind != NotificationType.REMINDER:  # a reminder is scheduled for later, not delivered late
+        delivery_seconds.record(delivered, {"type": kind})
     log.info("notification.sent notification_id=%s type=%s", notification_id, notification.type,
              extra={"notification_id": notification_id, "booking_id": notification.booking_id})  # fmt: skip
 

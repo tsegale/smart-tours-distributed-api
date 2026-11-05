@@ -12,11 +12,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pika
+from opentelemetry import propagate
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from .config import Settings
 from .models import OutboxEvent, Ticket
+from .telemetry import continuing, current_traceparent
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +40,7 @@ def record(
             event_type=event_type,
             payload=payload,
             occurred_at=occurred_at,
+            traceparent=current_traceparent(),
         )
     )
     return event_id
@@ -90,18 +93,23 @@ def relay_batch(db: Session, settings: Settings) -> int:
         channel.exchange_declare(settings.events_exchange, exchange_type="topic", durable=True)
         channel.confirm_delivery()
         for row in rows:
-            channel.basic_publish(
-                exchange=settings.events_exchange,
-                routing_key=row.event_type,
-                body=json.dumps(row.payload, separators=(",", ":")).encode(),
-                properties=pika.BasicProperties(
-                    content_type="application/json",
-                    delivery_mode=pika.DeliveryMode.Persistent,
-                    message_id=str(row.id),
-                    type=row.event_type,
-                    timestamp=int(row.occurred_at.timestamp()),
-                ),
-            )
+            # Inside the trace of the transaction that wrote the row (ADR 0017).
+            with continuing(row.traceparent):
+                headers: dict[str, str] = {}
+                propagate.inject(headers)
+                channel.basic_publish(
+                    exchange=settings.events_exchange,
+                    routing_key=row.event_type,
+                    body=json.dumps(row.payload, separators=(",", ":")).encode(),
+                    properties=pika.BasicProperties(
+                        content_type="application/json",
+                        delivery_mode=pika.DeliveryMode.Persistent,
+                        message_id=str(row.id),
+                        type=row.event_type,
+                        timestamp=int(row.occurred_at.timestamp()),
+                        headers=headers,
+                    ),
+                )
     except pika.exceptions.AMQPError as exc:
         db.rollback()
         raise PublishNotConfirmedError(f"publish failed: {exc.__class__.__name__}: {exc}") from exc

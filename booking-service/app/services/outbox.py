@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..domain.booking_status import StatusChange
 from ..models import Booking, BookingStatus, OutboxEvent, TourAvailability
+from ..telemetry import current_traceparent
 
 AVAILABILITY_CHANGED = "availability.changed"
 REVIEW_SUBMITTED = "review.submitted"
@@ -52,6 +53,7 @@ def record(
             event_type=event_type,
             payload=payload,
             occurred_at=occurred_at,
+            traceparent=current_traceparent(),
         )
     )
     return event_id

@@ -22,6 +22,7 @@ from pika.exceptions import AMQPConnectionError, ChannelClosedByBroker
 from ..config import Settings, get_settings
 from ..database import SessionLocal
 from ..services.tickets import record_ticket_rendered
+from ..telemetry import configure_logging, configure_telemetry
 
 log = logging.getLogger("app.jobs.ticket_listener")
 
@@ -120,7 +121,8 @@ def declare_topology(channel: BlockingChannel, settings: Settings) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging("booking-ticket-listener")
+    configure_telemetry("booking-ticket-listener")
     settings = get_settings()
     stopping = False
     backoff = 1.0

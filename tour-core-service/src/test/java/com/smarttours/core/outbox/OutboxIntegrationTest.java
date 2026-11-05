@@ -66,6 +66,9 @@ class OutboxIntegrationTest extends IntegrationTest {
     private OutboxProperties properties;
 
     @Autowired
+    private TraceParents traces;
+
+    @Autowired
     private JdbcClient jdbc;
 
     @Autowired
@@ -177,7 +180,7 @@ class OutboxIntegrationTest extends IntegrationTest {
             }
         });
         MeterRegistry meters = new SimpleMeterRegistry();
-        OutboxRelay second = new OutboxRelay(jdbc, rabbitTemplate, transactions, properties, meters);
+        OutboxRelay second = new OutboxRelay(jdbc, rabbitTemplate, transactions, properties, traces, meters);
         Callable<Integer> drainWith1 = () -> drainWith(relay);
         Callable<Integer> drainWith2 = () -> drainWith(second);
 

@@ -26,6 +26,7 @@ from .config import Settings, get_settings
 from .database import SessionLocal
 from .embeddings import get_embedder
 from .messages import PoisonMessageError, handle_tour_event
+from .telemetry import configure_logging, configure_telemetry
 
 log = logging.getLogger("ai.worker")
 
@@ -111,7 +112,8 @@ def declare_topology(channel: BlockingChannel, settings: Settings) -> None:
 
 
 def run() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging("ai-worker")
+    configure_telemetry("ai-worker")
     settings = get_settings()
     embedder = get_embedder()
     if hasattr(embedder, "warm_up"):

@@ -26,8 +26,10 @@ from .dispatch import dispatch
 from .errors import register_error_handlers
 from .logs import configure_logging
 from .models import Notification, NotificationStatus
+from .telemetry import configure_telemetry, instrument_fastapi
 
 configure_logging()
+configure_telemetry("notification-service")
 log = logging.getLogger(__name__)
 
 
@@ -91,6 +93,7 @@ app = FastAPI(
     version="1.0.0",
     description="Booking emails and PDF tickets. Health and admin endpoints; the work runs in Celery workers.",
 )
+instrument_fastapi(app)
 register_error_handlers(app)
 
 
