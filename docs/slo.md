@@ -38,8 +38,53 @@ Google SRE workbook. Rules are code: `infra/observability/alerting/rules.yaml`.
 | Email delivery burn | Late ratio over 14.4 x 5%, over both 1 h and 5 min | 2 min |
 | DLQ not empty | Any `*.dlq` queue holds a message | 1 min |
 | Relay lag | Oldest unpublished outbox event older than 60 s | 1 min |
-| Breaker open | A provider's circuit breaker open | 5 min |
+| Breaker open | A provider's circuit breaker open or half-open, without closing | 5 min |
 | Failed notifications | Any notification in status FAILED | 1 min |
+
+## Fire drill
+
+An alert nobody has seen fire may be unable to. `scripts/alert_fire_drill.py` causes what each rule watches for and
+waits until Grafana reports it firing. Every rule fired on 2026-11-05, on the Docker VM described in
+[the memory budget](benchmarks/notifications.md#memory-budget).
+
+| Alert | Fault caused | Fired at (UTC) | After | Labelled |
+| --- | --- | --- | ---: | --- |
+| DLQ not empty | Poison message on `availability.changed` | 18:35:07 | 116 s | `core.availability-summary.dlq` |
+| Outbox relay lag | `booking-outbox-relay` stopped, then a departure created | 18:38:15 | 163 s | `booking-service` |
+| Search availability burn | `tours-db` stopped under search traffic | 18:45:13 | 363 s | |
+| Search latency burn | Same outage | 18:45:13 | active from 18:41:00 | |
+| Booking availability burn | `bookings-db` stopped under booking traffic: answered 500 | 18:52:44 | active from 18:49:00, see below | |
+| Circuit breaker open | Provider stubs answering errors, weather requests continuing | 20:04:41 | 321 s | `open-meteo-archive` |
+| Email delivery burn | Email worker paused, five confirmations, their status change moved 10 minutes back | 21:23:41 | 176 s | |
+| Notifications failed | Mailpit refusing recipients with 550 | 21:25:41 | 91 s | |
+
+**Two rules couldn't fire, or nearly:**
+- **Circuit breaker open** was `state="open" == 1` for 5 minutes. A breaker under sustained failure goes
+  `OPEN -> HALF_OPEN -> OPEN` every 30 s here, which reset that timer every time, so it could never fire on the fault it
+  exists for. It now counts open or half-open as "not recovered". Over the drill the forecast breaker stayed in those
+  two states without a gap.
+- **Search latency burn** first matched `le="500.0"`, which no series has: this one was found before the drill by querying
+  real data. The label is `le="500"`. `le="300"` on the email rule and `task` on the Celery panel were checked against
+  real series and are right.
+
+**What to know when reading these:**
+- *Booking* fired 3 s into its recorded run, because it was already firing from an earlier attempt at the same outage,
+  whose script run failed on a Grafana timeout after the fault was on. Its active time, 18:49:00, is in that outage.
+- *Email* used a shortcut: rather than wait 10 real minutes, the booking's status change was moved back in the database
+  while the worker was paused. Everything after that is the real pipeline and metric.
+- *A first event in a new process is invisible to `rate()`*, which starts from the first sample. Burn rates need a
+  second late email or failed request to move, so the drill sends one on-time email first and pauses the worker rather
+  than restarting it. A sustained problem still fires. One isolated failure right after a restart doesn't.
+- *The breaker rule can outlast the fault.* A breaker stays half-open until a call probes it. A provider that recovers
+  while nothing calls it keeps the alert firing until the next call closes the breaker. It fired on
+  `open-meteo-archive`, which is rarely called, for that reason: its half-open state had carried over from an earlier
+  fault. So it fired on a real fault, but not on the provider a first reading of the label suggests.
+- *The drill found a behaviour to fix:* during the `tours-db` outage all 144 searches got no answer within the client's
+  15 s. The alert was right, but search hangs instead of failing fast when its database is down. Not fixed here.
+- Permanent SMTP failures also dead-letter, so *Notifications failed* comes with *DLQ not empty* on
+  `notifications.tasks.dlq`. The drill leaves that message there; purge it after looking at it.
+
+## Not done yet
 
 Nothing here sends a notification yet: alerts show in Grafana. Routing them somewhere a person will see them belongs to
 the deployment (Part B), since it needs an account or an endpoint.

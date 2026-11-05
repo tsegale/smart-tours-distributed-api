@@ -356,7 +356,7 @@
               "datasourceUid": "prometheus",
               "model": {
                 "refId": "A",
-                "expr": "max by (name) (resilience4j_circuitbreaker_state{state=\"open\"}) == 1",
+                "expr": "sum by (name) (resilience4j_circuitbreaker_state{state=~\"open|half_open\"}) == 1",
                 "instant": true,
                 "range": false
               }
