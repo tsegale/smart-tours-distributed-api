@@ -1,20 +1,21 @@
 package com.smarttours.gateway.security;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
-import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtIssuerReactiveAuthenticationManagerResolver;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
@@ -22,8 +23,7 @@ import org.springframework.security.web.server.util.matcher.ServerWebExchangeMat
 import org.springframework.core.convert.converter.Converter;
 import reactor.core.publisher.Mono;
 
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Base64;
+import java.util.Map;
 
 /**
  * Edge security. The gateway is the only component that sees raw tokens. Downstream services
@@ -32,10 +32,10 @@ import java.util.Base64;
  */
 @Configuration
 @EnableWebFluxSecurity
+@EnableConfigurationProperties(SecurityProperties.class)
 public class SecurityConfig {
 
     static final String ROLES_CLAIM = "roles";
-    static final int MIN_SECRET_BYTES = 32; // HS256 needs a key of at least 256 bits
     static final String WEBHOOK_PATHS = "/webhooks/**";
 
     /**
@@ -61,7 +61,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+    SecurityWebFilterChain securityWebFilterChain(
+            ServerHttpSecurity http, JwtIssuerReactiveAuthenticationManagerResolver issuers) {
         return http
                 // Stateless bearer-token API: no cookies, so CSRF protection does not apply.
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
@@ -77,22 +78,20 @@ public class SecurityConfig {
                         .pathMatchers("/api/check-ins", "/api/check-ins/**").hasAnyRole("OPERATOR", "ADMIN")
                         .pathMatchers(HttpMethod.POST, "/api/ai/embed").hasRole("ADMIN")
                         .anyExchange().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
+                .oauth2ResourceServer(oauth2 -> oauth2.authenticationManagerResolver(issuers))
                 .build();
     }
 
+    /**
+     * Only the issuers in the map are trusted. An unknown or missing {@code iss} is a 401, and no key is ever
+     * fetched from a location a token names (ADR 0016).
+     */
     @Bean
-    ReactiveJwtDecoder jwtDecoder(@Value("${smarttours.security.jwt-secret}") String base64Secret) {
-        byte[] key = Base64.getDecoder().decode(base64Secret);
-        if (key.length < MIN_SECRET_BYTES) {
-            throw new IllegalStateException(
-                    "JWT_SECRET must decode to at least " + MIN_SECRET_BYTES + " bytes (openssl rand -base64 48)");
-        }
-        return NimbusReactiveJwtDecoder
-                .withSecretKey(new SecretKeySpec(key, "HmacSHA256"))
-                .macAlgorithm(MacAlgorithm.HS256)
-                .build();
+    JwtIssuerReactiveAuthenticationManagerResolver issuerResolver(SecurityProperties properties, Environment environment) {
+        boolean production = environment.acceptsProfiles(Profiles.of(TokenIssuers.PRODUCTION_PROFILE));
+        Map<String, ReactiveAuthenticationManager> managers =
+                TokenIssuers.managers(properties, production, jwtAuthenticationConverter());
+        return new JwtIssuerReactiveAuthenticationManagerResolver(issuer -> Mono.justOrEmpty(managers.get(issuer)));
     }
 
     /** Maps the "roles" claim (e.g. ["CUSTOMER"]) to Spring authorities ROLE_CUSTOMER. */

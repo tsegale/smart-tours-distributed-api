@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "smarttours.security.jwt-secret=" + RateLimitTestSupport.SECRET,
+        "smarttours.security.dev-tokens.enabled=true",
         "RATE_LIMIT_SEARCH_RPS=1", "RATE_LIMIT_SEARCH_BURST=6",
         "RATE_LIMIT_USER_RPS=1", "RATE_LIMIT_USER_BURST=4",
         "RATE_LIMIT_ANONYMOUS_RPS=1", "RATE_LIMIT_ANONYMOUS_BURST=3",

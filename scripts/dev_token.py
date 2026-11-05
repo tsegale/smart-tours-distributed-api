@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Mint a short-lived HS256 JWT for local development.
 
-Nothing in the stack issues tokens yet (Keycloak arrives in Phase 5), so this script
-signs one with the same JWT_SECRET the gateway verifies against. Standard library
-only, so it runs without a virtualenv.
+Signs one with the same JWT_SECRET the gateway verifies against, for the default profile, which runs without
+Keycloak. The gateway accepts these only with DEV_TOKENS_ENABLED=true (ADR 0016); for real tokens from Keycloak see
+scripts/keycloak_token.py. Standard library only, so it runs without a virtualenv.
 
     python scripts/dev_token.py                         # CUSTOMER, sub=dev-user
     python scripts/dev_token.py --sub alice --roles CUSTOMER OPERATOR
@@ -45,9 +45,16 @@ def mint(secret_b64: str, sub: str, roles: list[str], ttl_seconds: int, email: s
         raise SystemExit("JWT_SECRET must decode to at least 32 bytes (use: openssl rand -base64 48)")
     now = int(time.time())
     header = {"alg": "HS256", "typ": "JWT"}
-    claims = {"iss": "smart-tours-dev", "sub": sub, "roles": roles, "iat": now, "exp": now + ttl_seconds}
+    claims = {
+        "iss": "smart-tours-dev",
+        "aud": "smart-tours-api",
+        "sub": sub,
+        "roles": roles,
+        "iat": now,
+        "exp": now + ttl_seconds,
+    }
     if email:
-        # Keycloak puts the user's address here too (Phase 5); the gateway forwards it as X-User-Email.
+        # Keycloak puts the user's address here too; the gateway forwards it as X-User-Email.
         claims["email"] = email
     signing_input = f"{_b64url(json.dumps(header, separators=(',', ':')).encode())}." \
                     f"{_b64url(json.dumps(claims, separators=(',', ':')).encode())}"

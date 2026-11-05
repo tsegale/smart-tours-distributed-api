@@ -21,7 +21,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * must fail closed (503 Problem Details with Retry-After) and never reach booking-service.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "smarttours.security.jwt-secret=" + RateLimitTestSupport.SECRET)
+        properties = {
+                "smarttours.security.jwt-secret=" + RateLimitTestSupport.SECRET,
+                "smarttours.security.dev-tokens.enabled=true"
+        })
 @Testcontainers(disabledWithoutDocker = true)
 class RateLimitRedisDownTest {
 

@@ -5,6 +5,7 @@
 #   docker compose up --build       # the core: gateway, tour-core, booking, their stores
 #
 # Optional pieces are profiles, so the default stays usable on an 8 GB laptop (README, "Profiles"):
+#   --profile auth            real tokens from Keycloak (keycloak, keycloak-db; python scripts/keycloak_secrets.py first)
 #   --profile ai              recommendations (ai-service, ai-worker, ai-db): about 1 GB more
 #   --profile notifications   emails, PDF tickets, check-in (notification-*, MinIO, Mailpit)
 #   --profile flower          Celery's Flower dashboard (with notifications)
@@ -130,7 +131,13 @@ services:
   api-gateway:
     build: ./api-gateway
     environment:
+      # Who the gateway accepts tokens from (ADR 0016). Dev tokens are for local use; the prod profile refuses them.
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      DEV_TOKENS_ENABLED: ${DEV_TOKENS_ENABLED:-true}
+      # iss as clients see it, keys over the internal network. Keys are fetched on first use, so without the auth
+      # profile the gateway still starts; a Keycloak token just answers 503.
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/smart-tours
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/smart-tours/protocol/openid-connect/certs
       TOUR_SERVICE_URL: http://tour-core-service:8081
       BOOKING_SERVICE_URL: http://booking-service:8082
       AI_SERVICE_URL: http://ai-service:8083
@@ -374,6 +381,70 @@ services:
           memory: 1536M
     restart: unless-stopped
 
+  # ---------------------------------------------------------------- identity (profile)
+  # python scripts/keycloak_secrets.py, once; then docker compose --profile auth up -d (ADR 0016).
+  # Its own database, like every other service.
+  keycloak-db:
+    image: postgres:16-alpine
+    profiles: [auth]
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+    env_file:
+      - path: ./secrets/keycloak-db.env
+        required: false # only read with this profile, and then the database refuses to start without a password
+    volumes: [keycloak_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d keycloak"]
+      <<: *db-healthcheck
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+    restart: unless-stopped
+
+  # Built with --optimized in mind (infra/keycloak/Dockerfile). The realm is code; it is imported on the first start
+  # only, and an existing realm is left alone, so changes to the file need: docker compose down keycloak-db -v
+  keycloak:
+    build: ./infra/keycloak
+    image: smarttours/keycloak:local
+    profiles: [auth]
+    command: ["start", "--optimized", "--import-realm"]
+    env_file:
+      - path: ./secrets/keycloak.env
+        required: false
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      # The public URL: it becomes the iss in every token. TLS belongs in front of this in production.
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KEYCLOAK_WEB_ORIGIN: ${KEYCLOAK_WEB_ORIGIN:-http://localhost:3000}
+    volumes: ["./infra/keycloak/realm:/opt/keycloak/data/import:ro"]
+    ports: ["127.0.0.1:8180:8080"]
+    healthcheck:
+      # The image has no curl or wget. Health is on the management port, not the public one.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/localhost/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"status": "UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+      start_interval: 3s
+    depends_on:
+      keycloak-db: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    restart: unless-stopped
+
   # ---------------------------------------------------------------- notifications (profile)
   # docker compose --profile notifications up -d: booking emails with PDF tickets (ADRs 0014, 0015).
   notifications-db:
@@ -607,3 +678,4 @@ volumes:
   hf_models:
   notifications_data:
   minio_data:
+  keycloak_data:

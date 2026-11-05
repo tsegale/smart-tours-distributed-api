@@ -26,6 +26,7 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
  */
 @SpringBootTest(properties = {
         "smarttours.security.jwt-secret=" + SecurityConfigTest.SECRET,
+        "smarttours.security.dev-tokens.enabled=true",
         "TOUR_SERVICE_URL=http://localhost:1",
         "BOOKING_SERVICE_URL=http://localhost:1",
         "AI_SERVICE_URL=http://localhost:1"
@@ -140,6 +141,8 @@ class SecurityConfigTest {
     private static String sign(String subject, List<String> roles, Instant expiresAt) {
         try {
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                    .issuer("smart-tours-dev")
+                    .audience("smart-tours-api")
                     .subject(subject)
                     .claim(SecurityConfig.ROLES_CLAIM, roles)
                     .issueTime(new Date())

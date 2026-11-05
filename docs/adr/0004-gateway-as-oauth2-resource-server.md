@@ -7,8 +7,9 @@ The gateway validated JWTs with hand-written jjwt code, and the secret was commi
 booking-service took `user_id` from the request body, so any caller could book as anyone (an IDOR).
 
 ## Decision
-- The gateway is a standard Spring Security OAuth2 resource server. Today it verifies HS256 tokens with a
-  secret from the environment. Moving to Keycloak (RS256 + JWKS, Phase 5) is a configuration change.
+- The gateway is a standard Spring Security OAuth2 resource server. It verified HS256 tokens with a secret from the
+  environment; [ADR 0016](0016-keycloak-and-multi-issuer-validation.md) added Keycloak (RS256 + JWKS) next to it. That
+  took code as well as configuration in the gateway, to trust two issuers safely, and none in the services.
 - Route-level authorisation lives at the edge: browsing tours is public, writes need `OPERATOR`.
 - The gateway strips any client-sent `X-User-Id` / `X-User-Roles` and sets them from the verified token.
 - Services read identity only from those headers, and only the gateway's port is published.

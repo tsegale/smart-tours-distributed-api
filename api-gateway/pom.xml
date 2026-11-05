@@ -29,9 +29,8 @@
             <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
         </dependency>
 
-        <!-- Standard OAuth2 resource server instead of hand-rolled JWT parsing.
-             Today it verifies HS256 with a shared secret; switching to Keycloak (Phase 5)
-             is a config change to jwk-set-uri, with no code changes. -->
+        <!-- Standard OAuth2 resource server instead of hand-rolled JWT parsing. Keycloak RS256 tokens,
+             plus HS256 dev tokens when explicitly enabled (ADR 0016). -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>

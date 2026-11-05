@@ -396,6 +396,44 @@ echo "as a customer:  $(code -X POST $GW/api/check-ins -H "Authorization: Bearer
 docker compose --profile notifications logs notification-worker notification-email-worker notification-bridge | grep "\"booking_id\": $B5"
 ```
 
+## 11. Real tokens from Keycloak (auth profile)
+
+Everything above uses dev tokens. This is the same gateway with real ones: about 610 MiB more
+([ADR 0016](adr/0016-keycloak-and-multi-issuer-validation.md)).
+
+```bash
+python scripts/keycloak_secrets.py        # once: generates secrets/keycloak.env, git-ignored
+docker compose --profile auth up -d --wait --build
+
+# Logs in through the real login form: authorization code + PKCE. Retry if the first attempt answers
+# 503 "Bootstrap in progress": on first start the realm import runs after the health check goes green.
+python scripts/keycloak_token.py customer --claims
+# iss http://localhost:8180/realms/smart-tours, aud smart-tours-api, roles ["CUSTOMER"], and an email
+
+CUSTOMER=$(python scripts/keycloak_token.py customer)
+OPERATOR=$(python scripts/keycloak_token.py operator)
+TOOLING=$(python scripts/keycloak_token.py tooling)    # client credentials, the confidential client
+
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $CUSTOMER" localhost:8080/api/bookings/me   # 200
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $CUSTOMER" \
+  -H 'content-type: application/json' -d '{}' localhost:8080/api/tours                                         # 403
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $OPERATOR" \
+  -H 'content-type: application/json' -d '{}' localhost:8080/api/tours                                         # 400: past security
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $TOOLING" \
+  -H 'content-type: application/json' -d '{}' localhost:8080/api/tours                                         # 400: past security
+```
+
+Tokens last 5 minutes. The admin console is at http://localhost:8180 (user `admin`, password
+`KC_BOOTSTRAP_ADMIN_PASSWORD` in `secrets/keycloak.env`).
+
+Production rejects dev tokens. With both set on the gateway, `SPRING_PROFILES_ACTIVE=prod` and
+`DEV_TOKENS_ENABLED=true`, it refuses to start. With `DEV_TOKENS_ENABLED=false`, a dev token is a 401:
+
+```bash
+docker compose --profile auth stop keycloak
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $CUSTOMER" localhost:8080/api/bookings/me   # 503: can't be checked, not invalid
+```
+
 ## Reset
 
 ```bash

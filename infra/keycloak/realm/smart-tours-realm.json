@@ -1,0 +1,191 @@
+{
+  "realm": "smart-tours",
+  "displayName": "Smart Tours",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "defaultSignatureAlgorithm": "RS256",
+  "passwordPolicy": "length(12) and notUsername(undefined) and notEmail(undefined)",
+
+  "accessTokenLifespan": 300,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
+
+  "roles": {
+    "realm": [
+      { "name": "CUSTOMER", "description": "Books tours and reads their own bookings" },
+      { "name": "OPERATOR", "description": "Manages tours and departures, checks tickets in" },
+      { "name": "ADMIN", "description": "Everything an operator does, plus admin endpoints" }
+    ]
+  },
+
+  "clientScopes": [
+    {
+      "name": "smart-tours-api",
+      "description": "What the API gateway needs: audience, subject, email, and the application roles as a top-level claim",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "smart-tours-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": ["smart-tours-api"],
+  "defaultOptionalClientScopes": [],
+
+  "scopeMappings": [
+    { "clientScope": "smart-tours-api", "roles": ["CUSTOMER", "OPERATOR", "ADMIN"] }
+  ],
+
+  "clients": [
+    {
+      "clientId": "smart-tours-web",
+      "name": "Smart Tours web front end",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": ["${KEYCLOAK_WEB_ORIGIN}/*"],
+      "webOrigins": ["${KEYCLOAK_WEB_ORIGIN}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${KEYCLOAK_WEB_ORIGIN}/*"
+      },
+      "defaultClientScopes": ["smart-tours-api"],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "smart-tours-operator-tooling",
+      "name": "Operator tooling (scripts and jobs acting as an operator)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${KEYCLOAK_OPERATOR_TOOLING_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": ["smart-tours-api"],
+      "optionalClientScopes": []
+    }
+  ],
+
+  "users": [
+    {
+      "username": "demo-customer",
+      "email": "demo-customer@example.com",
+      "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "Customer",
+      "enabled": true,
+      "realmRoles": ["CUSTOMER"],
+      "credentials": [
+        { "type": "password", "value": "${KEYCLOAK_DEMO_CUSTOMER_PASSWORD}", "temporary": false }
+      ]
+    },
+    {
+      "username": "demo-operator",
+      "email": "demo-operator@example.com",
+      "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "Operator",
+      "enabled": true,
+      "realmRoles": ["OPERATOR"],
+      "credentials": [
+        { "type": "password", "value": "${KEYCLOAK_DEMO_OPERATOR_PASSWORD}", "temporary": false }
+      ]
+    },
+    {
+      "username": "demo-admin",
+      "email": "demo-admin@example.com",
+      "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "Admin",
+      "enabled": true,
+      "realmRoles": ["ADMIN"],
+      "credentials": [
+        { "type": "password", "value": "${KEYCLOAK_DEMO_ADMIN_PASSWORD}", "temporary": false }
+      ]
+    },
+    {
+      "username": "service-account-smart-tours-operator-tooling",
+      "enabled": true,
+      "serviceAccountClientId": "smart-tours-operator-tooling",
+      "realmRoles": ["OPERATOR"]
+    }
+  ]
+}

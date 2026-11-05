@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "smarttours.security.jwt-secret=qS0t8yQ0bX9mJ3vV6cP2nL5kR8wE1zT4uY7iO0pA3sD6fG9hJ2kL5zX8cV1bN4mQ",
+        "smarttours.security.dev-tokens.enabled=true",
         "TOUR_SERVICE_URL=http://localhost:1",
         "AI_SERVICE_URL=http://localhost:1"
 })

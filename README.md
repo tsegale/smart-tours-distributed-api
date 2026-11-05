@@ -201,6 +201,10 @@ sequenceDiagram
   9.4 ms with a warm cache (median of three rounds, no errors); with a provider answering in 2 s it was bounded by
   the 400 ms weather budget (p95 406 ms), and 12.5 ms once the breaker opened
   ([results](docs/benchmarks/integrations.md)). Every failure mode also has a WireMock test.
+- **Two token issuers, safely.** Keycloak (RS256, JWKS, code flow with PKCE, no password grant) and local dev tokens
+  through Spring Security's issuer resolver, each locked to its own algorithm and key, with a required audience. The
+  production profile refuses to start with dev tokens on. Tests run the repo's realm in a real Keycloak
+  ([ADR 0016](docs/adr/0016-keycloak-and-multi-issuer-validation.md)).
 - **Rate limits per caller.** Redis token buckets at the gateway keyed by JWT subject or a proxy-aware client IP,
   429 Problem Details with `Retry-After`, fail-open for reads and fail-closed for seat holds
   ([ADR 0010](docs/adr/0010-rate-limiting-at-the-gateway.md)).
@@ -240,6 +244,7 @@ container has a memory limit ([memory](docs/benchmarks/notifications.md#memory-b
 | Profile | Adds | For |
 | --- | --- | --- |
 | *(none)* | the core | search, booking, payments with the fake provider, sections 0 to 8 of the smoke test |
+| `auth` | Keycloak and its database (about 610 MiB; `python scripts/keycloak_secrets.py` first) | real login and RS256 tokens, [section 11 of the smoke test](docs/smoke-test.md#11-real-tokens-from-keycloak-auth-profile) |
 | `ai` | ai-service, ai-worker, ai-db | recommendations and semantic search; the first build downloads the embedding model (~90 MB) |
 | `notifications` | notification-service, -bridge, -worker, -beat, notifications-db, MinIO, Mailpit, booking-ticket-listener | emails (http://localhost:8025), PDF tickets, check-in |
 | `flower` | Flower, Celery's dashboard (http://localhost:5555) | with `notifications` |
@@ -284,7 +289,10 @@ payments see [docs/smoke-test.md](docs/smoke-test.md#7-stripe-test-mode).
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `DEV_TOKENS_ENABLED` | `true` in compose | Accept `dev_token.py`'s HS256 tokens. The gateway's `prod` profile refuses to start with this on ([ADR 0016](docs/adr/0016-keycloak-and-multi-issuer-validation.md)) |
 | `JWT_SECRET` | none, required | HS256 key shared by the gateway and `dev_token.py` |
+| `KEYCLOAK_PUBLIC_URL` | `http://localhost:8180` | Keycloak's public URL, which becomes every token's `iss` |
+| `KEYCLOAK_WEB_ORIGIN` | `http://localhost:3000` | Where the front-end client may redirect to after login |
 | `*_DB_USER`, `*_DB_PASSWORD` | none, required | One database per service |
 | `RABBITMQ_USER`, `RABBITMQ_PASSWORD` | none, required | Broker credentials |
 | `PAYMENT_PROVIDER` | `fake` | `fake` (no account needed) or `stripe` (test mode) |
@@ -383,9 +391,12 @@ docs/events.md, docs/events/ Every integration event, with its JSON Schema (the 
 docs/benchmarks/             Measured results: locking, search, integrations, notifications, memory
 benchmarks/                  k6 scenarios (booking contention, search, integrations) and the scripts that run them
 infra/chaos/                 WireMock stubs for Frankfurter and Open-Meteo with switchable faults (compose profile chaos)
+infra/keycloak/              Keycloak's image and the realm as code (compose profile auth)
 infra/minio/                 The tickets bucket and its least-privilege users (compose profile notifications)
 scripts/seed_tours.sql       100k realistic tours and departures for search benchmarks (dev only)
-scripts/dev_token.py         Mint local JWTs (until Keycloak)
+scripts/dev_token.py         Mint local JWTs, for the default stack without Keycloak
+scripts/keycloak_secrets.py  Generate the auth profile's secrets (into secrets/, git-ignored)
+scripts/keycloak_token.py    A real Keycloak token per demo user, through the real login form
 scripts/fake_webhook.py      Send a signed Stripe-format webhook (fake provider)
 scripts/chaos.py             Switch the provider stubs between healthy, slow, errors and dead
 scripts/ticket_keys.py       Ticket check-in signing keys: create, rotate, retire (into secrets/, git-ignored)

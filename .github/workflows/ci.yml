@@ -151,6 +151,7 @@ jobs:
           docker compose config --quiet
           docker compose --profile payments config --quiet
           docker compose --profile ai config --quiet
+          docker compose --profile auth config --quiet
           docker compose --profile notifications --profile flower config --quiet
           docker compose --profile chaos --env-file .env --env-file infra/chaos/chaos.env config --quiet
           # The default profile must stay the core only: the optional pieces may not leak into it.

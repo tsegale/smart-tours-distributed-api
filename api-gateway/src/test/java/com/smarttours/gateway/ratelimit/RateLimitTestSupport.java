@@ -46,6 +46,8 @@ final class RateLimitTestSupport {
     static String bearer(String subject) {
         try {
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                    .issuer("smart-tours-dev")
+                    .audience("smart-tours-api")
                     .subject(subject)
                     .claim("roles", List.of("CUSTOMER"))
                     .issueTime(new Date())

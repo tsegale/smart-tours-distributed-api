@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "smarttours.security.jwt-secret=" + TicketRouteTest.SECRET,
+        "smarttours.security.dev-tokens.enabled=true",
         "TOUR_SERVICE_URL=http://localhost:1",
         "AI_SERVICE_URL=http://localhost:1",
         "spring.data.redis.port=1"
@@ -133,6 +134,8 @@ class TicketRouteTest {
     private static String sign(String subject, String role, String email) {
         try {
             JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
+                    .issuer("smart-tours-dev")
+                    .audience("smart-tours-api")
                     .subject(subject)
                     .claim("roles", List.of(role)) // the claim SecurityConfig reads roles from
                     .issueTime(new Date())

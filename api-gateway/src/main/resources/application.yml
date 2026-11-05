@@ -4,8 +4,19 @@ server:
 
 smarttours:
   security:
-    # Base64, >= 32 bytes. Required: there is deliberately no default, so a missing secret fails fast.
-    jwt-secret: ${JWT_SECRET}
+    # Every token's aud must contain this, from either issuer (ADR 0016).
+    audience: ${JWT_AUDIENCE:smart-tours-api}
+    # Local tokens from scripts/dev_token.py. Off unless asked for; the prod profile refuses to start with them on.
+    dev-tokens:
+      enabled: ${DEV_TOKENS_ENABLED:false}
+      issuer: smart-tours-dev
+    # Base64, >= 32 bytes. Only read when dev tokens are enabled, and then a missing or short one fails at startup.
+    jwt-secret: ${JWT_SECRET:}
+    keycloak:
+      # Exactly what the tokens carry as iss: the URL clients use. Blank means no Keycloak.
+      issuer-uri: ${KEYCLOAK_ISSUER_URI:}
+      # Where this gateway fetches the keys, when that differs (a private network). Blank derives it from the issuer.
+      jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
   rate-limit:
     # CIDRs of proxies in front of the gateway (a load balancer). X-Forwarded-For is believed only on
     # connections from these; with none configured, the TCP peer address is the client.
