@@ -85,16 +85,26 @@ class RateLimitIntegrationTest {
         assertLimitedAfterBurst(statuses(8, () -> client.get().uri("/api/tours/search?q=dunes")
                 .header("X-Forwarded-For", clientIp)), 3);
 
-        EntityExchangeResult<String> refused = client.get().uri("/api/tours/search?q=dunes")
-                .header("X-Forwarded-For", clientIp)
-                .exchange()
-                .expectStatus().isEqualTo(429)
-                .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .expectHeader().valueEquals(HttpHeaders.RETRY_AFTER, "1")
-                .expectHeader().valueEquals("X-RateLimit-Remaining", "0")
-                .expectHeader().valueEquals("X-RateLimit-Burst-Capacity", "3")
-                .expectHeader().valueEquals("X-RateLimit-Replenish-Rate", "1")
-                .expectBody(String.class).returnResult();
+        // The bucket refills a token a second, so any one request may land just after a refill and be served: that
+        // made a single request here flaky. Only one token can arrive in this time, so a refusal comes within a few.
+        EntityExchangeResult<String> refused = null;
+        for (int attempt = 0; attempt < 3 && refused == null; attempt++) {
+            EntityExchangeResult<String> response = client.get().uri("/api/tours/search?q=dunes")
+                    .header("X-Forwarded-For", clientIp)
+                    .exchange()
+                    .expectBody(String.class).returnResult();
+            if (response.getStatus().value() == 429) {
+                refused = response;
+            }
+        }
+        assertThat(refused).as("a refusal within 3 requests, at 1 token/s").isNotNull();
+
+        HttpHeaders headers = refused.getResponseHeaders();
+        assertThat(headers.getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+        assertThat(headers.getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("1");
+        assertThat(headers.getFirst("X-RateLimit-Remaining")).isEqualTo("0");
+        assertThat(headers.getFirst("X-RateLimit-Burst-Capacity")).isEqualTo("3");
+        assertThat(headers.getFirst("X-RateLimit-Replenish-Rate")).isEqualTo("1");
         assertThat(refused.getResponseBody())
                 .contains("\"type\":\"https://smarttours.dev/problems/rate-limited\"", "\"status\":429",
                         "\"instance\":\"/api/tours/search\"");
