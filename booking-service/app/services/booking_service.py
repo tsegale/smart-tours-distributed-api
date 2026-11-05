@@ -36,6 +36,7 @@ from ..errors import (
 from ..models import Booking, BookingStatus, Payment, PaymentStatus, TourAvailability
 from ..payments.base import CheckoutAlreadyCompletedError, CheckoutRequest, PaymentProvider, PaymentRef
 from ..schemas import AvailabilityCreate, BookingCreate
+from ..telemetry import current_traceparent
 from . import outbox
 from .reservation import SeatReservationStrategy, lock_availability
 
@@ -145,6 +146,7 @@ def hold_seats(
             currency=availability.currency,
             idempotency_key=idempotency_key,
             hold_expires_at=datetime.now(UTC) + ttl,
+            hold_traceparent=current_traceparent(),
         )
         db.add(booking)
         db.commit()

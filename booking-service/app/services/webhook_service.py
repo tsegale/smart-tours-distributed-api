@@ -21,6 +21,7 @@ from ..domain.booking_status import transition
 from ..domain.money import to_minor_units
 from ..models import Booking, BookingStatus, Payment, PaymentStatus, ProcessedWebhookEvent, TourAvailability
 from ..payments.base import PaymentProvider, ProviderEvent, ProviderEventType
+from ..telemetry import link_current_span_to
 from . import outbox
 from .booking_service import lock_booking
 from .reservation import lock_availability
@@ -74,6 +75,7 @@ def _apply(db: Session, event: ProviderEvent, provider: PaymentProvider) -> Webh
     # Lock order: availability -> booking, like every other path that touches seats.
     availability = lock_availability(db, availability_id)
     booking = lock_booking(db, booking_id)
+    link_current_span_to(booking.hold_traceparent, "booking.hold")
     payment = _ensure_payment(db, booking, event, provider)
     result = WebhookResult(booking_id=booking_id)
     seats_before = availability.booked_slots

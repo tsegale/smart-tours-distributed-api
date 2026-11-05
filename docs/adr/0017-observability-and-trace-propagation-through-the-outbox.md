@@ -38,9 +38,11 @@ chain, which is enqueued from inside the first.
 The relays also write the `traceparent` header themselves instead of leaving it to instrumentation, so a row's trace
 survives even when the relay's own exporter is off.
 
-**The trace starts at the request that causes the event.** For a confirmation email that is the payment webhook, not
-the earlier `POST /api/bookings` that took the hold, which is a separate trace. Linking the two would mean storing the
-hold's trace on the booking; it isn't done.
+**The trace starts at the request that causes the event, and links back to the hold.** For a confirmation email that is
+the payment webhook, not the earlier `POST /api/bookings` that took the hold. They are separate trees on purpose: a
+hold can wait 30 minutes for payment, and a single trace that long would be mostly empty. So the booking keeps the
+hold's traceparent (`bookings.hold_traceparent`), and the webhook's span gets an OpenTelemetry span link to it, labelled
+`link.reason=booking.hold`.
 
 **Noise is removed on purpose.** No spans for health checks, scrapes, `@Scheduled` polling, Spring Security's filter
 chain, or a relay's empty polling SELECT (`database=False`). A relay that polls every second would otherwise produce

@@ -123,6 +123,8 @@ class Booking(Base):
     currency: Mapped[str] = mapped_column(String(3))
     idempotency_key: Mapped[str | None] = mapped_column(String(255))
     hold_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # W3C trace context of the request that took the hold. Paying is a later, separate trace, linked to it (ADR 0017).
+    hold_traceparent: Mapped[str | None] = mapped_column(String(55))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

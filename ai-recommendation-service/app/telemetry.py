@@ -163,3 +163,12 @@ def continuing(traceparent: str | None) -> Iterator[None]:
         yield
     finally:
         context.detach(token)
+
+
+def link_current_span_to(traceparent: str | None, reason: str) -> None:
+    """Link the current span to an earlier trace it belongs with but isn't part of, such as a booking's hold."""
+    if not traceparent:
+        return
+    linked = trace.get_current_span(propagate.extract({TRACEPARENT: traceparent})).get_span_context()
+    if linked.is_valid:
+        trace.get_current_span().add_link(linked, {"link.reason": reason})
