@@ -21,4 +21,5 @@ COPY --from=build /src/target/extracted/snapshot-dependencies/ ./
 COPY --from=build /src/target/extracted/application/ ./
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "org.springframework.boot.loader.launch.JarLauncher"]
+# Serial GC, chosen by measurement (docs/adr/0018-serial-gc-for-both-jvms.md).
+ENTRYPOINT ["java", "-XX:+UseSerialGC", "-XX:MaxRAMPercentage=75", "org.springframework.boot.loader.launch.JarLauncher"]

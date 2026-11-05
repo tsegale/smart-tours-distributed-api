@@ -20,3 +20,4 @@ Format: [Michael Nygard's template](https://cognitect.com/blog/2011/11/15/docume
 | [0013](0013-polling-outbox-relay-over-cdc.md) | Transactional outbox in tour-core, relayed by polling (not CDC) | Accepted |
 | [0014](0014-celery-behind-an-event-bridge-for-notifications.md) | Celery behind an event bridge for notifications | Accepted |
 | [0015](0015-signed-qr-check-in-tokens-and-object-storage.md) | Signed QR check-in tokens, and object storage for tickets | Accepted |
+| [0018](0018-serial-gc-for-both-jvms.md) | Serial GC for tour-core and the gateway | Accepted |

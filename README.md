@@ -342,6 +342,7 @@ Benchmark the reservation strategies (needs the stack running; k6 runs in Docker
 python benchmarks/run_booking_contention.py        # writes docs/benchmarks/booking-locking.md
 python benchmarks/run_search_benchmark.py --seed   # 100k tours; cold vs warm cache; a rate-limit burst
 python benchmarks/run_integrations_benchmark.py    # tour page while providers are slow or dead (chaos profile)
+python benchmarks/run_gc_comparison.py             # Serial, G1 and ZGC under the container limits
 ```
 
 notification-service's tests need WeasyPrint's system libraries, so they run in its test image against the
