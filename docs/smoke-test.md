@@ -449,6 +449,7 @@ docker compose $OBS stop notification-beat booking-sweeper
 
 # One booking, paid: then reads its trace back from Tempo, and fails unless every hop is in it.
 python scripts/trace_booking.py
+# Also follows the span link to the trace of the POST /api/bookings that took the hold.
 # trace 5d...: about 65 spans, from api-gateway through booking-outbox-relay, notification-bridge,
 # notification-worker and notification-email-worker. Prints a link to it in Grafana.
 

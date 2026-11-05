@@ -3,11 +3,12 @@
 
 Needs the stack with --profile notifications --profile observability (docs/smoke-test.md, section 12). Creates a tour,
 a departure and a booking, pays through the signed webhook, waits for the email, then reads the trace back from Tempo
-and fails unless every hop is in it. Prints the trace id. Standard library only.
+and fails unless every hop is in it and it links to the hold's trace. Prints the trace id. Standard library only.
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import subprocess
 import sys
@@ -75,6 +76,13 @@ def spans_of(trace: dict) -> list[tuple[str, dict]]:
     return found
 
 
+def as_hex(trace_id: str) -> str:
+    """Tempo's JSON gives ids as base64 or as hex, depending on the endpoint."""
+    if len(trace_id) == 32:
+        return trace_id
+    return base64.b64decode(trace_id).hex()
+
+
 def main() -> None:
     secret = _secret_from_env_file()
     if not secret:
@@ -116,7 +124,7 @@ def main() -> None:
                 return candidate["traceID"], trace
         return None
 
-    trace_id, trace = wait_for("the trace in Tempo", find_trace, 90)
+    trace_id, trace = wait_for("the trace in Tempo", find_trace, 300)
     spans = spans_of(trace)
     services = {service for service, _ in spans}
     print(f"trace {trace_id}: {len(spans)} spans")
@@ -125,6 +133,18 @@ def main() -> None:
     missing = [s for s in EXPECTED_SERVICES if s not in services]
     if missing:
         raise SystemExit(f"the trace is missing: {', '.join(missing)}")
+
+    # Paying is a later trace than taking the hold: the webhook's span links back to it (ADR 0017).
+    links = [link for _, span in spans for link in span.get("links", [])]
+    if not links:
+        raise SystemExit("no span links: the payment's trace should link to the hold's")
+    hold_id = as_hex(links[0]["traceId"])
+    hold = call("GET", f"{TEMPO}/{hold_id}")
+    print(f"linked to the hold's trace {hold_id}:")
+    for service, span in sorted(spans_of(hold), key=lambda item: int(item[1]["startTimeUnixNano"]))[:4]:
+        print(f"  {service:28} {span['name']}")
+    if hold_id == trace_id or not any(s == "booking-service" for s, _ in spans_of(hold)):
+        raise SystemExit("the link doesn't lead to a separate booking-service trace")
     print(f"whole: {GRAFANA}/explore?left=" + urllib.parse.quote(json.dumps({
         "datasource": "tempo", "queries": [{"refId": "A", "queryType": "traceql", "query": trace_id}],
     })))  # fmt: skip

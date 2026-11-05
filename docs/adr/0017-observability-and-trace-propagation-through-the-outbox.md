@@ -44,6 +44,14 @@ hold can wait 30 minutes for payment, and a single trace that long would be most
 hold's traceparent (`bookings.hold_traceparent`), and the webhook's span gets an OpenTelemetry span link to it, labelled
 `link.reason=booking.hold`.
 
+![The webhook's span in Grafana, with a link to the hold's trace, labelled booking.hold](../images/trace-link-payment.jpg)
+
+![The linked trace: POST /api/bookings, which took the hold](../images/trace-link-hold.jpg)
+
+`scripts/trace_booking.py` follows the link and fails unless it leads to a separate booking-service trace. Measured:
+payment trace `1fb07bda...` (55 spans, 7 processes) links to hold trace `0d71ed04...` (26 spans, starting at
+`POST /api/bookings`).
+
 **Noise is removed on purpose.** No spans for health checks, scrapes, `@Scheduled` polling, Spring Security's filter
 chain, or a relay's empty polling SELECT (`database=False`). A relay that polls every second would otherwise produce
 most of the traces in the system.
