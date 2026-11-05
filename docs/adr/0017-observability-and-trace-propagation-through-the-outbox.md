@@ -48,6 +48,9 @@ hold's traceparent (`bookings.hold_traceparent`), and the webhook's span gets an
 
 ![The linked trace: POST /api/bookings, which took the hold](../images/trace-link-hold.jpg)
 
+The AI service is in it too: a tour created through the gateway gave one trace of 14 spans, through tour-core, its relay
+and RabbitMQ to `ai-worker`.
+
 `scripts/trace_booking.py` follows the link and fails unless it leads to a separate booking-service trace. Measured:
 payment trace `1fb07bda...` (55 spans, 7 processes) links to hold trace `0d71ed04...` (26 spans, starting at
 `POST /api/bookings`).

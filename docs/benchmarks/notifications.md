@@ -85,16 +85,17 @@ Raw results: `benchmarks/out/notifications-results.json` (not committed).
 
 ### Phase 5, per profile
 
-`benchmarks/memory_footprint.py` on 2026-11-05, 90 s after `up --wait`, stack idle, each profile from a clean start. The
-Docker VM has 3.7 GiB and 1 GiB of swap. "Available" is the VM's own `MemAvailable` at that moment.
+`benchmarks/memory_footprint.py` on 2026-11-06, on Spring Boot 4.1.2, 90 s after `up --wait`, stack idle, each profile
+from a clean start. The Docker VM has 3.7 GiB and 1 GiB of swap. "Available" is the VM's own `MemAvailable` at that moment.
 
 | Profile | Total (MiB) | Containers | VM available (MiB) | Holds up? |
 | --- | ---: | ---: | ---: | --- |
-| Default | 1,634 | 10 | 1,625 | Yes |
-| `auth` | 2,177 | 12 | 1,149 | Yes, idle |
-| `observability` | 2,498 | 11 | 1,411 | Yes, idle and under light traffic |
-| `notifications` | 2,337 | 19 | 994 | Yes, idle |
-| `notifications` + `observability` | about 3,550 (sum of the two, less the shared core) | 20 | | **No** |
+| Default | 1,640 | 10 | 1,723 | Yes |
+| `auth` | 2,192 | 12 | 1,153 | Yes, idle |
+| `observability` | 2,568 | 11 | 1,468 | Idle and light traffic, not for hours: see below |
+| `notifications` | 2,360 | 19 | 1,011 | Yes, idle |
+| `ai` | 2,416 | 13 | 991 | Yes, idle |
+| `notifications` + `observability` | about 3,600 (sum of the two, less the shared core) | 20 | | **No** |
 
 **Notifications and observability together don't hold on this VM.** Within minutes of use, swap ran out and tasks were
 fully stalled about 70% of the time (`/proc/pressure/memory`), requests timed out, and Docker's own API began answering
