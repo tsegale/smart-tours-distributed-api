@@ -12,6 +12,9 @@ smarttours:
       issuer: smart-tours-dev
     # Base64, >= 32 bytes. Only read when dev tokens are enabled, and then a missing or short one fails at startup.
     jwt-secret: ${JWT_SECRET:}
+    cors:
+      # Exact origins, comma separated. Empty: no browser front end on another origin can call the API.
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:}
     keycloak:
       # Exactly what the tokens carry as iss: the URL clients use. Blank means no Keycloak.
       issuer-uri: ${KEYCLOAK_ISSUER_URI:}
@@ -66,6 +69,12 @@ spring:
               # with a 75 s keep-alive). Reusing a connection the server is closing gives
               # "connection reset by peer", and a POST that was already sent can't be retried.
               max-idle-time: 30s
+          # Every route, on top of any tighter limit of its own. Reads the Content-Length header, so
+          # RequireContentLengthFilter refuses bodies without one.
+          default-filters:
+            - name: RequestSize
+              args:
+                maxSize: 1MB
           # Routes are tried in `order`. Signed-in requests are told apart by their bearer token: an invalid
           # token never gets this far (Spring Security answers 401 first), so "has a bearer token" here means
           # "authenticated".
@@ -207,38 +216,25 @@ spring:
                     redis-rate-limiter.burstCapacity: ${rate-limits.user.burst-capacity}
 
 management:
-  # OpenTelemetry (ADR 0017). Off by default: without OTEL_ENABLED nothing is exported or sampled, and nothing
-  # expects a collector. The observability profile turns it on (infra/observability/observability.env).
+  # OpenTelemetry (ADR 0017). Nothing is sampled or exported by default: application-otlp.yml turns it on, which is what
+  # the observability compose profile does.
   tracing:
     export:
-      enabled: ${OTEL_ENABLED:false}
+      enabled: false
     sampling:
-      probability: ${OTEL_TRACES_SAMPLE_RATIO:0.0}
-  opentelemetry:
-    resource-attributes:
-      service.version: ${SERVICE_VERSION:1.0.0}
-    tracing:
-      export:
-        otlp:
-          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
-    logging:
-      export:
-        otlp:
-          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/logs
+      probability: 0.0
   otlp:
-    logging:
-      export:
-        enabled: ${OTEL_ENABLED:false}
     metrics:
       export:
-        enabled: ${OTEL_ENABLED:false}
-        url: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/metrics
-        step: 15s
+        enabled: false
   metrics:
     distribution:
       # Histograms for the RED dashboards' latency percentiles and the latency SLOs.
       percentiles-histogram:
         http.server.requests: true
+      # A bucket exactly on each SLO threshold (docs/slo.md).
+      slo:
+        http.server.requests: 500ms,1s
   # Redis is the rate limiter's store, and most routes fail open without it (ADR 0010): an outage must not
   # mark the gateway unhealthy. Limiter failures are logged by RateLimitGatewayFilterFactory.
   health:
