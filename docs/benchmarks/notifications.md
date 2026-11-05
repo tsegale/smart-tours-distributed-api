@@ -103,6 +103,15 @@ fully stalled about 70% of the time (`/proc/pressure/memory`), requests timed ou
 WARM_UP_ENABLED=false FX_REFRESH_ON_STARTUP=false` and Beat and the sweeper stopped. That's how the trace in
 [ADR 0017](../adr/0017-observability-and-trace-propagation-through-the-outbox.md) was captured.
 
+Sustained use is harder on it than these idle figures suggest. During the alert fire drill (hours of faults and traffic):
+- `otel-lgtm` took every core for over 10 minutes when replaying a large data volume, starving everything else, so it
+  now has a limit of 2 CPUs. Clearing `observability_data` fixes a stack in that state; it holds only local telemetry.
+- RabbitMQ's management listener took 3.5 minutes to open, and tour-core once took 574 s to start, with swap full.
+- Grafana once failed to start on a fresh volume, for a reason not established: its logs are off by default
+  (`ENABLE_LOGS_GRAFANA=true`), and it didn't recur.
+
+If everything started at once fails, start in stages: the stores, then `otel-lgtm`, then the rest.
+
 The default rose from 1,204 MiB at the end of Phase 4 to 1,634. These figures include page cache, and part of the rise
 is tour-core (426 to 526 MiB) and booking-service (280 to 413 MiB). That's consistent with the OpenTelemetry libraries
 now on the classpath and imported, and with warm-up; the two weren't measured apart, so how much is which isn't

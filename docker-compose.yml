@@ -152,10 +152,12 @@ services:
       # The Prometheus plugin (port 15692, on the internal network only) next to the management UI.
       - ./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # Not `ping`: that answers well before the management and Prometheus plugins listen, and on a busy machine this
+      # gap reached 3.5 minutes, long enough for rabbitmq-setup to give up.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
-      timeout: 10s
-      retries: 20
+      timeout: 15s
+      retries: 40
     deploy:
       resources:
         limits:
@@ -460,6 +462,8 @@ services:
       resources:
         limits:
           memory: 1536M
+          # Replaying a large data volume took every core for over 10 minutes and starved what it monitors.
+          cpus: "2"
     restart: unless-stopped
 
   # ---------------------------------------------------------------- identity (profile)
@@ -558,9 +562,9 @@ services:
     entrypoint: ["sh", "-c"]
     command:
       - >-
-        curl -fsS --retry 30 --retry-connrefused --retry-delay 2 -u "$$RABBITMQ_USER:$$RABBITMQ_PASSWORD"
+        curl -fsS --retry 60 --retry-all-errors --retry-delay 2 -u "$$RABBITMQ_USER:$$RABBITMQ_PASSWORD"
         -X PUT http://rabbitmq:15672/api/vhosts/celery &&
-        curl -fsS --retry 5 -u "$$RABBITMQ_USER:$$RABBITMQ_PASSWORD" -X PUT -H 'content-type: application/json'
+        curl -fsS --retry 30 --retry-all-errors --retry-delay 2 -u "$$RABBITMQ_USER:$$RABBITMQ_PASSWORD" -X PUT -H 'content-type: application/json'
         -d '{"configure":".*","write":".*","read":".*"}' "http://rabbitmq:15672/api/permissions/celery/$$RABBITMQ_USER" &&
         echo "vhost celery ready"
     environment:

@@ -444,7 +444,10 @@ so this runs a reduced version of it.
 OBS="--env-file .env --env-file infra/observability/observability.env --profile observability --profile notifications"
 export BOOKING_WEB_CONCURRENCY=1 NOTIFICATION_WORKER_CONCURRENCY=1 NOTIFICATION_EMAIL_WORKER_CONCURRENCY=1
 export WARM_UP_ENABLED=false FX_REFRESH_ON_STARTUP=false
-docker compose $OBS up -d --wait --build
+docker compose $OBS build
+docker compose $OBS up -d --no-deps --wait tours-db bookings-db notifications-db redis redis-cache rabbitmq minio mailpit
+docker compose $OBS up -d --no-deps --wait otel-lgtm
+docker compose $OBS up -d --wait    # in stages: all at once has made Docker's own API fail on this VM
 docker compose $OBS stop notification-beat booking-sweeper
 
 # One booking, paid: then reads its trace back from Tempo, and fails unless every hop is in it.
