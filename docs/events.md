@@ -14,6 +14,8 @@ what is written here without failing a build.
   row again.
 - Messages are persistent, `content_type: application/json`, `message_id` = `eventId`, `type` = the routing key,
   `timestamp` = `occurredAt`.
+- A message written inside a trace has a W3C `traceparent` header, so the consumer continues that trace (ADR 0017).
+  It isn't part of the event: a consumer must work without it.
 - Each consumer owns its queue (quorum), bindings, a TTL retry queue and a dead-letter queue (ADR 0005).
 
 ## Envelope

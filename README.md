@@ -179,8 +179,9 @@ sequenceDiagram
 
 - **Three locking strategies, measured.** Seat reservation sits behind a strategy interface: pessimistic
   `FOR UPDATE`, optimistic version compare-and-swap, or one conditional `UPDATE`. All three pass the same
-  concurrency tests, and a k6 benchmark through the gateway compares them
-  ([results](docs/benchmarks/booking-locking.md)).
+  concurrency tests. In a k6 benchmark through the gateway (100 users, 1,000 attempts, 500 seats), each sold exactly
+  500; the conditional `UPDATE` won at 95 req/s and a p95 of 2,969 ms, against 91 and 3,133 for pessimistic and 71 and
+  3,937 for optimistic, median of three rounds on a laptop ([results](docs/benchmarks/booking-locking.md)).
 - **Search with measured indexes.** One jOOQ-built query over geo, full text, facets, ratings and date
   availability, keyset-paginated. On 100k tours, EXPLAIN before and after each index decided what stays:
   a keyset page at depth ~1000 reads 24 buffers (OFFSET at the same depth: 19,866), and nearest-first uses
@@ -205,6 +206,17 @@ sequenceDiagram
   through Spring Security's issuer resolver, each locked to its own algorithm and key, with a required audience. The
   production profile refuses to start with dev tokens on. Tests run the repo's realm in a real Keycloak
   ([ADR 0016](docs/adr/0016-keycloak-and-multi-issuer-validation.md)).
+- **Emails that don't wait behind PDFs.** Rendering and sending have a queue and a worker pool each, with a chain per
+  booking. In a burst of 500 confirmations on one render process, the median email went from 343.9 s to 177.3 s
+  after the booking, and a rendered ticket's email leaves in 0.05 s at the median (0.77 s at worst). Renders still
+  limit the total: 1.30 emails/s and about the same p99 ([results](docs/benchmarks/notifications.md)).
+- **One trace through the outbox.** Each outbox row keeps the `traceparent` of the transaction that wrote it, so one
+  trace runs from the payment webhook through the relay, RabbitMQ, the Celery chain and the email, in five services
+  ([ADR 0017](docs/adr/0017-observability-and-trace-propagation-through-the-outbox.md)). Dashboards, SLOs and
+  burn-rate alerts are code ([SLOs](docs/slo.md)).
+- **A garbage collector chosen by measurement.** Serial against G1 and ZGC under the container limits: tour-core's
+  peak RSS was 525 to 567 MiB against 626 to 701 and 764 to 777 (limit 768). G1's tail was a few milliseconds better,
+  which is the trade taken ([results](docs/benchmarks/jvm.md), [ADR 0018](docs/adr/0018-serial-gc-for-both-jvms.md)).
 - **Rate limits per caller.** Redis token buckets at the gateway keyed by JWT subject or a proxy-aware client IP,
   429 Problem Details with `Retry-After`, fail-open for reads and fail-closed for seat holds
   ([ADR 0010](docs/adr/0010-rate-limiting-at-the-gateway.md)).
@@ -220,8 +232,11 @@ sequenceDiagram
   (Flyway / Alembic).
 - **Resilient messaging.** Typed events with ids, consumer-owned quorum queues, a TTL retry queue and a
   dead-letter queue, so a malformed message can't block the pipeline.
-- **Security at the edge.** Standard OAuth2 resource server (Keycloak-ready). Identity is never taken from
-  request bodies.
+- **Security at the edge.** Standard OAuth2 resource server, CORS by explicit origin, security headers and request
+  limits. Identity is never taken from request bodies. A STRIDE pass maps each threat to its mitigation or an accepted
+  risk ([threat model](docs/threat-model.md)).
+- **Hardened containers and supply chain.** Non-root, no capabilities and read-only filesystems on application
+  containers; Trivy and an SBOM per image, gitleaks over the whole history and Dependabot in CI.
 - **Consistent errors.** RFC 9457 Problem Details (`application/problem+json`) from every service.
 
 ## Quickstart
@@ -244,6 +259,7 @@ container has a memory limit ([memory](docs/benchmarks/notifications.md#memory-b
 | Profile | Adds | For |
 | --- | --- | --- |
 | *(none)* | the core | search, booking, payments with the fake provider, sections 0 to 8 of the smoke test |
+| `observability` | Collector, Tempo, Prometheus, Loki and Grafana in one container (with `--env-file infra/observability/observability.env`) | traces, dashboards and alerts: http://127.0.0.1:3001 ([section 12 of the smoke test](docs/smoke-test.md#12-one-trace-dashboards-and-alerts-observability-profile)) |
 | `auth` | Keycloak and its database (about 610 MiB; `python scripts/keycloak_secrets.py` first) | real login and RS256 tokens, [section 11 of the smoke test](docs/smoke-test.md#11-real-tokens-from-keycloak-auth-profile) |
 | `ai` | ai-service, ai-worker, ai-db | recommendations and semantic search; the first build downloads the embedding model (~90 MB) |
 | `notifications` | notification-service, -bridge, -worker, -beat, notifications-db, MinIO, Mailpit, booking-ticket-listener | emails (http://localhost:8025), PDF tickets, check-in |
@@ -291,6 +307,7 @@ payments see [docs/smoke-test.md](docs/smoke-test.md#7-stripe-test-mode).
 | --- | --- | --- |
 | `DEV_TOKENS_ENABLED` | `true` in compose | Accept `dev_token.py`'s HS256 tokens. The gateway's `prod` profile refuses to start with this on ([ADR 0016](docs/adr/0016-keycloak-and-multi-issuer-validation.md)) |
 | `JWT_SECRET` | none, required | HS256 key shared by the gateway and `dev_token.py` |
+| `CORS_ALLOWED_ORIGINS` | empty | Browser origins allowed to call the API, comma separated |
 | `KEYCLOAK_PUBLIC_URL` | `http://localhost:8180` | Keycloak's public URL, which becomes every token's `iss` |
 | `KEYCLOAK_WEB_ORIGIN` | `http://localhost:3000` | Where the front-end client may redirect to after login |
 | `*_DB_USER`, `*_DB_PASSWORD` | none, required | One database per service |
@@ -388,15 +405,18 @@ notification-service/        FastAPI admin API, event bridge, Celery workers and
 docs/adr/                    Architecture decision records
 docs/runbooks/               Operational procedures (ticket key rotation)
 docs/events.md, docs/events/ Every integration event, with its JSON Schema (the producers' contract tests read them)
-docs/benchmarks/             Measured results: locking, search, integrations, notifications, memory
+docs/benchmarks/             Measured results: locking, search, integrations, notifications, memory, garbage collectors
+docs/slo.md, docs/threat-model.md  Service level objectives; a STRIDE pass over the exposed parts
 benchmarks/                  k6 scenarios (booking contention, search, integrations) and the scripts that run them
 infra/chaos/                 WireMock stubs for Frankfurter and Open-Meteo with switchable faults (compose profile chaos)
+infra/observability/         Prometheus scrape config, dashboards and alert rules as code (compose profile observability)
 infra/keycloak/              Keycloak's image and the realm as code (compose profile auth)
 infra/minio/                 The tickets bucket and its least-privilege users (compose profile notifications)
 scripts/seed_tours.sql       100k realistic tours and departures for search benchmarks (dev only)
 scripts/dev_token.py         Mint local JWTs, for the default stack without Keycloak
 scripts/keycloak_secrets.py  Generate the auth profile's secrets (into secrets/, git-ignored)
 scripts/keycloak_token.py    A real Keycloak token per demo user, through the real login form
+scripts/trace_booking.py     One booking end to end, then checks in Tempo that its trace is whole
 scripts/fake_webhook.py      Send a signed Stripe-format webhook (fake provider)
 scripts/chaos.py             Switch the provider stubs between healthy, slow, errors and dead
 scripts/ticket_keys.py       Ticket check-in signing keys: create, rotate, retire (into secrets/, git-ignored)

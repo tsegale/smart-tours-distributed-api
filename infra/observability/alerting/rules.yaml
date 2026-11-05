@@ -1,0 +1,446 @@
+# Alert rules as code (docs/slo.md). JSON is valid YAML, and this file is generated output kept as data.
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "smart-tours",
+      "folder": "Smart Tours",
+      "interval": "1m",
+      "rules": [
+        {
+          "uid": "search-availability-burn",
+          "title": "Search availability burn",
+          "condition": "C",
+          "for": "2m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "Search is failing fast enough to spend its 30-day budget in about 2 days.",
+            "runbook": "docs/slo.md"
+          },
+          "labels": {
+            "severity": "page"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(sum(rate(http_server_requests_milliseconds_count{uri=\"/api/tours/search\",status=~\"5..\"}[1h])) / sum(rate(http_server_requests_milliseconds_count{uri=\"/api/tours/search\"}[1h]))) > 0.0144 and (sum(rate(http_server_requests_milliseconds_count{uri=\"/api/tours/search\",status=~\"5..\"}[5m])) / sum(rate(http_server_requests_milliseconds_count{uri=\"/api/tours/search\"}[5m]))) > 0.0144",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "search-latency-burn",
+          "title": "Search latency burn",
+          "condition": "C",
+          "for": "2m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "Too many searches take over 500 ms.",
+            "runbook": "docs/slo.md"
+          },
+          "labels": {
+            "severity": "page"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(1 - (sum(rate(http_server_requests_milliseconds_bucket{uri=\"/api/tours/search\",le=\"500\"}[1h])) / sum(rate(http_server_requests_milliseconds_count{uri=\"/api/tours/search\"}[1h])))) > 0.144 and (1 - (sum(rate(http_server_requests_milliseconds_bucket{uri=\"/api/tours/search\",le=\"500\"}[5m])) / sum(rate(http_server_requests_milliseconds_count{uri=\"/api/tours/search\"}[5m])))) > 0.144",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "booking-availability-burn",
+          "title": "Booking availability burn",
+          "condition": "C",
+          "for": "2m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "Booking is failing fast enough to spend its 30-day budget in about 2 days.",
+            "runbook": "docs/slo.md"
+          },
+          "labels": {
+            "severity": "page"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(sum(rate(http_server_duration_milliseconds_count{http_target=\"/api/bookings\",http_method=\"POST\",http_status_code=~\"5..\"}[1h])) / sum(rate(http_server_duration_milliseconds_count{http_target=\"/api/bookings\",http_method=\"POST\"}[1h]))) > 0.072 and (sum(rate(http_server_duration_milliseconds_count{http_target=\"/api/bookings\",http_method=\"POST\",http_status_code=~\"5..\"}[5m])) / sum(rate(http_server_duration_milliseconds_count{http_target=\"/api/bookings\",http_method=\"POST\"}[5m]))) > 0.072",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "email-delivery-burn",
+          "title": "Email delivery burn",
+          "condition": "C",
+          "for": "2m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "Too many emails take over 5 minutes.",
+            "runbook": "docs/slo.md"
+          },
+          "labels": {
+            "severity": "page"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(1 - (sum(rate(notification_delivery_duration_seconds_bucket{le=\"300\"}[1h])) / sum(rate(notification_delivery_duration_seconds_count[1h])))) > 0.72 and (1 - (sum(rate(notification_delivery_duration_seconds_bucket{le=\"300\"}[5m])) / sum(rate(notification_delivery_duration_seconds_count[5m])))) > 0.72",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "dlq-not-empty",
+          "title": "DLQ not empty",
+          "condition": "C",
+          "for": "1m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "A message was dead-lettered in {{ $labels.queue }}: look at it, then replay or discard it.",
+            "runbook": "docs/slo.md"
+          },
+          "labels": {
+            "severity": "ticket"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum by (queue) (rabbitmq_detailed_queue_messages{queue=~\".*\\\\.dlq\"}) > 0",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "relay-lag",
+          "title": "Outbox relay lag",
+          "condition": "C",
+          "for": "1m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "An outbox event has waited over 60 s: consumers aren't hearing about changes.",
+            "runbook": "docs/slo.md"
+          },
+          "labels": {
+            "severity": "ticket"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "max by (service_name, job) (outbox_oldest_unpublished_age_seconds) > 60",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "breaker-open",
+          "title": "Circuit breaker open",
+          "condition": "C",
+          "for": "5m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "{{ $labels.name }} has been failing for 5 minutes; responses are degraded.",
+            "runbook": "docs/slo.md"
+          },
+          "labels": {
+            "severity": "ticket"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "max by (name) (resilience4j_circuitbreaker_state{state=\"open\"}) == 1",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "notifications-failed",
+          "title": "Notifications failed",
+          "condition": "C",
+          "for": "1m",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "annotations": {
+            "summary": "A notification is FAILED: POST /admin/notifications/{id}/retry once the cause is fixed.",
+            "runbook": "docs/slo.md"
+          },
+          "labels": {
+            "severity": "ticket"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 3600,
+                "to": 0
+              },
+              "datasourceUid": "prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(notifications{status=\"FAILED\"}) > 0",
+                "instant": true,
+                "range": false
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

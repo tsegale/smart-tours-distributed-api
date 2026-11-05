@@ -434,6 +434,43 @@ docker compose --profile auth stop keycloak
 curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $CUSTOMER" localhost:8080/api/bookings/me   # 503: can't be checked, not invalid
 ```
 
+## 12. One trace, dashboards and alerts (observability profile)
+
+Traces, metrics and logs from every service ([ADR 0017](adr/0017-observability-and-trace-propagation-through-the-outbox.md)).
+With notifications, this is more than a 3.7 GiB Docker VM holds for long ([memory](benchmarks/notifications.md#memory-budget)):
+so this runs a reduced version of it.
+
+```bash
+OBS="--env-file .env --env-file infra/observability/observability.env --profile observability --profile notifications"
+export BOOKING_WEB_CONCURRENCY=1 NOTIFICATION_WORKER_CONCURRENCY=1 NOTIFICATION_EMAIL_WORKER_CONCURRENCY=1
+export WARM_UP_ENABLED=false FX_REFRESH_ON_STARTUP=false
+docker compose $OBS up -d --wait --build
+docker compose $OBS stop notification-beat booking-sweeper
+
+# One booking, paid: then reads its trace back from Tempo, and fails unless every hop is in it.
+python scripts/trace_booking.py
+# trace 5d...: about 65 spans, from api-gateway through booking-outbox-relay, notification-bridge,
+# notification-worker and notification-email-worker. Prints a link to it in Grafana.
+
+# The same trace id in the logs of every process
+docker compose $OBS logs notification-worker notification-email-worker notification-bridge | grep '"trace_id"' | tail -5
+```
+
+Grafana is at http://127.0.0.1:3001 (admin / admin), with five dashboards in the Smart Tours tag and eight alert rules
+(`docs/slo.md`). To see one fire, dead-letter a message; within about 90 s, "DLQ not empty" is firing with the queue's
+name:
+
+```bash
+curl -s -u "$RABBITMQ_USER:$RABBITMQ_PASSWORD" -H 'Content-Type: application/json' \
+  -X POST "$MQ/exchanges/%2F/smarttours.events/publish" \
+  -d '{"properties":{"content_type":"application/json"},"routing_key":"availability.changed","payload":"not json","payload_encoding":"string"}'
+curl -s http://127.0.0.1:3001/api/prometheus/grafana/api/v1/rules | python -c "
+import json,sys
+for g in json.load(sys.stdin)['data']['groups']:
+    print([(r['name'], r['state']) for r in g['rules'] if r['state'] != 'inactive'])"
+curl -s -u "$RABBITMQ_USER:$RABBITMQ_PASSWORD" -X DELETE "$MQ/queues/%2F/core.availability-summary.dlq/contents"   # clean up
+```
+
 ## Reset
 
 ```bash

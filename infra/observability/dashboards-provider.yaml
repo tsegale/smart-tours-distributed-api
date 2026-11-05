@@ -1,0 +1,9 @@
+# Dashboards as code: every JSON file in dashboards/ is loaded on start. Edit the files, not the UI.
+apiVersion: 1
+providers:
+  - name: Smart Tours
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /otel-lgtm/grafana/conf/provisioning/dashboards/smart-tours
+      foldersFromFilesStructure: false

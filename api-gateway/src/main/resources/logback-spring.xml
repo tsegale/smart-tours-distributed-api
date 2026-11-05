@@ -3,7 +3,7 @@
      The appender stays idle until TelemetryConfig installs the SDK, and the SDK exports nothing without an exporter. -->
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <include resource="org/springframework/boot/logging/logback/structured-console-appender.xml"/>
     <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
         <captureMdcAttributes>*</captureMdcAttributes>
     </appender>

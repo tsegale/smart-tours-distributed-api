@@ -25,10 +25,10 @@ public class TraceParents {
         this.propagator = propagator;
     }
 
-    /** The current span's traceparent, or null outside a trace. */
+    /** The current span's traceparent, or null outside a sampled trace: with nothing exported, there's nothing to join. */
     public String current() {
         Span span = tracer.currentSpan();
-        if (span == null) {
+        if (span == null || !Boolean.TRUE.equals(span.context().sampled())) {
             return null;
         }
         Map<String, String> carrier = new HashMap<>();

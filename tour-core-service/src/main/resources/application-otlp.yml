@@ -1,0 +1,25 @@
+# Exports traces, metrics and logs over OTLP (ADR 0017). Kept in a profile, not behind empty defaults in application.yml:
+# the log exporter is created whenever its endpoint property exists, and an empty endpoint stops the application.
+management:
+  tracing:
+    export:
+      enabled: true
+    sampling:
+      probability: ${OTEL_TRACES_SAMPLE_RATIO:1.0}
+  opentelemetry:
+    resource-attributes:
+      service.version: ${SERVICE_VERSION:1.0.0}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}/v1/traces
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}/v1/logs
+  otlp:
+    metrics:
+      export:
+        enabled: true
+        url: ${OTEL_EXPORTER_OTLP_ENDPOINT}/v1/metrics
+        step: 15s

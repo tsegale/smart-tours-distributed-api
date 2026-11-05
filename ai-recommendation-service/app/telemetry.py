@@ -91,6 +91,13 @@ def configure_logging(
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level)
+    # Uvicorn installs its own plain-text handlers before importing the app: hand its lines to the JSON one.
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        server_logger = logging.getLogger(name)
+        server_logger.handlers.clear()
+        server_logger.propagate = True
+    # A line per socket state change at INFO: nothing anyone would read.
+    logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 def _process_memory(_: CallbackOptions) -> Iterator[Observation]:

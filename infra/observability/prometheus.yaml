@@ -1,0 +1,63 @@
+# The image's own Prometheus config (otel-lgtm 0.39.0), plus what isn't pushed over OTLP: RabbitMQ's plugin and the
+# gauges that services compute from their database at scrape time, so that every process agrees on them.
+global:
+  scrape_native_histograms: true
+otlp:
+  keep_identifying_resource_attributes: true
+  # Recommended attributes to be promoted to labels.
+  promote_resource_attributes:
+    - service.instance.id
+    - service.name
+    - service.namespace
+    - service.version
+    - cloud.availability_zone
+    - cloud.region
+    - container.name
+    - deployment.environment # backward compatibility
+    - deployment.environment.name
+    - k8s.cluster.name
+    - k8s.container.name
+    - k8s.cronjob.name
+    - k8s.daemonset.name
+    - k8s.deployment.name
+    - k8s.job.name
+    - k8s.namespace.name
+    - k8s.node.name
+    - k8s.pod.name
+    - k8s.replicaset.name
+    - k8s.statefulset.name
+    - host.name
+    - postgresql.database.name
+    - postgresql.schema.name
+    - postgresql.table.name
+    - postgresql.index.name
+    - database # used by otelcol/receiver/mongodb
+    - kafka.cluster.alias
+storage:
+  tsdb:
+    # A 10min time window is enough because it can easily absorb retries and network delays.
+    out_of_order_time_window: 10m
+scrape_configs:
+  # Per queue, which the plugin's default /metrics aggregates away. Celery's queues are on the celery vhost.
+  - job_name: rabbitmq
+    scrape_interval: 15s
+    metrics_path: /metrics/detailed
+    params:
+      family: [queue_coarse_metrics, queue_consumer_count]
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+  - job_name: rabbitmq-node
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+  - job_name: booking-service
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["booking-service:8082"]
+  - job_name: notification-service
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["notification-service:8084"]

@@ -21,4 +21,5 @@ Format: [Michael Nygard's template](https://cognitect.com/blog/2011/11/15/docume
 | [0014](0014-celery-behind-an-event-bridge-for-notifications.md) | Celery behind an event bridge for notifications | Accepted |
 | [0015](0015-signed-qr-check-in-tokens-and-object-storage.md) | Signed QR check-in tokens, and object storage for tickets | Accepted |
 | [0016](0016-keycloak-and-multi-issuer-validation.md) | Keycloak, and validating tokens from more than one issuer | Accepted |
+| [0017](0017-observability-and-trace-propagation-through-the-outbox.md) | Observability, and trace propagation through the outbox | Accepted |
 | [0018](0018-serial-gc-for-both-jvms.md) | Serial GC for tour-core and the gateway | Accepted |

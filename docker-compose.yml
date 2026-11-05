@@ -5,6 +5,7 @@
 #   docker compose up --build       # the core: gateway, tour-core, booking, their stores
 #
 # Optional pieces are profiles, so the default stays usable on an 8 GB laptop (README, "Profiles"):
+#   --profile observability   traces, metrics, logs and dashboards (with --env-file infra/observability/observability.env)
 #   --profile auth            real tokens from Keycloak (keycloak, keycloak-db; python scripts/keycloak_secrets.py first)
 #   --profile ai              recommendations (ai-service, ai-worker, ai-db): about 1 GB more
 #   --profile notifications   emails, PDF tickets, check-in (notification-*, MinIO, Mailpit)
@@ -18,6 +19,33 @@
 # request has to go through the gateway, which authenticates it and sets X-User-Id.
 # Every container has a memory limit; docs/benchmarks/notifications.md records what they use.
 
+# Container hardening (docs/threat-model.md). Application containers: no Linux capabilities, nothing gained through
+# setuid, a read-only filesystem, and memory-backed scratch space.
+x-locked-down: &locked-down
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: ["/tmp:size=64m"]
+
+# Images that start as root to fix ownership of their data directory, then drop to their own user: they keep only what
+# that takes, and they write to more than a volume, so their filesystem stays writable.
+x-data-store: &data-store
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+
+# Non-root images that write inside their own filesystem: no capabilities, but not read-only.
+x-no-capabilities: &no-capabilities
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+
+# OpenTelemetry in every service: off unless infra/observability/observability.env turns it on (ADR 0017).
+x-otel-env: &otel-env
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+  OTEL_TRACES_SAMPLE_RATIO: ${OTEL_TRACES_SAMPLE_RATIO:-1.0}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_METRIC_EXPORT_INTERVAL: ${OTEL_METRIC_EXPORT_INTERVAL:-15000}
+
 x-db-healthcheck: &db-healthcheck
   interval: 5s
   timeout: 5s
@@ -26,6 +54,7 @@ x-db-healthcheck: &db-healthcheck
 services:
   # ---------------------------------------------------------------- data stores
   tours-db:
+    <<: *data-store
     image: postgis/postgis:16-3.4
     environment:
       POSTGRES_DB: tours
@@ -43,6 +72,7 @@ services:
     restart: unless-stopped
 
   bookings-db:
+    <<: *data-store
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: bookings
@@ -60,6 +90,7 @@ services:
     restart: unless-stopped
 
   ai-db:
+    <<: *data-store
     image: pgvector/pgvector:pg16
     profiles: [ai]
     environment:
@@ -79,6 +110,7 @@ services:
 
   # Rate-limit token buckets (gateway). Default policy: never evicts, so a bucket can't vanish under pressure.
   redis:
+    <<: *data-store
     image: redis:7.4-alpine
     ports: ["127.0.0.1:6379:6379"]
     healthcheck: &redis-healthcheck
@@ -95,6 +127,7 @@ services:
   # tour-core's catalogue cache: bounded, evicts least recently used keys, nothing persisted (it's a cache).
   # Separate from the limiter's Redis so cache pressure or a cache flush never touches rate-limit state.
   redis-cache:
+    <<: *data-store
     image: redis:7.4-alpine
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
     ports: ["127.0.0.1:6380:6379"]
@@ -106,6 +139,7 @@ services:
     restart: unless-stopped
 
   rabbitmq:
+    <<: *data-store
     image: rabbitmq:4.1-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?set RABBITMQ_USER in .env}
@@ -113,7 +147,10 @@ services:
     ports:
       - "127.0.0.1:5672:5672"   # AMQP, for running services from your IDE
       - "127.0.0.1:15672:15672" # management UI
-    volumes: [rabbitmq_data:/var/lib/rabbitmq]
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      # The Prometheus plugin (port 15692, on the internal network only) next to the management UI.
+      - ./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -129,11 +166,14 @@ services:
   # Memory limits matter for the JVMs: MaxRAMPercentage=75 sizes the heap from the container
   # limit, and without one each JVM would size itself from the whole host or VM.
   api-gateway:
+    <<: *locked-down
     build: ./api-gateway
     environment:
+      <<: *otel-env
       # Who the gateway accepts tokens from (ADR 0016). Dev tokens are for local use; the prod profile refuses them.
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       DEV_TOKENS_ENABLED: ${DEV_TOKENS_ENABLED:-true}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       # iss as clients see it, keys over the internal network. Keys are fetched on first use, so without the auth
       # profile the gateway still starts; a Keycloak token just answers 503.
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/smart-tours
@@ -172,8 +212,10 @@ services:
     restart: unless-stopped
 
   tour-core-service:
+    <<: *locked-down
     build: ./tour-core-service
     environment:
+      <<: *otel-env
       TOURS_DB_URL: jdbc:postgresql://tours-db:5432/tours
       TOURS_DB_USER: ${TOURS_DB_USER}
       TOURS_DB_PASSWORD: ${TOURS_DB_PASSWORD}
@@ -215,9 +257,11 @@ services:
     restart: unless-stopped
 
   booking-service:
+    <<: *locked-down
     build: ./booking-service
     image: smarttours/booking-service:local # built once, reused by booking-sweeper
     environment: &booking-env
+      <<: *otel-env
       DATABASE_URL: postgresql+psycopg://${BOOKINGS_DB_USER}:${BOOKINGS_DB_PASSWORD}@bookings-db:5432/bookings
       # Price snapshots: called directly on the internal network, not through the gateway.
       TOUR_SERVICE_URL: http://tour-core-service:8081
@@ -263,6 +307,7 @@ services:
   # Same image, different process: expires unpaid holds every 60 s and retries pending refunds.
   # Safe to scale (SELECT ... FOR UPDATE SKIP LOCKED; see app/services/sweeper.py).
   booking-sweeper:
+    <<: *locked-down
     image: smarttours/booking-service:local
     pull_policy: never # local image from booking-service's build
     command: ["python", "-m", "app.jobs.expire_holds"]
@@ -279,6 +324,7 @@ services:
   # Same image, different process: publishes committed outbox rows to RabbitMQ (ADR 0008).
   # Safe to scale (SELECT ... FOR UPDATE SKIP LOCKED; see app/services/outbox_relay.py).
   booking-outbox-relay:
+    <<: *locked-down
     image: smarttours/booking-service:local
     pull_policy: never # local image from booking-service's build
     command: ["python", "-m", "app.jobs.outbox_relay"]
@@ -296,6 +342,7 @@ services:
   # Same image, different process: records ticket.rendered events, so booking-service knows where each ticket is
   # without reading notification-service's database (ADR 0015). Only useful with the notifications profile.
   booking-ticket-listener:
+    <<: *locked-down
     image: smarttours/booking-service:local
     pull_policy: never
     profiles: [notifications]
@@ -315,6 +362,7 @@ services:
   # Forwards Stripe events to booking-service. Its signing secret (whsec_...) goes into
   # STRIPE_WEBHOOK_SECRET in .env; see docs/smoke-test.md.
   stripe-cli:
+    <<: *no-capabilities
     image: stripe/stripe-cli:v1.55.3
     profiles: [payments]
     command:
@@ -330,6 +378,7 @@ services:
   # WireMock standing in for Frankfurter and Open-Meteo, with a switchable fault per provider
   # (python scripts/chaos.py <fx|weather|all> <healthy|slow|errors|dead>). docs/smoke-test.md section 9.
   provider-stubs:
+    <<: *no-capabilities
     image: wiremock/wiremock:3.13.2
     profiles: [chaos]
     command: ["--global-response-templating", "--no-request-journal", "--disable-banner"]
@@ -346,10 +395,12 @@ services:
     restart: unless-stopped
 
   ai-service:
+    <<: *locked-down
     build: ./ai-recommendation-service
     image: smarttours/ai-recommendation-service:local # built once, reused by ai-worker
     profiles: [ai]
     environment: &ai-env
+      <<: *otel-env
       DATABASE_URL: postgresql+psycopg://${AI_DB_USER}:${AI_DB_PASSWORD}@ai-db:5432/ai
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
       HF_HOME: /models
@@ -365,6 +416,7 @@ services:
   # Same image, different process: consumes tour events and writes embeddings.
   # Scales independently of the HTTP API (docker compose up --scale ai-worker=3).
   ai-worker:
+    <<: *locked-down
     image: smarttours/ai-recommendation-service:local
     profiles: [ai]
     pull_policy: never # local image from ai-service's build; a second build: would rebuild torch for nothing
@@ -381,10 +433,40 @@ services:
           memory: 1536M
     restart: unless-stopped
 
+  # ---------------------------------------------------------------- observability (profile)
+  # Collector, Tempo, Prometheus, Loki and Grafana in one container, all provisioned from infra/observability (ADR 0017).
+  # Grafana: http://127.0.0.1:3001, admin / admin. For development: the image says so, and it binds to localhost here.
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.39.0
+    profiles: [observability]
+    ports:
+      - "127.0.0.1:3001:3000" # not 3000: the front end's origin
+      - "127.0.0.1:9090:9090" # Prometheus
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/grafana/conf/provisioning/dashboards/smart-tours/service-red.json
+    volumes:
+      - ./infra/observability/prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
+      - ./infra/observability/dashboards-provider.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/smart-tours.yaml:ro
+      - ./infra/observability/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards/smart-tours:ro
+      - ./infra/observability/alerting:/otel-lgtm/grafana/conf/provisioning/alerting:ro
+      - observability_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:13133/ready && curl -fsS http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+    restart: unless-stopped
+
   # ---------------------------------------------------------------- identity (profile)
   # python scripts/keycloak_secrets.py, once; then docker compose --profile auth up -d (ADR 0016).
   # Its own database, like every other service.
   keycloak-db:
+    <<: *data-store
     image: postgres:16-alpine
     profiles: [auth]
     environment:
@@ -406,6 +488,7 @@ services:
   # Built with --optimized in mind (infra/keycloak/Dockerfile). The realm is code; it is imported on the first start
   # only, and an existing realm is left alone, so changes to the file need: docker compose down keycloak-db -v
   keycloak:
+    <<: *no-capabilities
     build: ./infra/keycloak
     image: smarttours/keycloak:local
     profiles: [auth]
@@ -448,6 +531,7 @@ services:
   # ---------------------------------------------------------------- notifications (profile)
   # docker compose --profile notifications up -d: booking emails with PDF tickets (ADRs 0014, 0015).
   notifications-db:
+    <<: *data-store
     image: postgres:16-alpine
     profiles: [notifications]
     environment:
@@ -468,6 +552,7 @@ services:
   # Celery's broker is this RabbitMQ, on a vhost of its own: task messages never share a vhost with domain events.
   # One-shot: creates the vhost and grants the app user on it, through the management API (idempotent PUTs).
   rabbitmq-setup:
+    <<: *no-capabilities
     image: curlimages/curl:8.22.0
     profiles: [notifications]
     entrypoint: ["sh", "-c"]
@@ -488,6 +573,7 @@ services:
   # S3-compatible object storage for ticket PDFs. MinIO stopped publishing community images in October 2025;
   # this is Chainguard's build of current MinIO source (with a shell, for the healthcheck), pinned by digest.
   minio:
+    <<: *no-capabilities
     image: cgr.dev/chainguard/minio:latest-dev@sha256:6d4f84fa90a51955476b23d9bc3bc371d60835c59d1b36826169e0392c2b57a2
     profiles: [notifications]
     command: ["server", "/data", "--console-address", ":9001"]
@@ -511,6 +597,7 @@ services:
   # One-shot: the private tickets bucket and two least-privilege users, one that writes (notification-service)
   # and one that only reads (booking-service, which presigns downloads). Idempotent.
   minio-setup:
+    <<: *no-capabilities
     image: cgr.dev/chainguard/minio-client:latest-dev@sha256:39768db4c3fa811bc8f2e2a3e0add8ea391648b1c980de179985e1c353dc1805
     profiles: [notifications]
     entrypoint: ["sh", "/setup/minio-setup.sh"]
@@ -526,6 +613,7 @@ services:
 
   # SMTP sink with a web UI and an API (tests assert on it): http://localhost:8025
   mailpit:
+    <<: *no-capabilities
     image: axllent/mailpit:v1.31.6
     profiles: [notifications]
     environment:
@@ -540,10 +628,12 @@ services:
 
   # One image, four processes: the API (health, metrics, admin), the event bridge, Celery workers and Beat.
   notification-service:
+    <<: *locked-down
     build: ./notification-service
     image: smarttours/notification-service:local
     profiles: [notifications]
     environment: &notification-env
+      <<: *otel-env
       DATABASE_URL: postgresql+psycopg://${NOTIFICATIONS_DB_USER:-notifications}:${NOTIFICATIONS_DB_PASSWORD:-}@notifications-db:5432/notifications
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/celery
@@ -572,6 +662,7 @@ services:
     restart: unless-stopped
 
   notification-bridge:
+    <<: *locked-down
     image: smarttours/notification-service:local
     pull_policy: never
     profiles: [notifications]
@@ -589,6 +680,7 @@ services:
   # Renders PDF tickets: the render queue only. Prefork pool; NOTIFICATION_WORKER_CONCURRENCY processes (the
   # benchmark compares 1 and 2). Scale out with --scale notification-worker=N. The only reader of the signing key.
   notification-worker:
+    <<: *locked-down
     image: smarttours/notification-service:local
     pull_policy: never
     profiles: [notifications]
@@ -610,6 +702,7 @@ services:
 
   # Sends email (its own queue, so emails never wait behind a render backlog) and runs Beat's short jobs.
   notification-email-worker:
+    <<: *locked-down
     image: smarttours/notification-service:local
     pull_policy: never
     profiles: [notifications]
@@ -617,6 +710,7 @@ services:
     environment:
       <<: *notification-env
       NOTIFICATION_EMAIL_WORKER_CONCURRENCY: ${NOTIFICATION_EMAIL_WORKER_CONCURRENCY:-2}
+      OTEL_SERVICE_NAME: notification-email-worker
     depends_on:
       notification-service: { condition: service_healthy }
       rabbitmq-setup: { condition: service_completed_successfully }
@@ -631,6 +725,7 @@ services:
   # Beat must be a singleton: two schedulers enqueue every job twice. The tasks are idempotent (a second reminder
   # run creates nothing), so a brief overlap during a deploy is harmless, but don't scale this service.
   notification-beat:
+    <<: *locked-down
     image: smarttours/notification-service:local
     pull_policy: never
     profiles: [notifications]
@@ -647,6 +742,7 @@ services:
 
   # Celery's dashboard: http://localhost:5555 (with --profile notifications --profile flower).
   flower:
+    <<: *locked-down
     image: smarttours/notification-service:local
     pull_policy: never
     profiles: [flower]
@@ -679,3 +775,4 @@ volumes:
   notifications_data:
   minio_data:
   keycloak_data:
+  observability_data:

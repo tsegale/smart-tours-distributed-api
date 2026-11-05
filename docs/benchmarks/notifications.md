@@ -83,6 +83,33 @@ Raw results: `benchmarks/out/notifications-results.json` (not committed).
 
 ## Memory budget
 
+### Phase 5, per profile
+
+`benchmarks/memory_footprint.py` on 2026-11-05, 90 s after `up --wait`, stack idle, each profile from a clean start. The
+Docker VM has 3.7 GiB and 1 GiB of swap. "Available" is the VM's own `MemAvailable` at that moment.
+
+| Profile | Total (MiB) | Containers | VM available (MiB) | Holds up? |
+| --- | ---: | ---: | ---: | --- |
+| Default | 1,634 | 10 | 1,625 | Yes |
+| `auth` | 2,177 | 12 | 1,149 | Yes, idle |
+| `observability` | 2,498 | 11 | 1,411 | Yes, idle and under light traffic |
+| `notifications` | 2,337 | 19 | 994 | Yes, idle |
+| `notifications` + `observability` | about 3,550 (sum of the two, less the shared core) | 20 | | **No** |
+
+**Notifications and observability together don't hold on this VM.** Within minutes of use, swap ran out and tasks were
+fully stalled about 70% of the time (`/proc/pressure/memory`), requests timed out, and Docker's own API began answering
+500. It recovered without losing a container once load dropped. One end-to-end trace does complete with
+`BOOKING_WEB_CONCURRENCY=1 NOTIFICATION_WORKER_CONCURRENCY=1 NOTIFICATION_EMAIL_WORKER_CONCURRENCY=1
+WARM_UP_ENABLED=false FX_REFRESH_ON_STARTUP=false` and Beat and the sweeper stopped. That's how the trace in
+[ADR 0017](../adr/0017-observability-and-trace-propagation-through-the-outbox.md) was captured.
+
+The default rose from 1,204 MiB at the end of Phase 4 to 1,634. These figures include page cache, and part of the rise
+is tour-core (426 to 526 MiB) and booking-service (280 to 413 MiB). That's consistent with the OpenTelemetry libraries
+now on the classpath and imported, and with warm-up; the two weren't measured apart, so how much is which isn't
+established. The gateway is 240 MiB. The Serial collector was already in use, so it doesn't account for it.
+
+### Phase 4
+
 `benchmarks/memory_footprint.py` (`docker stats --no-stream`, cgroup usage including page cache), stack idle,
 2026-11-03 and 2026-11-04.
 
