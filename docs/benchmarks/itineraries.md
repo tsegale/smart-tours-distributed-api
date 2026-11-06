@@ -60,8 +60,10 @@ travellers would do, and it can't reward time decay at all, because simulated ta
 | profile | 0.016 [0.005, 0.028] | 0.004 [0.001, 0.007] | 0.93 | 51.1% |
 | profile, no decay | 0.013 [0.003, 0.026] | 0.003 [0.001, 0.006] | 0.95 | 44.5% |
 | profile + MMR | 0.010 [0.003, 0.021] | 0.003 [0.000, 0.005] | 0.91 | 50.2% |
-| profile + popularity (RRF) | 0.054 [0.034, 0.078] | 0.018 [0.009, 0.027] | 0.87 | 34.6% |
-| profile + popularity + MMR | 0.065 [0.041, 0.091] | 0.023 [0.013, 0.033] | 0.82 | 27.1% |
+| profile + popularity (RRF) | 0.054 [0.034, 0.078] | 0.017 [0.009, 0.026] | 0.87 | 33.1% |
+| profile + popularity + MMR | 0.065 [0.041, 0.091] | 0.023 [0.013, 0.033] | 0.82 | 25.3% |
+| same, no booking data | 0.013 [0.003, 0.026] | 0.004 [0.001, 0.007] | 0.92 | 50.7% |
+| same, no booking data, ties by id (the old bug) | 0.016 [0.005, 0.028] | 0.004 [0.001, 0.007] | 0.80 | 23.5% |
 <!-- /table:recommendations -->
 
 Taste match is the share of the ten recommended tours in the traveller's simulated categories. Coverage is the share of the
@@ -78,5 +80,10 @@ What the numbers decided, and what they didn't:
   real interaction log could change it, and should be used to re-test it as soon as one exists.
 - **MMR first used cosine as its relevance,** which threw away the popularity signal the fusion had added, and scored worst of all.
   Using the fused score fixed that. Plain MMR with the profile stays in the table as the record of that.
+- **Ties in popularity first counted as a signal,** because equally popular tours were ranked by id. The simulated log has bookings
+  everywhere that matters, so the table never showed it. The smoke test did: on a catalogue with no bookings, the closest match to what
+  a traveller booked came 20th, behind unrelated tours with low ids. They now share a rank. With no booking data, that takes taste
+  match from 0.80 to 0.92 and coverage from 23.5% to 50.7%, and hit rate shows no clear difference. With booking data it leaves hit
+  rate where it was, and coverage falls from 27.1% to 25.3%. The last two rows are the record of it.
 - **Time decay shows no gain,** and can't here (see above). It stays because tastes and trips do change in reality, which is an
   assumption, not a finding.

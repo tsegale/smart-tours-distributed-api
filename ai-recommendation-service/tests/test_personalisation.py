@@ -249,6 +249,18 @@ def test_popularity_can_lift_a_tour_above_a_slightly_closer_one(database):
 
 
 @needs_database
+def test_tied_popularity_has_no_say_so_a_low_tour_id_is_not_an_advantage(database):
+    """With no bookings or ratings, every tour is equally popular. Ranking those by id pushed the closest match down."""
+    add_tour(database, 1, vector(0.9, 0.1))
+    add_tour(database, 2, vector(0.8, 0.2))
+    add_tour(database, 3, vector(0.7, 0.3))
+    add_tour(database, 4, vector(0.95, 0.05))  # the closest, and the newest
+    add_tour(database, 9, vector(1, 0))
+    handle(database, booking_event(1, "alice", 9))
+    assert recommend(database, limit=1) == ("personalised", [4])
+
+
+@needs_database
 def test_only_bookable_tours_are_offered(database):
     add_tour(database, 1, vector(1, 0))
     add_tour(database, 2, vector(0.9, 0.1), slots=0)

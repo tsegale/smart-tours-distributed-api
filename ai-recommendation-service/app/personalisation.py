@@ -94,7 +94,8 @@ _AVAILABLE = """EXISTS (SELECT 1 FROM ai_departures d
 # Most booked first, then best rated with enough ratings to mean something (a mean pulled towards 3.5), then stable.
 _BOOKINGS = """LEFT JOIN (SELECT tour_id, count(*) AS bookings FROM ai_bookings WHERE confirmed GROUP BY tour_id) b
                       ON b.tour_id = t.tour_id"""
-_POPULARITY = """coalesce(b.bookings, 0) DESC, (t.rating_sum + 3.5 * 5) / (t.rating_count + 5) DESC, t.tour_id"""
+_POPULARITY_SCORE = """coalesce(b.bookings, 0) DESC, (t.rating_sum + 3.5 * 5) / (t.rating_count + 5) DESC"""
+_POPULARITY = f"""{_POPULARITY_SCORE}, t.tour_id"""
 
 
 def load_interactions(db: Session, user_id: str, model: str) -> tuple[list[Interaction], set[int]]:
@@ -126,6 +127,9 @@ def fused_candidates(
 
     Similarity alone ignores a signal the evaluation shows matters, and fusing ranks needs no calibration between a
     cosine and a booking count. Relevance is the fused score over the best one's, so MMR sees a value from 0 to 1.
+
+    Equally popular tours share a rank. A tie-break here would be a ranking signal with nothing behind it: on a
+    catalogue with no bookings yet, breaking ties by id put old tours above closer new ones.
     """
     rows = db.execute(
         text(
@@ -139,7 +143,7 @@ def fused_candidates(
                     LIMIT :near
                 ) nearest
             ), popular AS (
-                SELECT t.tour_id, row_number() OVER (ORDER BY {_POPULARITY}) AS rank
+                SELECT t.tour_id, rank() OVER (ORDER BY {_POPULARITY_SCORE}) AS rank
                 FROM ai_tours t {_BOOKINGS}
                 WHERE t.name <> '' AND {_AVAILABLE}
             )

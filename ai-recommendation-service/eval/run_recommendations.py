@@ -133,10 +133,27 @@ def main() -> None:
             "profile + MMR",
             "profile + popularity (RRF)",
             "profile + popularity + MMR",
+            "same, no booking data",
+            "same, no booking data, ties by id (the old bug)",
         )
     }
     category = {tour["id"]: tour["category"] for tour in tours}
-    popularity_rank = {tour_id: position + 1 for position, tour_id in enumerate(popular)}
+    # As rank() in app.personalisation: equally popular tours share a rank, so a tie carries no signal.
+    first_position: dict[int, int] = {}
+    for position, tour_id in enumerate(popular):
+        first_position.setdefault(counts.get(tour_id, 0), position + 1)
+    popularity_rank = {tour_id: first_position[counts.get(tour_id, 0)] for tour_id in ids}
+    no_data = dict.fromkeys(ids, 1)
+    by_id = {tour_id: position + 1 for position, tour_id in enumerate(sorted(ids))}
+
+    def fused_mmr(wider: list[int], rank_of: dict[int, int]) -> tuple[list[int], list[int]]:
+        """(fused order, the same after MMR over its top 50). The same choice as app.personalisation."""
+        score = {t: 1 / (60 + r + 1) + 1 / (60 + rank_of[t]) for r, t in enumerate(wider)}
+        fused = sorted(wider, key=lambda t: -score[t])
+        best = score[fused[0]]
+        top = {index[t]: score[t] / best for t in fused[:50]}
+        return fused, [ids[p] for p in mmr_rerank(top, matrix, K)]
+
     taste_match = {name: [] for name in systems}
     hits = {name: [] for name in systems}
     coverage = {name: set() for name in systems}
@@ -170,12 +187,11 @@ def main() -> None:
                 rankings["profile + MMR"] = [ids[p] for p in chosen]
 
                 wider = unseen((ids[i] for i in order[: FUSION_CANDIDATES + len(seen)]), seen)[:FUSION_CANDIDATES]
-                score = {t: 1 / (60 + r + 1) + 1 / (60 + popularity_rank[t]) for r, t in enumerate(wider)}
-                fused = sorted(wider, key=lambda t: -score[t])
+                fused, diversified = fused_mmr(wider, popularity_rank)
                 rankings["profile + popularity (RRF)"] = fused[:K]
-                best = score[fused[0]]
-                top = {index[t]: score[t] / best for t in fused[:50]}
-                rankings["profile + popularity + MMR"] = [ids[p] for p in mmr_rerank(top, matrix, K)]
+                rankings["profile + popularity + MMR"] = diversified
+                rankings["same, no booking data"] = fused_mmr(wider, no_data)[1]
+                rankings["same, no booking data, ties by id (the old bug)"] = fused_mmr(wider, by_id)[1]
         for name in systems:
             rankings.setdefault(name, rankings["popularity"])
 

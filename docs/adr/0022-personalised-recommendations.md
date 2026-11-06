@@ -15,14 +15,15 @@ There is no real interaction data, so this can only be evaluated on a simulated 
 - **Profile.** The mean of booked tours' vectors, weighted 1 for a booking, 2 if rated 4 or 5, 0 if rated 1 or 2, with a half-life of
   180 days.
 - **Candidates.** Only tours with a seat on a future departure, never one already booked. The 500 nearest the profile, re-ranked by
-  RRF with their popularity rank (bookings, then a rating mean pulled towards 3.5).
+  RRF with their popularity rank (bookings, then a rating mean pulled towards 3.5). Equally popular tours share a rank, so with no
+  booking data popularity has no say.
 - **Diversity.** MMR with lambda 0.7 over the top 50, using the fused score as relevance.
 - **New users** get the most popular bookable tours. The response's `source` says which logic answered.
 
 ## Consequences
 - **Popularity alone has the better hit rate on this log, 0.140 against 0.065, and this ships anyway.** That is a judgment. Popularity
   scores well by recommending the same few tours to everyone, 0.5% of the catalogue, and matches a traveller's taste 32% of the time.
-  The fused version matches it 82% of the time and covers 27% of the catalogue. See [the numbers](../benchmarks/itineraries.md).
+  The fused version matches it 82% of the time and covers 25% of the catalogue. See [the numbers](../benchmarks/itineraries.md).
 - **The log is synthetic, written by the author of the ranking.** It can show that code finds a planted signal, and nothing about real
   travellers. Re-test all of this, and the choice above, on real interactions as soon as they exist.
 - **Time decay is unproven.** The simulation's tastes never drift, so it can't show a benefit, and it doesn't. It stays on the
