@@ -1,4 +1,5 @@
-"""Held-out queries for testing lexical-precision candidates. PROPOSED LABELS: not reviewed, and nothing has run on them.
+"""Held-out queries for testing lexical-precision candidates. PROPOSED LABELS: not reviewed, and nothing has run on
+them.
 
 The candidates (a lexical weight that drops on long queries, one stemmer per query, a minimum share of matching terms)
 came out of looking at the other sets, so they can't be judged on those alone. These 24 queries are the fresh test.
