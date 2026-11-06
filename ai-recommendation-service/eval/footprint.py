@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What one embedding model costs to run, in a process of its own so that nothing else is counted.
 
-    python -m eval.footprint --model e5-small-int8 --runtime onnx
+    python -m eval.footprint --model e5-small-int8 --runtime onnx   (needs psutil too)
     python -m eval.footprint --model minilm-l6 --runtime torch   (needs sentence-transformers and torch)
 
 Prints one JSON line: resident memory after loading and after embedding, query and document latency on this machine's
@@ -34,6 +34,7 @@ def main() -> None:
     parser.add_argument("--model", required=True, choices=list(MODELS))
     parser.add_argument("--runtime", required=True, choices=["onnx", "torch"])
     parser.add_argument("--documents", type=int, default=100)
+    parser.add_argument("--vectors", type=Path, help="Write the query vectors here, to compare runtimes with")
     args = parser.parse_args()
     spec = MODELS[args.model]
     process = psutil.Process()
@@ -54,6 +55,9 @@ def main() -> None:
             began = time.perf_counter()
             embedder.embed_query(query)
             timings.append((time.perf_counter() - began) * 1000)
+
+    if args.vectors:
+        args.vectors.write_text(json.dumps([embedder.embed_query(query) for query in QUERIES]), encoding="utf-8")
 
     with DATASET.open(encoding="utf-8") as lines:
         tours = [tour for tour in map(json.loads, lines) if tour["authored"]][: args.documents]

@@ -205,11 +205,8 @@ def main() -> None:
     args.out.write_text(json.dumps(results, indent=1), encoding="utf-8")
     for name, row in results["systems"].items():
         hit, ndcg, taste = row["hit_rate@10"], row["ndcg@10"], row["taste_match@10"]
-        coverage_of = row["catalogue_coverage"]
         interval = f"{hit[0]:.3f} [{hit[1]:.3f}, {hit[2]:.3f}]"
-        print(
-            f"{name:28} taste {taste[0]:.2f} hit@10 {interval} nDCG@10 {ndcg[0]:.3f} coverage {row['catalogue_coverage']:.3f}"
-        )
+        print(f"{name:28} taste {taste[0]:.2f} hit@10 {interval} nDCG@10 {ndcg[0]:.3f}", row["catalogue_coverage"])
     print(evaluated, "users evaluated")
 
 

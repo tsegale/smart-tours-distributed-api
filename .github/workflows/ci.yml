@@ -117,6 +117,7 @@ jobs:
       - name: Retrieval quality gate
         env:
           DATABASE_URL: postgresql+psycopg://ai:ai@localhost:5432/ai_gate
+          HF_HUB_DISABLE_XET: "1"
         run: alembic upgrade head && python -m eval.regression
 
   # The tests need WeasyPrint's system libraries, so they run in the service's own test image, against the same

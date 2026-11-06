@@ -25,7 +25,7 @@ from app.query_parser import QueryParser
 from app.reranker import RERANKERS, OnnxCrossEncoder
 from app.retrieval import Filters, hydrate, search
 
-from . import queries_rule
+from . import queries_known, queries_rule
 from .curated import CURATED
 from .metrics import bootstrap_ci, ndcg_at, percentile, recall_at, reciprocal_rank
 
@@ -102,7 +102,7 @@ def embed_corpus(tours: list[dict], name: str) -> dict:
     return {"embedder": embedder, "load_s": load_s, "embed_s": embed_s}
 
 
-def query_sets(tours: list[dict]) -> dict[str, list[dict]]:
+def curated_queries(tours: list[dict]) -> list[dict]:
     by_name: dict[str, list[int]] = {}
     for tour in tours:
         if tour["authored"]:
@@ -117,25 +117,48 @@ def query_sets(tours: list[dict]) -> dict[str, list[dict]]:
         curated.append(
             {"id": f"curated-{index}", "q": query, "language": language, "shape": shape, "judgments": judgments}
         )
-    return {"curated": curated, "rule": queries_rule.build(tours)}
+    return curated
 
 
-def reranked(embedder, name, cross_encoder, depth):
-    """Hybrid candidates, re-ordered by the cross-encoder. The latency recorded includes both."""
+def query_sets(tours: list[dict]) -> dict[str, list[dict]]:
+    curated = curated_queries(tours)
+    written = [tour for tour in tours if tour["authored"]]
+    return {"curated": curated, "rule": queries_rule.build(tours), "known": queries_known.build(written)}
 
-    def system(query, filters):
-        vector = embedder.embed_query(query)
+
+def reranked(embedder, name, cross_encoder, depth, parser, weight):
+    """What the endpoint does with a reranker on: parse, fuse, re-order. The latency recorded includes all of it."""
+
+    def rerank_system(query, filters):
+        understood = parser.parse(query)
+        vector = embedder.embed_query(understood.text)
+        narrowed = Filters(
+            latitude=understood.latitude,
+            longitude=understood.longitude,
+            radius_km=understood.radius_km,
+            max_price=understood.max_price,
+            max_minutes=understood.max_minutes,
+            min_minutes=understood.min_minutes,
+            only_ids=filters.only_ids,
+        )
         with SessionLocal() as db, db.begin():
             hits = search(
-                db, query_text=query, query_vector=vector, model=name, filters=filters, mode="hybrid", limit=depth
+                db,
+                query_text=understood.text,
+                query_vector=vector,
+                model=name,
+                filters=narrowed,
+                mode="hybrid",
+                limit=depth,
+                lexical_weight=weight,
             )
             tours = hydrate(db, [h.tour_id for h in hits])
         documents = [document_text(tours[h.tour_id]["name"], tours[h.tour_id]["description"]) for h in hits]
-        scores = cross_encoder.score(query, documents)
+        scores = cross_encoder.score(understood.text, documents)
         ordered = sorted(zip(hits, scores, strict=True), key=lambda pair: -pair[1])
         return [hit.tour_id for hit, _ in ordered][:20]
 
-    return system
+    return rerank_system
 
 
 def run(system, queries, only_ids=None) -> dict:
@@ -170,6 +193,7 @@ def main() -> None:
     parser.add_argument("--rrf-k", nargs="+", type=int, default=[60])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--skip-load", action="store_true")
+    parser.add_argument("--lexical-weights", nargs="*", type=float, default=[])
     parser.add_argument("--rerankers", nargs="*", default=[], choices=list(RERANKERS))
     parser.add_argument("--rerank-depth", type=int, default=50)
     args = parser.parse_args()
@@ -180,7 +204,7 @@ def main() -> None:
     sets = query_sets(tours)
     written_ids = tuple(t["id"] for t in tours if t["authored"])
     composed_ids = tuple(t["id"] for t in tours if not t["authored"])
-    corpora = {"curated": written_ids, "rule": composed_ids}
+    corpora = {"curated": written_ids, "rule": composed_ids, "known": written_ids}
     print({name: len(queries) for name, queries in sets.items()}, flush=True)
 
     parser = QueryParser(load_csv())
@@ -229,34 +253,72 @@ def main() -> None:
                     vector = embedder.embed_query(query)
                     with SessionLocal() as db, db.begin():
                         hits = search(db, query_text=query, query_vector=vector, model=name, filters=filters,
-                                      mode="hybrid", limit=20, rrf_k=k)  # fmt: skip
+                                      mode="hybrid", limit=20, rrf_k=k, lexical_weight=1.0)  # fmt: skip
                     return [h.tour_id for h in hits]
 
                 record(f"hybrid:{name}:k{k}", set_name, run(hybrid, queries, corpora[set_name]))
 
-            # What the endpoint does: place, price and duration phrases become filters, the rest ranks.
-            def parsed_hybrid(query, filters, embedder=embedder, name=name):
-                parsed = parser.parse(query)
-                vector = embedder.embed_query(parsed.text)
-                narrowed = Filters(
-                    latitude=parsed.latitude,
-                    longitude=parsed.longitude,
-                    radius_km=parsed.radius_km,
-                    max_price=parsed.max_price,
-                    max_minutes=parsed.max_minutes,
-                    min_minutes=parsed.min_minutes,
-                    only_ids=filters.only_ids,
-                )
-                with SessionLocal() as db, db.begin():
-                    hits = search(db, query_text=parsed.text, query_vector=vector, model=name, filters=narrowed,
-                                  mode="hybrid", limit=20)  # fmt: skip
-                return [h.tour_id for h in hits]
+            for weight in args.lexical_weights:
 
-            record(f"hybrid+parser:{name}", set_name, run(parsed_hybrid, queries, corpora[set_name]))
+                def weighted(query, filters, embedder=embedder, name=name, weight=weight):
+                    vector = embedder.embed_query(query)
+                    with SessionLocal() as db, db.begin():
+                        hits = search(
+                            db,
+                            query_text=query,
+                            query_vector=vector,
+                            model=name,
+                            filters=filters,
+                            mode="hybrid",
+                            limit=20,
+                            lexical_weight=weight,
+                        )
+                    return [h.tour_id for h in hits]
+
+                record(f"hybrid:{name}:w{weight}", set_name, run(weighted, queries, corpora[set_name]))
+
+            # What the endpoint does: place, price and duration phrases become filters, the rest ranks.
+            def parsed(mode, weight, embedder=embedder, name=name):
+                def system(query, filters):
+                    understood = parser.parse(query)
+                    vector = embedder.embed_query(understood.text)
+                    narrowed = Filters(
+                        latitude=understood.latitude,
+                        longitude=understood.longitude,
+                        radius_km=understood.radius_km,
+                        max_price=understood.max_price,
+                        max_minutes=understood.max_minutes,
+                        min_minutes=understood.min_minutes,
+                        only_ids=filters.only_ids,
+                    )
+                    with SessionLocal() as db, db.begin():
+                        hits = search(
+                            db,
+                            query_text=understood.text,
+                            query_vector=vector,
+                            model=name,
+                            filters=narrowed,
+                            mode=mode,
+                            limit=20,
+                            lexical_weight=weight,
+                        )
+                    return [h.tour_id for h in hits]
+
+                return system
+
+            record(f"hybrid+parser:{name}", set_name, run(parsed("hybrid", 1.0), queries, corpora[set_name]))
+            record(f"dense+parser:{name}", set_name, run(parsed("dense", 1.0), queries, corpora[set_name]))
+            for weight in args.lexical_weights:
+                label = f"hybrid+parser:{name}:w{weight}"
+                record(label, set_name, run(parsed("hybrid", weight), queries, corpora[set_name]))
 
             for reranker_name in args.rerankers:
-                system = reranked(embedder, name, cross_encoders[reranker_name], args.rerank_depth)
-                record(f"hybrid+rerank:{name}:{reranker_name}", set_name, run(system, queries, corpora[set_name]))
+                weight = args.lexical_weights[0] if args.lexical_weights else 1.0
+                rerank_system = reranked(
+                    embedder, name, cross_encoders[reranker_name], args.rerank_depth, parser, weight
+                )
+                label = f"hybrid+parser+rerank:{name}:{reranker_name}"
+                record(label, set_name, run(rerank_system, queries, corpora[set_name]))
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(results, indent=1))

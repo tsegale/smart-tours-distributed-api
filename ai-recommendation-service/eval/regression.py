@@ -24,7 +24,7 @@ from app.embeddings import MODELS
 from app.retrieval import search
 
 from .metrics import ndcg_at, recall_at
-from .run_eval import embed_corpus, load_read_model, load_tours, query_sets
+from .run_eval import curated_queries, embed_corpus, load_read_model, load_tours
 
 BASELINE = Path(__file__).with_name("baseline.json")
 TOLERANCE = 0.005
@@ -36,7 +36,7 @@ def measure(model: str) -> dict:
     with SessionLocal() as db, db.begin():
         db.execute(text("DELETE FROM tour_embeddings"))
     embedder = embed_corpus(tours, model)["embedder"]
-    queries = query_sets(tours)["curated"]
+    queries = curated_queries(tours)
     results: dict[str, list[list[int]]] = {"lexical": [], "hybrid": []}
     for query in queries:
         vector = embedder.embed_query(query["q"])

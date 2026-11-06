@@ -1,0 +1,6 @@
+{"model": "paraphrase-ml-int8", "runtime": "onnx", "load_s": 5.16, "rss_baseline_mb": 23, "rss_loaded_mb": 483, "rss_after_mb": 489, "query_p50_ms": 3.74, "query_p95_ms": 4.82, "document_ms": 9.26, "documents": 100}
+{"model": "paraphrase-ml", "runtime": "onnx", "load_s": 10.67, "rss_baseline_mb": 23, "rss_loaded_mb": 818, "rss_after_mb": 823, "query_p50_ms": 7.58, "query_p95_ms": 11.56, "document_ms": 18.71, "documents": 100}
+{"model": "minilm-l6-int8", "runtime": "onnx", "load_s": 2.9, "rss_baseline_mb": 23, "rss_loaded_mb": 124, "rss_after_mb": 128, "query_p50_ms": 1.94, "query_p95_ms": 2.76, "document_ms": 7.19, "documents": 100}
+{"model": "minilm-l6", "runtime": "onnx", "load_s": 3.06, "rss_baseline_mb": 23, "rss_loaded_mb": 199, "rss_after_mb": 202, "query_p50_ms": 3.81, "query_p95_ms": 5.52, "document_ms": 8.82, "documents": 100}
+{"model": "minilm-l6", "runtime": "torch", "load_s": 14.68, "rss_baseline_mb": 22, "rss_loaded_mb": 445, "rss_after_mb": 532, "query_p50_ms": 10.48, "query_p95_ms": 14.46, "document_ms": 17.75, "documents": 100}
+{"model": "paraphrase-ml", "runtime": "torch", "load_s": 3064.8, "rss_baseline_mb": 22, "rss_loaded_mb": 797, "rss_after_mb": 901, "query_p50_ms": 17.99, "query_p95_ms": 21.55, "document_ms": 47.85, "documents": 100}
