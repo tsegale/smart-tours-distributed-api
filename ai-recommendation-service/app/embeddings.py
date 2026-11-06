@@ -110,6 +110,7 @@ class OnnxEmbedder:
         from huggingface_hub import hf_hub_download
         from tokenizers import Tokenizer
 
+        onnxruntime.disable_telemetry_events()
         log.info("Loading %s (%s)", self.model_name, self._spec.onnx_file)
         model_path = hf_hub_download(self._spec.repo, self._spec.onnx_file)
         options = onnxruntime.SessionOptions()

@@ -14,6 +14,11 @@ def test_rrf_by_hand():
     assert rrf_score([None, None], k=60) == 0.0
 
 
+def test_rrf_weights_scale_each_list():
+    assert rrf_score([1, 1], k=60, weights=[1.0, 0.5]) == pytest.approx(1.5 / 61)
+    assert rrf_score([None, 1], k=60, weights=[1.0, 0.5]) == pytest.approx(0.5 / 61)
+
+
 def test_rrf_favours_appearing_in_both_lists():
     assert rrf_score([10, 10], k=60) > rrf_score([1, None], k=60)
 

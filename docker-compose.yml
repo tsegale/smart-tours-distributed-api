@@ -409,7 +409,7 @@ services:
       HF_HOME: /models
       # Decided by evaluation: docs/benchmarks/search-quality.md. A cutover needs no change here (the database's active
       # model outranks it): docs/runbooks/embedding-model-migration.md.
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-minilm-l6}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-paraphrase-ml-int8}
       RERANK_MODEL: ${RERANK_MODEL:-}
       REDIS_URL: redis://redis:6379/1
       # Empty: deterministic itineraries, and no key is needed anywhere (ADR 0021).
@@ -428,7 +428,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M # torch + the embedding model
+          memory: 768M # ONNX int8 model: 490 MB resident, measured (docs/benchmarks/search-quality.md)
     restart: unless-stopped
 
   # Same image, different process: consumes tour events and writes embeddings.
@@ -437,7 +437,7 @@ services:
     <<: *locked-down
     image: smarttours/ai-recommendation-service:local
     profiles: [ai]
-    pull_policy: never # local image from ai-service's build; a second build: would rebuild torch for nothing
+    pull_policy: never # local image from ai-service's build
     command: ["python", "-m", "app.worker"]
     environment: *ai-env
     volumes: [hf_models:/models]
@@ -448,7 +448,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 768M # two models during a migration need more: docs/runbooks/embedding-model-migration.md
     restart: unless-stopped
 
   # ---------------------------------------------------------------- observability (profile)

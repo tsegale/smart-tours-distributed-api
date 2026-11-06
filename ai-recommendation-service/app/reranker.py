@@ -37,6 +37,7 @@ class OnnxCrossEncoder:
         from huggingface_hub import hf_hub_download
         from tokenizers import Tokenizer
 
+        onnxruntime.disable_telemetry_events()
         log.info("Loading reranker %s", self.name)
         self._session = onnxruntime.InferenceSession(
             hf_hub_download(self._spec.repo, self._spec.onnx_file), providers=["CPUExecutionProvider"]

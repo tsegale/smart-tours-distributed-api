@@ -1,10 +1,9 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 HF_HOME=/models
+# Plain HTTP for model downloads: the Xet transport stalled here for 20 minutes at no bytes (ADR 0020).
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 HF_HOME=/models HF_HUB_DISABLE_XET=1
 WORKDIR /app
 
-# CPU-only torch first, so sentence-transformers doesn't pull the multi-GB CUDA build.
-RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 

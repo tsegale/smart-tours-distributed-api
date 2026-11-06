@@ -26,7 +26,7 @@ from app.llm import FakeLLMClient, LlmRejectedError, LlmResult  # noqa: E402
 from app.messages import handle_event  # noqa: E402
 from app.query_parser import QueryParser  # noqa: E402
 from app.quota import QuotaUnavailableError, Reservation, TokenQuota  # noqa: E402
-from app.retrieval import Filters, dense_candidates, search  # noqa: E402
+from app.retrieval import Filters, dense_candidates, rrf_score, search  # noqa: E402
 from tests.fakes import FakeEmbedder  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -147,7 +147,7 @@ def test_a_tour_found_both_ways_outranks_one_found_one_way():
 def test_the_fused_score_is_rrf_of_the_ranks():
     add_tour(1, "Kayak with seals")
     hit = retrieve("Kayak")[0]
-    assert hit.fused_score == pytest.approx(1 / (60 + hit.dense_rank) + 1 / (60 + hit.lexical_rank))
+    assert hit.fused_score == pytest.approx(rrf_score([hit.dense_rank, hit.lexical_rank], weights=[1.0, 0.5]))
 
 
 def test_only_the_requested_model_is_searched():

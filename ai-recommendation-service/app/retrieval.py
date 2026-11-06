@@ -20,6 +20,9 @@ WINDHOEK = ZoneInfo("Africa/Windhoek")
 Mode = Literal["hybrid", "dense", "lexical"]
 DEFAULT_RRF_K = 60
 DEFAULT_CANDIDATES = 100
+# The lexical list ORs its terms, so it is noisy on a sentence and sharp on a name. Half a vote lets it win on the name
+# without drowning the sentence: docs/benchmarks/search-quality.md, and ADR 0019.
+DEFAULT_LEXICAL_WEIGHT = 0.5
 
 
 @dataclass(frozen=True)
@@ -47,9 +50,10 @@ class Hit:
     fused_score: float
 
 
-def rrf_score(ranks: list[int | None], k: int = DEFAULT_RRF_K) -> float:
+def rrf_score(ranks: list[int | None], k: int = DEFAULT_RRF_K, weights: list[float] | None = None) -> float:
     """The formula the statement below applies. Kept here so it can be tested with plain numbers."""
-    return sum(1.0 / (k + rank) for rank in ranks if rank is not None)
+    weights = weights or [1.0] * len(ranks)
+    return sum(weight / (k + rank) for rank, weight in zip(ranks, weights, strict=True) if rank is not None)
 
 
 def _where(filters: Filters, params: dict) -> str:
@@ -117,8 +121,16 @@ def search(
     limit: int = 10,
     rrf_k: int = DEFAULT_RRF_K,
     candidates: int = DEFAULT_CANDIDATES,
+    lexical_weight: float = DEFAULT_LEXICAL_WEIGHT,
 ) -> list[Hit]:
-    params: dict = {"text": query_text, "model": model, "n": candidates, "limit": limit, "k": rrf_k}
+    params: dict = {
+        "text": query_text,
+        "model": model,
+        "n": candidates,
+        "limit": limit,
+        "k": rrf_k,
+        "lexical_weight": lexical_weight,
+    }
     where = _where(filters, params)
     use_dense = mode in ("hybrid", "dense") and query_vector is not None
     use_lexical = mode in ("hybrid", "lexical") and query_text.strip() != ""
@@ -147,7 +159,8 @@ def search(
         SELECT COALESCE(dense.tour_id, lexical.tour_id) AS tour_id,
                dense.rank AS dense_rank,
                lexical.rank AS lexical_rank,
-               COALESCE(1.0 / (:k + dense.rank), 0) + COALESCE(1.0 / (:k + lexical.rank), 0) AS fused_score
+               COALESCE(1.0 / (:k + dense.rank), 0)
+                   + COALESCE(CAST(:lexical_weight AS float8) / (:k + lexical.rank), 0) AS fused_score
         FROM dense FULL JOIN lexical ON dense.tour_id = lexical.tour_id
         ORDER BY fused_score DESC, tour_id
         LIMIT :limit
