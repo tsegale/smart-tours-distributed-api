@@ -1,6 +1,4 @@
-"""The two signed-off query sets stay apart: the decisions rest on the first, and the second is reported on its own."""
-
-from pathlib import Path
+"""The two signed-off query sets: labelled apart, reported side by side, each with its own lines in the gate."""
 
 from eval.coverage_analysis import strip_negation
 from eval.curated import CURATED, NEEDS_REVIEW, REVIEWED_ON
@@ -44,16 +42,12 @@ def test_the_coverage_set_labels_real_tours_and_reaches_what_it_says():
     assert gap - labelled(CURATED_COVERAGE) == STILL_UNLABELLED
 
 
-def test_coverage_is_reported_apart_and_stays_out_of_the_ci_gate():
+def test_coverage_is_a_set_of_its_own_and_never_averaged_into_curated():
     tours = load_tours()
     sets = query_sets(tours)
     assert len(sets["curated"]) == 50
     assert len(sets["coverage"]) == len(CURATED_COVERAGE)
     assert not {q["id"] for q in sets["curated"]} & {q["id"] for q in sets["coverage"]}
-
-    gate = Path(__file__).parents[1] / "eval" / "regression.py"
-    assert "CURATED_COVERAGE" not in gate.read_text(encoding="utf-8")
-    assert '"coverage"' not in gate.read_text(encoding="utf-8")
     assert [q["q"] for q in curated_queries(tours)] == [query for _, _, query, _ in CURATED]
 
 

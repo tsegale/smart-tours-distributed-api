@@ -24,6 +24,7 @@ from app.embeddings import MODELS
 from app.retrieval import search
 
 from .cpu import cpu_features
+from .curated_coverage import CURATED_COVERAGE
 from .metrics import ndcg_at, recall_at
 from .run_eval import curated_queries, embed_corpus, load_read_model, load_tours
 
@@ -39,7 +40,17 @@ def measure(model: str) -> dict:
     with SessionLocal() as db, db.begin():
         db.execute(text("DELETE FROM tour_embeddings"))
     embedder = embed_corpus(tours, model)["embedder"]
-    queries = curated_queries(tours)
+    curated = curated_queries(tours)
+    coverage = curated_queries(tours, CURATED_COVERAGE, "coverage")
+    return {
+        "model": model,
+        "queries": len(curated),
+        **_scores(embedder, model, curated),
+        "coverage": {"queries": len(coverage), **_scores(embedder, model, coverage)},
+    }
+
+
+def _scores(embedder, model: str, queries: list[dict]) -> dict:
     results: dict[str, list[list[int]]] = {"lexical": [], "hybrid": []}
     for query in queries:
         vector = embedder.embed_query(query["q"])
@@ -48,7 +59,7 @@ def measure(model: str) -> dict:
             hybrid = search(db, query_text=query["q"], query_vector=vector, model=model, mode="hybrid", limit=20)
         results["lexical"].append([hit.tour_id for hit in lexical])
         results["hybrid"].append([hit.tour_id for hit in hybrid])
-    summary: dict = {"model": model, "queries": len(queries)}
+    summary: dict = {}
     for system, rankings in results.items():
         pairs = list(zip(rankings, (query["judgments"] for query in queries), strict=True))
         summary[system] = {
