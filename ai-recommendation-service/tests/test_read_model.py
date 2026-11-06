@@ -114,7 +114,7 @@ def test_a_tour_event_fills_the_read_model_and_its_embedding():
         240,
     )
     with SessionLocal() as db:
-        assert db.get(TourEmbedding, 7) is not None
+        assert db.get(TourEmbedding, (7, FakeEmbedder.model_name)) is not None
         latitude, longitude = db.execute(
             text("SELECT ST_Y(location::geometry), ST_X(location::geometry) FROM ai_tours WHERE tour_id = 7")
         ).one()
@@ -129,7 +129,9 @@ def test_an_overtaken_tour_event_changes_nothing():
 
     assert tour().name == "Newest name"
     with SessionLocal() as db:
-        assert "Newest name" in db.get(TourEmbedding, 7).content, "the embedding must not go stale either"
+        assert "Newest name" in db.get(TourEmbedding, (7, FakeEmbedder.model_name)).content, (
+            "the embedding must not go stale either"
+        )
 
 
 def test_a_duplicate_tour_event_is_harmless():

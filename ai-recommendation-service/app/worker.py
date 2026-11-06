@@ -1,7 +1,7 @@
 """RabbitMQ consumer: keeps tour embeddings in sync with tour-core-service.
 
-Runs as its own process (`python -m app.worker`), separate from the HTTP API, so heavy
-embedding work never competes with request handling and the two can scale separately.
+Runs as its own process (`python -m app.worker`), separate from the HTTP API, so heavy embedding work never competes
+with request handling and the two can scale separately.
 
 Failure handling (the original consumer requeued forever, so one bad message blocked the queue):
 
@@ -24,8 +24,8 @@ from pika.exceptions import AMQPConnectionError, ChannelClosedByBroker
 
 from .config import Settings, get_settings
 from .database import SessionLocal
-from .embeddings import get_embedder
 from .messages import PoisonMessageError, handle_event
+from .model_registry import ensure_active, get_registry
 from .telemetry import configure_logging, configure_telemetry
 
 log = logging.getLogger("ai.worker")
@@ -115,13 +115,17 @@ def run() -> None:
     configure_logging("ai-worker")
     configure_telemetry("ai-worker")
     settings = get_settings()
-    embedder = get_embedder()
-    if hasattr(embedder, "warm_up"):
-        # Load the model before consuming, so the first event after a deploy isn't held up by it.
+    registry = get_registry()
+    with SessionLocal() as db, db.begin():
+        ensure_active(db, settings.embedding_model)
+    # Load the model before consuming, so the first event after a deploy isn't held up by it.
+    for embedder in registry.writers():
         embedder.warm_up()
 
     def handler(body: bytes) -> object:
-        return handle_event(body, SessionLocal, embedder)
+        # Asked per message: a backfill or a cutover started since the last one is picked up without a restart.
+        active, *backfilling = registry.writers()
+        return handle_event(body, SessionLocal, active, backfilling)
 
     stopping = False
     backoff = 1.0

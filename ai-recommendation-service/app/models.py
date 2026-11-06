@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from geoalchemy2 import Geography
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Computed, DateTime, Integer, Numeric, String, Text, Uuid, func
+from sqlalchemy import BigInteger, Boolean, Computed, DateTime, Integer, Numeric, SmallInteger, String, Text, Uuid, func
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,10 +22,10 @@ class TourEmbedding(Base):
     __tablename__ = "tour_embeddings"
 
     tour_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    model: Mapped[str] = mapped_column(String(200), primary_key=True)
     title: Mapped[str] = mapped_column(Text)
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float]] = mapped_column(Vector(get_settings().embedding_dimension))
-    model: Mapped[str] = mapped_column(String(200))
     last_event_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -70,3 +70,24 @@ class AiProcessedEvent(Base):
 
     event_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AiBooking(Base):
+    """Who booked what. Never the contact details the event also carries."""
+
+    __tablename__ = "ai_bookings"
+
+    booking_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    user_id: Mapped[str] = mapped_column(String(255))
+    tour_id: Mapped[int] = mapped_column(BigInteger)
+    confirmed: Mapped[bool] = mapped_column(Boolean)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AiReview(Base):
+    __tablename__ = "ai_reviews"
+
+    booking_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    tour_id: Mapped[int] = mapped_column(BigInteger)
+    rating: Mapped[int] = mapped_column(SmallInteger)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

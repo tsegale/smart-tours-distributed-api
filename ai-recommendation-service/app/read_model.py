@@ -12,7 +12,7 @@ from sqlalchemy import func, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from .models import AiDeparture, AiProcessedEvent, AiTour
+from .models import AiBooking, AiDeparture, AiProcessedEvent, AiReview, AiTour
 
 
 def point(latitude: float | None, longitude: float | None):
@@ -115,3 +115,28 @@ def analyze(db: Session) -> None:
     """After a bulk load: the planner needs statistics to choose between the indexes."""
     db.execute(text("ANALYZE ai_tours"))
     db.execute(text("ANALYZE ai_departures"))
+
+
+def upsert_booking(
+    db: Session, *, booking_id: int, user_id: str, tour_id: int, confirmed: bool, occurred_at: datetime
+) -> None:
+    """The latest status wins, whatever order the events arrive in."""
+    statement = insert(AiBooking).values(
+        booking_id=booking_id, user_id=user_id, tour_id=tour_id, confirmed=confirmed, occurred_at=occurred_at
+    )
+    db.execute(
+        statement.on_conflict_do_update(
+            index_elements=[AiBooking.booking_id],
+            set_={"confirmed": statement.excluded.confirmed, "occurred_at": statement.excluded.occurred_at},
+            where=AiBooking.occurred_at <= statement.excluded.occurred_at,
+        )
+    )
+
+
+def upsert_review(db: Session, *, booking_id: int, tour_id: int, rating: int, occurred_at: datetime) -> None:
+    statement = insert(AiReview).values(booking_id=booking_id, tour_id=tour_id, rating=rating, occurred_at=occurred_at)
+    db.execute(
+        statement.on_conflict_do_update(
+            index_elements=[AiReview.booking_id], set_={"rating": statement.excluded.rating}
+        )
+    )

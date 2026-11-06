@@ -3,6 +3,7 @@
 import json
 import logging
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
 
@@ -14,6 +15,9 @@ from . import read_model, repository
 from .embeddings import Embedder, document_text
 
 log = logging.getLogger(__name__)
+
+
+BOOKING_EVENTS = ("booking.confirmed", "booking.cancelled", "booking.refunded")
 
 
 class PoisonMessageError(Exception):
@@ -60,6 +64,22 @@ class AvailabilityChangedEvent(_Event):
 class ReviewSubmittedEvent(_Event):
     tour_id: int = Field(gt=0)
     rating: int = Field(ge=1, le=5)
+    # An event from before personalisation may lack it: it still counts towards the tour's rating.
+    booking_id: int | None = None
+
+
+class BookingDeparture(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, frozen=True)
+
+    tour_id: int = Field(gt=0)
+
+
+class BookingLifecycleEvent(_Event):
+    """Only what ranking needs. The event also carries contact details, which this model leaves behind on purpose."""
+
+    booking_id: int = Field(gt=0)
+    user_id: str = Field(min_length=1)
+    departure: BookingDeparture
 
 
 def _parse(model: type[_Event], body: bytes) -> _Event:
@@ -80,11 +100,16 @@ def event_type(body: bytes) -> str:
         raise PoisonMessageError("A message without a readable eventType") from exc
 
 
-def handle_event(body: bytes, session_factory: sessionmaker[Session], embedder: Embedder) -> object:
-    """Route one message by its eventType. All three are idempotent and safe out of order."""
+def handle_event(
+    body: bytes, session_factory: sessionmaker[Session], embedder: Embedder, also: Sequence[Embedder] = ()
+) -> object:
+    """Route one message by its eventType. All three are idempotent and safe out of order.
+
+    also: models being backfilled, which get a vector too, so that a tour edited mid-migration isn't left behind.
+    """
     kind = event_type(body)
     if kind in ("tour.created", "tour.updated"):
-        return handle_tour_event(body, session_factory, embedder)
+        return handle_tour_event(body, session_factory, embedder, also)
     if kind == "availability.changed":
         event = _parse(AvailabilityChangedEvent, body)
         with session_factory() as db, db.begin():
@@ -102,14 +127,37 @@ def handle_event(body: bytes, session_factory: sessionmaker[Session], embedder: 
         event = _parse(ReviewSubmittedEvent, body)
         with session_factory() as db, db.begin():
             read_model.add_rating(db, event_id=event.event_id, tour_id=event.tour_id, rating=event.rating)
+            if event.booking_id is not None:
+                read_model.upsert_review(
+                    db,
+                    booking_id=event.booking_id,
+                    tour_id=event.tour_id,
+                    rating=event.rating,
+                    occurred_at=event.occurred_at,
+                )
+        return event
+    if kind in BOOKING_EVENTS:
+        event = _parse(BookingLifecycleEvent, body)
+        with session_factory() as db, db.begin():
+            read_model.upsert_booking(
+                db,
+                booking_id=event.booking_id,
+                user_id=event.user_id,
+                tour_id=event.departure.tour_id,
+                confirmed=kind == "booking.confirmed",
+                occurred_at=event.occurred_at,
+            )
         return event
     raise PoisonMessageError(f"An event this consumer doesn't handle: {kind}")
 
 
-def handle_tour_event(body: bytes, session_factory: sessionmaker[Session], embedder: Embedder) -> TourEvent:
+def handle_tour_event(
+    body: bytes, session_factory: sessionmaker[Session], embedder: Embedder, also: Sequence[Embedder] = ()
+) -> TourEvent:
     event = parse_event(body)
     content = document_text(event.name, event.description)
-    vector = embedder.embed_document(content)  # outside the transaction: embedding is the slow part
+    # Outside the transaction: embedding is the slow part.
+    vectors = [(e.model_name, e.embed_document(content)) for e in (embedder, *also)]
     with session_factory() as db, db.begin():
         applied = read_model.upsert_tour(
             db,
@@ -129,14 +177,15 @@ def handle_tour_event(body: bytes, session_factory: sessionmaker[Session], embed
         if not applied:
             log.info("Ignored stale tour %s v%s (event %s)", event.tour_id, event.version, event.event_id)
             return event
-        repository.upsert_embedding(
-            db,
-            tour_id=event.tour_id,
-            title=event.name,
-            content=content,
-            embedding=vector,
-            model=embedder.model_name,
-            event_id=event.event_id,
-        )
+        for model, vector in vectors:
+            repository.upsert_embedding(
+                db,
+                tour_id=event.tour_id,
+                title=event.name,
+                content=content,
+                embedding=vector,
+                model=model,
+                event_id=event.event_id,
+            )
     log.info("Embedded tour %s v%s (event %s)", event.tour_id, event.version, event.event_id)
     return event
