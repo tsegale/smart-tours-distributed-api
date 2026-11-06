@@ -11,6 +11,7 @@ RUN pip install -r requirements.txt
 COPY alembic.ini .
 COPY migrations ./migrations
 COPY app ./app
+COPY datasets/gazetteer/places.csv ./datasets/gazetteer/places.csv
 
 RUN useradd --system --uid 10001 app && mkdir -p /models && chown app /models
 USER app

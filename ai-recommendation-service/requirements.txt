@@ -16,3 +16,6 @@ opentelemetry-instrumentation-psycopg==0.66b2
 opentelemetry-instrumentation-pika==0.66b2
 opentelemetry-instrumentation-logging==0.66b2
 geoalchemy2==0.21.0
+anthropic==2.6.0
+httpx2==2.16.0
+redis==8.1.0

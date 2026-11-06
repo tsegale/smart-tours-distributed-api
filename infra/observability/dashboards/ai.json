@@ -1,0 +1,89 @@
+{
+  "title": "AI: planner tokens, latency and paths",
+  "uid": "ai",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["smart-tours"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Tokens per minute",
+      "type": "timeseries",
+      "description": "gen_ai.client.inference.usage.*: what the provider billed, by model. Failed calls count too.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (gen_ai_provider_name, gen_ai_request_model) (rate(gen_ai_client_inference_usage_input_tokens_total[5m])) * 60",
+          "legendFormat": "input {{gen_ai_provider_name}} {{gen_ai_request_model}}",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (gen_ai_provider_name, gen_ai_request_model) (rate(gen_ai_client_inference_usage_output_tokens_total[5m])) * 60",
+          "legendFormat": "output {{gen_ai_provider_name}} {{gen_ai_request_model}}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Inference duration, p95",
+      "type": "timeseries",
+      "description": "gen_ai.client.inference.duration, per call to a provider, retries counted separately.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le, gen_ai_provider_name) (rate(gen_ai_client_inference_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{gen_ai_provider_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Itineraries by path",
+      "type": "timeseries",
+      "description": "Which path produced each plan: llm, llm_repaired or deterministic. A rise in deterministic means the model is failing or the quota is biting: see the next panel.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (path) (rate(smarttours_itinerary_plans_total[5m])) * 60",
+          "legendFormat": "{{path}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Why the fallback answered",
+      "type": "timeseries",
+      "description": "no_provider is normal without a key. quota_unavailable means Redis; llm_rejected usually a key or a rate limit.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (fallback_reason) (rate(smarttours_itinerary_plans_total{fallback_reason!=\"none\"}[5m])) * 60",
+          "legendFormat": "{{fallback_reason}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

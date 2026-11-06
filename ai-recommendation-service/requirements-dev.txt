@@ -1,4 +1,4 @@
-# Everything except the ML stack: tests use a deterministic fake embedder.
+# Everything the tests and the CI quality gate need. Tests use a fake embedder; the gate runs ONNX. No torch.
 fastapi==0.162.0
 uvicorn[standard]==0.54.0
 sqlalchemy==2.1.6
@@ -18,3 +18,9 @@ opentelemetry-instrumentation-psycopg==0.66b2
 opentelemetry-instrumentation-pika==0.66b2
 opentelemetry-instrumentation-logging==0.66b2
 geoalchemy2==0.21.0
+anthropic==2.6.0
+redis==8.1.0
+onnxruntime==1.31.1
+tokenizers==0.23.3
+huggingface-hub==2.4.0
+numpy==2.5.4

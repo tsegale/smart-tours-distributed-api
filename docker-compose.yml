@@ -407,9 +407,24 @@ services:
       DATABASE_URL: postgresql+psycopg://${AI_DB_USER}:${AI_DB_PASSWORD}@ai-db:5432/ai
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
       HF_HOME: /models
+      # Decided by evaluation: docs/benchmarks/search-quality.md. A cutover needs no change here (the database's active
+      # model outranks it): docs/runbooks/embedding-model-migration.md.
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-minilm-l6}
+      RERANK_MODEL: ${RERANK_MODEL:-}
+      REDIS_URL: redis://redis:6379/1
+      # Empty: deterministic itineraries, and no key is needed anywhere (ADR 0021).
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_FAKE_SCENARIO: ${LLM_FAKE_SCENARIO:-good}
+      LLM_DAILY_TOKEN_LIMIT: ${LLM_DAILY_TOKEN_LIMIT:-200000}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
     volumes: [hf_models:/models]
     depends_on:
       ai-db: { condition: service_healthy }
+      redis: { condition: service_healthy }
     deploy:
       resources:
         limits:
