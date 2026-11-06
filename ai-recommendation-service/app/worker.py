@@ -111,10 +111,25 @@ def declare_topology(channel: BlockingChannel, settings: Settings) -> None:
     )
 
 
+def declare_before_loading(settings: Settings) -> None:
+    """Best effort: if the broker is down, nothing is being published either, and the consume loop declares it later."""
+    try:
+        connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url))
+    except AMQPConnectionError as exc:
+        log.warning("Broker unavailable (%s), declaring the queues later", exc.__class__.__name__)
+        return
+    try:
+        declare_topology(connection.channel(), settings)
+    finally:
+        connection.close()
+
+
 def run() -> None:
     configure_logging("ai-worker")
     configure_telemetry("ai-worker")
     settings = get_settings()
+    # Before the model: a first start can spend minutes downloading it, and events published with no queue are lost.
+    declare_before_loading(settings)
     registry = get_registry()
     with SessionLocal() as db, db.begin():
         ensure_active(db, settings.embedding_model)

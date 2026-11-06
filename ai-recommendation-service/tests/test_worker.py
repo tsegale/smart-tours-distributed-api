@@ -1,7 +1,10 @@
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pika
+import pytest
 
+from app import worker
 from app.config import Settings
 from app.messages import PoisonMessageError
 from app.worker import RETRY_HEADER, Action, apply, decide
@@ -72,3 +75,33 @@ def test_dead_letter_rejects_without_requeue():
     apply(Action.DEAD_LETTER, channel, SimpleNamespace(delivery_tag=9), pika.BasicProperties(), b"x", SETTINGS)
     assert channel.rejected == [(9, False)]
     assert channel.acked == []
+
+
+def test_the_queues_are_declared_before_the_model_loads(monkeypatch):
+    """A first start spends minutes downloading the model, and events published with no queue are lost."""
+    order = []
+
+    class Registry:
+        def writers(self):
+            order.append("model")
+            raise SystemExit
+
+    monkeypatch.setattr(worker, "configure_logging", lambda name: None)
+    monkeypatch.setattr(worker, "configure_telemetry", lambda name: None)
+    monkeypatch.setattr(worker, "declare_before_loading", lambda settings: order.append("queues"))
+    monkeypatch.setattr(worker, "get_registry", Registry)
+    monkeypatch.setattr(worker, "ensure_active", lambda db, model: None)
+    monkeypatch.setattr(worker, "SessionLocal", MagicMock())
+
+    with pytest.raises(SystemExit):
+        worker.run()
+
+    assert order == ["queues", "model"]
+
+
+def test_a_broker_that_is_down_does_not_stop_the_worker_starting(monkeypatch):
+    def refuse(_params):
+        raise worker.AMQPConnectionError
+
+    monkeypatch.setattr(worker.pika, "BlockingConnection", refuse)
+    worker.declare_before_loading(worker.get_settings())
