@@ -10,10 +10,35 @@ permissions:
   contents: read
 
 jobs:
+  # Once, so that every runner measures the same candidate files.
+  candidates:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ai-recommendation-service
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ai-recommendation-service/requirements*.txt
+      - run: pip install -r requirements-dev.txt onnx==1.23.2
+      - name: Quantise the float model
+        env:
+          HF_HUB_DISABLE_XET: "1"
+        run: python eval/quantize_candidates.py candidates
+      - uses: actions/upload-artifact@v5
+        with:
+          name: candidates
+          path: ai-recommendation-service/candidates
+          compression-level: 1
+
   measure:
     name: Runner ${{ matrix.attempt }}
+    needs: candidates
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +61,10 @@ jobs:
             --health-cmd "pg_isready -U ai" --health-interval 3s smarttours/ai-db:ci
           for _ in $(seq 40); do [ "$(docker inspect -f '{{.State.Health.Status}}' ai-db)" = healthy ] && break; sleep 3; done
       - run: pip install -r requirements-dev.txt
+      - uses: actions/download-artifact@v5
+        with:
+          name: candidates
+          path: ai-recommendation-service/candidates
       - name: Measure every variant
         env:
           DATABASE_URL: postgresql+psycopg://ai:ai@localhost:5432/ai_gate
@@ -43,7 +72,7 @@ jobs:
         run: |
           grep -m1 'model name' /proc/cpuinfo
           grep -m1 flags /proc/cpuinfo | tr ' ' '\n' | grep -E '^(avx2|avx512f|avx512_vnni|avx_vnni)$' | tr '\n' ' '; echo
-          alembic upgrade head && python -m eval.cpu_survey --out survey.json
+          alembic upgrade head && python -m eval.cpu_survey --out survey.json --models candidates
       - uses: actions/upload-artifact@v5
         with:
           name: survey-${{ matrix.attempt }}
@@ -66,8 +95,13 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - uses: actions/download-artifact@v5
         with:
+          pattern: survey-*
           path: surveys
       - name: Group by CPU
         env:
           DATABASE_URL: postgresql+psycopg://ai:ai@localhost:5432/unused
-        run: python -m eval.cpu_survey --report ../surveys | tee -a "$GITHUB_STEP_SUMMARY"
+        run: python -m eval.cpu_survey --report ../surveys --json summary.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: summary
+          path: ai-recommendation-service/summary.json
