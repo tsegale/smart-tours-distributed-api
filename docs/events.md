@@ -44,8 +44,8 @@ Every payload is one flat JSON object with these three fields next to its own:
 | --- | --- | --- | --- |
 | `tour.created` | tour-core | ai-worker (`ai.tour-embedding`) | [tour-event](events/tour-event.schema.json) |
 | `tour.updated` | tour-core | ai-worker (`ai.tour-embedding`) | [tour-event](events/tour-event.schema.json) |
-| `availability.changed` | booking-service | tour-core (`core.availability-summary`) | [availability-changed](events/availability-changed.schema.json) |
-| `review.submitted` | booking-service | tour-core (`core.tour-rating`) | [review-submitted](events/review-submitted.schema.json) |
+| `availability.changed` | booking-service | tour-core (`core.availability-summary`), ai-worker (`ai.tour-embedding`) | [availability-changed](events/availability-changed.schema.json) |
+| `review.submitted` | booking-service | tour-core (`core.tour-rating`), ai-worker (`ai.tour-embedding`) | [review-submitted](events/review-submitted.schema.json) |
 | `booking.confirmed` | booking-service | notification-service (`notifications.booking-events`) | [booking-lifecycle](events/booking-lifecycle.schema.json) |
 | `booking.cancelled` | booking-service | notification-service | [booking-lifecycle](events/booking-lifecycle.schema.json) |
 | `booking.refunded` | booking-service | notification-service | [booking-lifecycle](events/booking-lifecycle.schema.json) |
@@ -59,8 +59,12 @@ An operator created or replaced a tour. Written in the tour's transaction.
 ```json
 {"eventId": "6f0f3c1e-1c55-4b8e-9d0e-3f8f0a6d2b10", "eventType": "tour.updated", "occurredAt": "2026-11-03T09:12:44.120Z",
  "tourId": 42, "name": "Sossusvlei Sunrise Dunes", "description": "Climb Dune 45 at dawn",
- "meetingPoint": "Sesriem gate", "timeZone": "Africa/Windhoek"}
+ "meetingPoint": "Sesriem gate", "timeZone": "Africa/Windhoek", "version": 3, "latitude": -24.733, "longitude": 15.293,
+ "price": 1850.00, "currency": "NAD", "category": "NATURE", "difficulty": "MODERATE", "durationMinutes": 240}
 ```
+
+`version` is the tour's own version: the AI service's read model applies an event only if it is newer, so a duplicate or an
+overtaken event changes nothing. The fields from `version` on were added in Phase 6; the additions are backward compatible.
 
 `timeZone` is an IANA region id: the zone the tour's departures are in. `meetingPoint` may be null.
 

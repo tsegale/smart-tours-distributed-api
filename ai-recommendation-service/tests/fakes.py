@@ -11,7 +11,10 @@ class FakeEmbedder:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    def embed(self, text: str) -> list[float]:
+    def embed_document(self, text: str) -> list[float]:
+        return self.embed_query(text)
+
+    def embed_query(self, text: str) -> list[float]:
         self.calls.append(text)
         seed = hashlib.sha256(text.encode()).digest()
         raw = [(seed[i % len(seed)] - 128) / 128 for i in range(self.dimension)]

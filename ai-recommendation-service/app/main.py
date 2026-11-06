@@ -79,7 +79,7 @@ def embed_tour(body: EmbedRequest, db: DbSession, embedder: EmbedderDep) -> dict
             tour_id=body.tour_id,
             title=body.title,
             content=content,
-            embedding=embedder.embed(content),
+            embedding=embedder.embed_document(content),
             model=embedder.model_name,
             event_id=None,
         )
@@ -102,4 +102,4 @@ def semantic_search(
     q: Annotated[str, Query(min_length=3, max_length=300, description="e.g. 'sunset photography, no long hikes'")],
     limit: Annotated[int, Query(ge=1, le=20)] = 5,
 ) -> SearchResponse:
-    return SearchResponse(query=q, results=_scored(repository.similar_to_vector(db, embedder.embed(q), limit)))
+    return SearchResponse(query=q, results=_scored(repository.similar_to_vector(db, embedder.embed_query(q), limit)))

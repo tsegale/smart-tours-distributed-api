@@ -45,7 +45,7 @@ def test_upsert_is_idempotent_and_similarity_ranks_identical_text_first():
                     tour_id=tour_id,
                     title=content,
                     content=content,
-                    embedding=embedder.embed(content),
+                    embedding=embedder.embed_document(content),
                     model="fake",
                     event_id=None,
                 )

@@ -13,7 +13,9 @@ class Embedder(Protocol):
     model_name: str
     dimension: int
 
-    def embed(self, text: str) -> list[float]: ...
+    def embed_document(self, text: str) -> list[float]: ...
+
+    def embed_query(self, text: str) -> list[float]: ...
 
 
 class SentenceTransformerEmbedder:
@@ -34,7 +36,13 @@ class SentenceTransformerEmbedder:
     def warm_up(self) -> None:
         self._load()
 
-    def embed(self, text: str) -> list[float]:
+    def embed_document(self, text: str) -> list[float]:
+        return self._embed(text)
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
+
+    def _embed(self, text: str) -> list[float]:
         # Normalised vectors make cosine distance well behaved (and equal to 1 - dot product).
         vector = self._load().encode(text, normalize_embeddings=True)
         if len(vector) != self.dimension:

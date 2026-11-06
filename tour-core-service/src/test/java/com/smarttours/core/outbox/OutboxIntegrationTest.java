@@ -107,7 +107,7 @@ class OutboxIntegrationTest extends IntegrationTest {
         assertThat(pending()).isZero();
         assertThat(jdbc.sql("SELECT count(*) FROM outbox").query(Long.class).single()).isZero();
         TourCreatedEvent event = new TourCreatedEvent(UUID.randomUUID(), TourCreatedEvent.TYPE, Instant.now(), 1L,
-                "n", "d", null, "Africa/Windhoek");
+                "n", "d", null, "Africa/Windhoek", 1L, -22.5, 17.0, new BigDecimal("1000.00"), "NAD", "NATURE", "EASY", 240);
         assertThatThrownBy(() -> outbox.record("tour", 1L, event)).isInstanceOf(IllegalTransactionStateException.class);
     }
 
@@ -175,7 +175,7 @@ class OutboxIntegrationTest extends IntegrationTest {
         transactions.executeWithoutResult(status -> {
             for (int i = 0; i < events; i++) {
                 TourCreatedEvent event = new TourCreatedEvent(UUID.randomUUID(), TourCreatedEvent.TYPE, Instant.now(),
-                        i, "Tour " + i, "d", null, "Africa/Windhoek");
+                        i, "Tour " + i, "d", null, "Africa/Windhoek", 1L, -22.5, 17.0, new BigDecimal("1000.00"), "NAD", "NATURE", "EASY", 240);
                 outbox.record("tour", i, event);
             }
         });

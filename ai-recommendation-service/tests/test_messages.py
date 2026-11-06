@@ -51,6 +51,7 @@ def test_malformed_events_are_poison(body):
 def test_handler_embeds_title_and_description_and_upserts(monkeypatch):
     stored = {}
     monkeypatch.setattr(messages.repository, "upsert_embedding", lambda db, **kw: stored.update(kw))
+    monkeypatch.setattr(messages.read_model, "upsert_tour", lambda db, **kw: True)
     embedder = FakeEmbedder()
 
     handle_tour_event(JAVA_EVENT, fake_session_factory, embedder)

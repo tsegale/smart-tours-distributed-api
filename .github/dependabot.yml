@@ -24,6 +24,7 @@ updates:
       - "/ai-recommendation-service"
       - "/notification-service"
       - "/infra/keycloak"
+      - "/infra/ai-db"
     schedule: { interval: weekly }
     groups:
       docker: { patterns: ["*"] }

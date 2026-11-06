@@ -25,7 +25,7 @@ from pika.exceptions import AMQPConnectionError, ChannelClosedByBroker
 from .config import Settings, get_settings
 from .database import SessionLocal
 from .embeddings import get_embedder
-from .messages import PoisonMessageError, handle_tour_event
+from .messages import PoisonMessageError, handle_event
 from .telemetry import configure_logging, configure_telemetry
 
 log = logging.getLogger("ai.worker")
@@ -121,7 +121,7 @@ def run() -> None:
         embedder.warm_up()
 
     def handler(body: bytes) -> object:
-        return handle_tour_event(body, SessionLocal, embedder)
+        return handle_event(body, SessionLocal, embedder)
 
     stopping = False
     backoff = 1.0

@@ -91,7 +91,8 @@ services:
 
   ai-db:
     <<: *data-store
-    image: pgvector/pgvector:pg16
+    build: ./infra/ai-db
+    image: smarttours/ai-db:local
     profiles: [ai]
     environment:
       POSTGRES_DB: ai

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # Messaging topology (the producer owns only the exchange; this consumer owns the rest).
     events_exchange: str = "smarttours.events"
     queue_name: str = "ai.tour-embedding"
-    routing_keys: tuple[str, ...] = ("tour.created", "tour.updated")
+    routing_keys: tuple[str, ...] = ("tour.created", "tour.updated", "availability.changed", "review.submitted")
     max_retries: int = 5
     retry_delay_ms: int = 10_000
 
