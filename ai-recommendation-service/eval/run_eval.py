@@ -27,6 +27,7 @@ from app.retrieval import Filters, hydrate, search
 
 from . import queries_known, queries_rule
 from .curated import CURATED
+from .curated_coverage import CURATED_COVERAGE
 from .metrics import bootstrap_ci, ndcg_at, percentile, recall_at, reciprocal_rank
 
 DATASET = Path(__file__).resolve().parents[2] / "datasets" / "tours_v1" / "tours.jsonl"
@@ -102,20 +103,20 @@ def embed_corpus(tours: list[dict], name: str) -> dict:
     return {"embedder": embedder, "load_s": load_s, "embed_s": embed_s}
 
 
-def curated_queries(tours: list[dict]) -> list[dict]:
+def curated_queries(tours: list[dict], source: list[tuple] = CURATED, prefix: str = "curated") -> list[dict]:
     by_name: dict[str, list[int]] = {}
     for tour in tours:
         if tour["authored"]:
             by_name.setdefault(tour["name"], []).append(tour["id"])
     curated = []
-    for index, (language, shape, query, named) in enumerate(CURATED):
+    for index, (language, shape, query, named) in enumerate(source):
         judgments = {}
         for name, grade in named.items():
             if name not in by_name:
                 raise SystemExit(f"curated query {query!r} names an unknown tour: {name!r}")
             judgments.update(dict.fromkeys(by_name[name], grade))
         curated.append(
-            {"id": f"curated-{index}", "q": query, "language": language, "shape": shape, "judgments": judgments}
+            {"id": f"{prefix}-{index}", "q": query, "language": language, "shape": shape, "judgments": judgments}
         )
     return curated
 
@@ -123,7 +124,13 @@ def curated_queries(tours: list[dict]) -> list[dict]:
 def query_sets(tours: list[dict]) -> dict[str, list[dict]]:
     curated = curated_queries(tours)
     written = [tour for tour in tours if tour["authored"]]
-    return {"curated": curated, "rule": queries_rule.build(tours), "known": queries_known.build(written)}
+    return {
+        "curated": curated,
+        "rule": queries_rule.build(tours),
+        "known": queries_known.build(written),
+        # Not reviewed, and reported apart: nothing is decided on it.
+        "coverage": curated_queries(tours, CURATED_COVERAGE, "coverage"),
+    }
 
 
 def reranked(embedder, name, cross_encoder, depth, parser, weight):
@@ -204,7 +211,7 @@ def main() -> None:
     sets = query_sets(tours)
     written_ids = tuple(t["id"] for t in tours if t["authored"])
     composed_ids = tuple(t["id"] for t in tours if not t["authored"])
-    corpora = {"curated": written_ids, "rule": composed_ids, "known": written_ids}
+    corpora = {"curated": written_ids, "rule": composed_ids, "known": written_ids, "coverage": written_ids}
     print({name: len(queries) for name, queries in sets.items()}, flush=True)
 
     parser = QueryParser(load_csv())
