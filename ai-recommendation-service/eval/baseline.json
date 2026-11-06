@@ -8,5 +8,16 @@
  "hybrid": {
   "ndcg@10": 0.7725,
   "recall@20": 0.93
+ },
+ "coverage": {
+  "queries": 12,
+  "lexical": {
+   "ndcg@10": 0.1962,
+   "recall@20": 0.1313
+  },
+  "hybrid": {
+   "ndcg@10": 0.4466,
+   "recall@20": 0.5299
+  }
  }
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """The CI gate: retrieval quality on a fixed subset must not fall below the committed baseline.
 
-Curated queries over the written tours only: 105 documents embed in seconds on a CI runner, against a cached ONNX model.
+Curated and coverage queries, as separate lines, over the written tours only: 105 documents embed in seconds on a CI
+runner, against a cached ONNX model.
 No LLM, no paid API. Run from ai-recommendation-service, with DATABASE_URL pointing at a migrated, disposable database:
 
     python -m eval.regression              compare with eval/baseline.json, exit 1 on a regression
@@ -29,8 +30,8 @@ from .metrics import ndcg_at, recall_at
 from .run_eval import curated_queries, embed_corpus, load_read_model, load_tours
 
 BASELINE = Path(__file__).with_name("baseline.json")
-# The shipped model's largest spread between CPUs on any gate metric is 0.0050 (eval/results/cpu_survey.json, issue
-# #10), and every job on one side of VNNI agrees exactly. Re-measure before changing the model or ONNX Runtime.
+# The shipped model's largest spread between CPUs on any gate line is 0.0050, across 48 runner jobs
+# (eval/results/cpu_survey.json, cpu_survey_gate.json, issue #10). Re-measure before changing the model or ONNX Runtime.
 TOLERANCE = 0.006
 
 
@@ -69,6 +70,20 @@ def _scores(embedder, model: str, queries: list[dict]) -> dict:
     return summary
 
 
+def regressions(baseline: dict, current: dict) -> list[str]:
+    """Each set has its own lines: twelve coverage queries must not be able to hide in fifty curated ones."""
+    return [
+        f"{label}{system} {metric}: {measured[system][metric]} is below the baseline's {expected}"
+        for label, expected_lines, measured in (
+            ("", baseline, current),
+            ("coverage ", baseline["coverage"], current["coverage"]),
+        )
+        for system in ("lexical", "hybrid")
+        for metric, expected in expected_lines[system].items()
+        if measured[system][metric] < expected - TOLERANCE
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--update", action="store_true")
@@ -84,12 +99,7 @@ def main() -> int:
     if baseline is None:
         print("No baseline: run with --update", file=sys.stderr)
         return 1
-    failures = [
-        f"{system} {metric}: {current[system][metric]} is below the baseline's {expected}"
-        for system in ("lexical", "hybrid")
-        for metric, expected in baseline[system].items()
-        if current[system][metric] < expected - TOLERANCE
-    ]
+    failures = regressions(baseline, current)
     for failure in failures:
         print("REGRESSION", failure, file=sys.stderr)
     return 1 if failures else 0

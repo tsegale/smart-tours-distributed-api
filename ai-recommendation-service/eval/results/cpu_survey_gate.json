@@ -1,0 +1,264 @@
+{
+ "jobs": {
+  "vnni": 5,
+  "no_vnni": 7
+ },
+ "cpus": [
+  "AMD EPYC 7763 64-Core Processor, VNNI False",
+  "AMD EPYC 9V45 96-Core Processor, VNNI True",
+  "AMD EPYC 9V74 80-Core Processor, VNNI False",
+  "AMD EPYC 9V74 80-Core Processor, VNNI True"
+ ],
+ "gate": {
+  "paraphrase-ml-int8": {
+   "curated hybrid ndcg@10": {
+    "vnni": [
+     0.7635
+    ],
+    "no_vnni": [
+     0.7558
+    ],
+    "spread": 0.0077
+   },
+   "curated hybrid recall@20": {
+    "vnni": [
+     0.9193
+    ],
+    "no_vnni": [
+     0.911
+    ],
+    "spread": 0.0083
+   },
+   "curated lexical ndcg@10": {
+    "vnni": [
+     0.4585
+    ],
+    "no_vnni": [
+     0.4585
+    ],
+    "spread": 0.0
+   },
+   "curated lexical recall@20": {
+    "vnni": [
+     0.472
+    ],
+    "no_vnni": [
+     0.472
+    ],
+    "spread": 0.0
+   },
+   "coverage hybrid ndcg@10": {
+    "vnni": [
+     0.434
+    ],
+    "no_vnni": [
+     0.4432
+    ],
+    "spread": 0.0092
+   },
+   "coverage hybrid recall@20": {
+    "vnni": [
+     0.5187
+    ],
+    "no_vnni": [
+     0.5246
+    ],
+    "spread": 0.0059
+   },
+   "coverage lexical ndcg@10": {
+    "vnni": [
+     0.1962
+    ],
+    "no_vnni": [
+     0.1962
+    ],
+    "spread": 0.0
+   },
+   "coverage lexical recall@20": {
+    "vnni": [
+     0.1313
+    ],
+    "no_vnni": [
+     0.1313
+    ],
+    "spread": 0.0
+   }
+  },
+  "paraphrase-ml-uint8": {
+   "curated hybrid ndcg@10": {
+    "vnni": [
+     0.7725
+    ],
+    "no_vnni": [
+     0.7677
+    ],
+    "spread": 0.0048
+   },
+   "curated hybrid recall@20": {
+    "vnni": [
+     0.93
+    ],
+    "no_vnni": [
+     0.935
+    ],
+    "spread": 0.005
+   },
+   "curated lexical ndcg@10": {
+    "vnni": [
+     0.4585
+    ],
+    "no_vnni": [
+     0.4585
+    ],
+    "spread": 0.0
+   },
+   "curated lexical recall@20": {
+    "vnni": [
+     0.472
+    ],
+    "no_vnni": [
+     0.472
+    ],
+    "spread": 0.0
+   },
+   "coverage hybrid ndcg@10": {
+    "vnni": [
+     0.4466
+    ],
+    "no_vnni": [
+     0.4479
+    ],
+    "spread": 0.0013
+   },
+   "coverage hybrid recall@20": {
+    "vnni": [
+     0.5299
+    ],
+    "no_vnni": [
+     0.5346
+    ],
+    "spread": 0.0047
+   },
+   "coverage lexical ndcg@10": {
+    "vnni": [
+     0.1962
+    ],
+    "no_vnni": [
+     0.1962
+    ],
+    "spread": 0.0
+   },
+   "coverage lexical recall@20": {
+    "vnni": [
+     0.1313
+    ],
+    "no_vnni": [
+     0.1313
+    ],
+    "spread": 0.0
+   }
+  }
+ },
+ "rerankers": {
+  "ms-marco-l6-int8": {
+   "vnni": {
+    "ndcg@10": [
+     0.6218
+    ],
+    "recall@20": [
+     0.7005
+    ],
+    "ms_p50": 223.3475859999956,
+    "distinct_scores": 1
+   },
+   "no_vnni": {
+    "ndcg@10": [
+     0.6198
+    ],
+    "recall@20": [
+     0.6898
+    ],
+    "ms_p50": 430.02896649999656,
+    "distinct_scores": 1
+   },
+   "score_difference_mean": 0.35694498128615176,
+   "score_difference_max": 0.9484,
+   "ndcg_spread": 0.002
+  },
+  "ms-marco-l6-uint8": {
+   "vnni": {
+    "ndcg@10": [
+     0.6221
+    ],
+    "recall@20": [
+     0.6881
+    ],
+    "ms_p50": 388.8988720000057,
+    "distinct_scores": 1
+   },
+   "no_vnni": {
+    "ndcg@10": [
+     0.6241
+    ],
+    "recall@20": [
+     0.6859
+    ],
+    "ms_p50": 506.6270235000019,
+    "distinct_scores": 1
+   },
+   "score_difference_mean": 0.01926519224225926,
+   "score_difference_max": 0.6302000000000001,
+   "ndcg_spread": 0.002
+  },
+  "en-de-l6-int8": {
+   "vnni": {
+    "ndcg@10": [
+     0.6344
+    ],
+    "recall@20": [
+     0.7782
+    ],
+    "ms_p50": 177.67250800000056,
+    "distinct_scores": 1
+   },
+   "no_vnni": {
+    "ndcg@10": [
+     0.6326
+    ],
+    "recall@20": [
+     0.7833
+    ],
+    "ms_p50": 343.82553999999743,
+    "distinct_scores": 1
+   },
+   "score_difference_mean": 0.38710894862198025,
+   "score_difference_max": 4.8354,
+   "ndcg_spread": 0.0018
+  },
+  "en-de-l6-uint8": {
+   "vnni": {
+    "ndcg@10": [
+     0.6244
+    ],
+    "recall@20": [
+     0.7792
+    ],
+    "ms_p50": 315.464607999985,
+    "distinct_scores": 1
+   },
+   "no_vnni": {
+    "ndcg@10": [
+     0.625
+    ],
+    "recall@20": [
+     0.7704
+    ],
+    "ms_p50": 403.79386450000254,
+    "distinct_scores": 1
+   },
+   "score_difference_mean": 0.23750472949982987,
+   "score_difference_max": 3.5964,
+   "ndcg_spread": 0.0006
+  }
+ }
+}

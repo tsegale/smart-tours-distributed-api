@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 
 from eval.cpu import cpu_features
-from eval.regression import TOLERANCE
+from eval.regression import TOLERANCE, regressions
 
 SURVEY = Path(__file__).parents[1] / "eval" / "results" / "cpu_survey.json"
+GATE_SURVEY = Path(__file__).parents[1] / "eval" / "results" / "cpu_survey_gate.json"
 BASELINE = Path(__file__).parents[1] / "eval" / "baseline.json"
 
 
@@ -48,6 +49,38 @@ def test_the_tolerance_covers_the_shipped_models_spread_and_not_the_old_ones():
     shipped = max(spread(variants[model], metric) for metric in ("gate_ndcg", "gate_recall"))
     old = max(spread(variants["paraphrase-ml-int8"], metric) for metric in ("gate_ndcg", "gate_recall"))
     assert shipped <= TOLERANCE < old
+
+
+def test_the_tolerance_covers_every_gate_line_including_coverage():
+    survey = json.loads(GATE_SURVEY.read_text(encoding="utf-8"))
+    assert survey["jobs"]["vnni"] and survey["jobs"]["no_vnni"]
+    lines = survey["gate"]["paraphrase-ml-uint8"]
+    assert {"coverage hybrid ndcg@10", "coverage hybrid recall@20"} <= set(lines)
+    assert max(line["spread"] for line in lines.values()) <= TOLERANCE
+    assert survey["gate"]["paraphrase-ml-int8"]["coverage hybrid ndcg@10"]["spread"] > TOLERANCE
+
+
+def lines(ndcg: float) -> dict:
+    return {"lexical": {"ndcg@10": 0.2}, "hybrid": {"ndcg@10": ndcg}}
+
+
+def test_a_fall_on_coverage_fails_the_gate_even_when_curated_holds():
+    baseline = {**lines(0.77), "coverage": lines(0.45)}
+    assert regressions(baseline, baseline) == []
+    assert regressions(baseline, {**lines(0.77), "coverage": lines(0.45 - TOLERANCE + 0.0001)}) == []
+    assert regressions(baseline, {**lines(0.77), "coverage": lines(0.43)}) == [
+        "coverage hybrid ndcg@10: 0.43 is below the baseline's 0.45"
+    ]
+    assert regressions(baseline, {**lines(0.75), "coverage": lines(0.45)}) == [
+        "hybrid ndcg@10: 0.75 is below the baseline's 0.77"
+    ]
+
+
+def test_the_baseline_has_lines_for_both_sets():
+    baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
+    assert baseline["queries"] == 50
+    assert baseline["coverage"]["queries"] == 12
+    assert set(baseline["coverage"]) == {"queries", "lexical", "hybrid"}
 
 
 def test_scores_on_one_side_of_vnni_agree_exactly():
