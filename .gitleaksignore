@@ -3,7 +3,7 @@
 #
 # f3557cb6b applications.yml: a real JWT secret, committed early on. Treated as leaked and unused since (ADR 0004).
 # Everything else: test-only keys and fixtures, a compose service named keycloak-db, curl with $$VARIABLES from the
-# environment, and a function argument named secret.
+# environment, a function argument named secret, and the SHA-256 of public tokenizer files on Hugging Face (ADR 0020).
 086fe8c9a4a3edbd278cb9c456b5ee9f625cf38f:api-gateway/src/test/java/com/smarttours/gateway/util/JwtUtilTest.java:generic-api-key:19
 22181c73e96b588573c237b6dbe2e166ecadceb4:docker-compose.yml:curl-auth-user:393
 22181c73e96b588573c237b6dbe2e166ecadceb4:docker-compose.yml:curl-auth-user:400
@@ -19,3 +19,8 @@ e518416cbfe6209bcc96aab4d0d3825d3c8df1ad:api-gateway/src/test/java/com/smarttour
 f3557cb6b0e789e5c537b295af195fb9f14b62fc:api-gateway/src/main/resources/applications.yml:generic-api-key:6
 52e2a8b5231a2a4e3a47a619cb2b8db9094c236e:docker-compose.yml:curl-auth-user:565
 52e2a8b5231a2a4e3a47a619cb2b8db9094c236e:docker-compose.yml:curl-auth-user:567
+a72dcda1bc8506ae7efb303da4e864337e1e8ea2:ai-recommendation-service/app/embeddings.py:generic-api-key:76
+a72dcda1bc8506ae7efb303da4e864337e1e8ea2:ai-recommendation-service/app/embeddings.py:generic-api-key:81
+a72dcda1bc8506ae7efb303da4e864337e1e8ea2:ai-recommendation-service/app/embeddings.py:generic-api-key:83
+a72dcda1bc8506ae7efb303da4e864337e1e8ea2:ai-recommendation-service/app/reranker.py:generic-api-key:25
+a72dcda1bc8506ae7efb303da4e864337e1e8ea2:ai-recommendation-service/app/reranker.py:generic-api-key:27
