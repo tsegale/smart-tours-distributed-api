@@ -46,7 +46,8 @@ class UpstreamTimeoutTest {
     @Test
     void aHungServiceGetsA504() {
         WebTestClient.bindToServer().baseUrl("http://localhost:" + port).build()
-                .get().uri("/api/tours/1").exchange().expectStatus().isEqualTo(504);
+                .get().uri("/api/tours/1").exchange().expectStatus().isEqualTo(504)
+                .expectBody().jsonPath("$.title").isEqualTo("Gateway Timeout");
     }
 
     private static HttpServer startHung() {

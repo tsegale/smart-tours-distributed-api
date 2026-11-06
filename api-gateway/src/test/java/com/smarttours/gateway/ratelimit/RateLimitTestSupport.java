@@ -17,7 +17,7 @@ import java.util.Date;
 import java.util.List;
 
 /** Shared bits for the rate-limit tests: an upstream that always answers 200, and signed tokens. */
-final class RateLimitTestSupport {
+public final class RateLimitTestSupport {
 
     // 48 random bytes, base64 encoded. Test-only.
     static final String SECRET = "qS0t8yQ0bX9mJ3vV6cP2nL5kR8wE1zT4uY7iO0pA3sD6fG9hJ2kL5zX8cV1bN4mQ";
@@ -43,7 +43,7 @@ final class RateLimitTestSupport {
         }
     }
 
-    static String bearer(String subject) {
+    public static String bearer(String subject) {
         try {
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
                     .issuer("smart-tours-dev")

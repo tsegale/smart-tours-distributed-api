@@ -18,10 +18,10 @@ import java.nio.charset.StandardCharsets;
 /**
  * The token couldn't be checked because the issuer's keys are out of reach. That says nothing about the token, so
  * the answer is a retryable 503 rather than a 401, which would tell a client to throw away a valid session.
- * Runs before Boot's default handler, which would answer 500.
+ * Runs before GatewayProblemHandler, which would answer 500.
  */
 @Component
-@Order(-2)
+@Order(-3)
 class IssuerOutageExceptionHandler implements WebExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(IssuerOutageExceptionHandler.class);
