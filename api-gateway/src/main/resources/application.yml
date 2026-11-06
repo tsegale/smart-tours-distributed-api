@@ -43,6 +43,13 @@ rate-limits:
   ticket: # GET /api/bookings/{id}/ticket: each answer is a fresh presigned URL; a customer needs a handful
     replenish-rate: ${RATE_LIMIT_TICKET_RPS:1}
     burst-capacity: ${RATE_LIMIT_TICKET_BURST:10}
+  ai-search: # GET /api/ai/search: every request embeds a query on the CPU, so tighter than a catalogue read
+    replenish-rate: ${RATE_LIMIT_AI_SEARCH_RPS:5}
+    burst-capacity: ${RATE_LIMIT_AI_SEARCH_BURST:10}
+  itinerary: # POST /api/ai/itineraries: can cost real money per request, so a few a minute (the token quota is the hard cap)
+    replenish-rate: ${RATE_LIMIT_ITINERARY_RPS:1}
+    requested-tokens: ${RATE_LIMIT_ITINERARY_COST:20}
+    burst-capacity: ${RATE_LIMIT_ITINERARY_BURST:60}
   check-in: # POST /api/check-ins, per operator: a scanner at a busy gate, not a script guessing tokens
     replenish-rate: ${RATE_LIMIT_CHECK_IN_RPS:5}
     burst-capacity: ${RATE_LIMIT_CHECK_IN_BURST:30}
@@ -207,6 +214,52 @@ spring:
                     fail-mode: open
                     redis-rate-limiter.replenishRate: ${rate-limits.user.replenish-rate}
                     redis-rate-limiter.burstCapacity: ${rate-limits.user.burst-capacity}
+            # Streams over SSE. The response timeout covers the wait for the first byte, and has to outlast the planner's
+            # own deadline (LLM_DEADLINE_S) in case that first byte is what is slow. Fails closed like booking creation:
+            # with Redis down the token quota can't count either, and planning isn't free even without a model.
+            - id: ai-itineraries
+              order: 68
+              uri: ${AI_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/ai/itineraries
+                - Method=POST
+              metadata:
+                response-timeout: 180000
+              filters:
+                - name: RequestSize
+                  args:
+                    maxSize: 16KB # a prompt is at most 1,000 characters
+                - name: RateLimit
+                  args:
+                    fail-mode: closed
+                    redis-rate-limiter.replenishRate: ${rate-limits.itinerary.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.itinerary.burst-capacity}
+                    redis-rate-limiter.requestedTokens: ${rate-limits.itinerary.requested-tokens}
+            - id: ai-search
+              order: 69
+              uri: ${AI_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/ai/search
+                - Method=GET
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.ai-search.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.ai-search.burst-capacity}
+            # The AI service's OpenAPI document and Swagger UI: /docs/ai/swagger-ui.html
+            - id: ai-docs
+              order: 69
+              uri: ${AI_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/docs/ai/**
+                - Method=GET
+              filters:
+                - name: RateLimit
+                  args:
+                    fail-mode: open
+                    redis-rate-limiter.replenishRate: ${rate-limits.anonymous.replenish-rate}
+                    redis-rate-limiter.burstCapacity: ${rate-limits.anonymous.burst-capacity}
             - id: ai-service
               order: 70
               uri: ${AI_SERVICE_URL:http://localhost:8083}

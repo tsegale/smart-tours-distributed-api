@@ -93,7 +93,7 @@ public class SecurityConfig {
                         .pathMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         // Browsing the catalogue is public; changing it is for tour operators.
                         .pathMatchers(HttpMethod.GET, "/api/tours", "/api/tours/**").permitAll()
-                        .pathMatchers(HttpMethod.GET, "/docs/tours/**").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/docs/tours/**", "/docs/ai/**").permitAll()
                         .pathMatchers("/api/tours", "/api/tours/**").hasAnyRole("OPERATOR", "ADMIN")
                         .pathMatchers(HttpMethod.POST, "/api/availability").hasAnyRole("OPERATOR", "ADMIN")
                         .pathMatchers("/api/check-ins", "/api/check-ins/**").hasAnyRole("OPERATOR", "ADMIN")
