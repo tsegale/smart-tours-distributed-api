@@ -32,6 +32,10 @@ modelling choices.**
 - German is a quarter of the catalogue by design, because German visitors are a major market. The share isn't measured.
 - `tours_v2` could replace this if an LLM or a real catalogue becomes available: the version in the name is there for that.
 
-## `datasets/gazetteer`: place names
+## `ai-recommendation-service/datasets/gazetteer`: place names
 
-Derived from [GeoNames](https://www.geonames.org/) (CC BY 4.0), country files for NA, BW, ZW, ZM, ZA and AO. See that folder.
+`places.csv` is derived from [GeoNames](https://www.geonames.org/), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): the country dumps for NA, BW, ZW, ZM, ZA and AO, downloaded on
+2026-11-06. `ai-recommendation-service/datasets/gazetteer/build.py` keeps towns of some size, parks and well-known Namibian landforms, because most
+GeoNames entries are farms and wells named with ordinary words, which would turn query words into false place filters. A
+short list of names visitors use, which GeoNames has only under a longer name, is added by hand in that script.
