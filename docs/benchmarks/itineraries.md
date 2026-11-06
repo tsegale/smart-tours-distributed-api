@@ -1,6 +1,8 @@
 # Itineraries and personalised recommendations
 
-Tables written from `ai-recommendation-service/eval/results/` by `python -m eval.write_reports`.
+Tables written from `ai-recommendation-service/eval/results/` by `python -m eval.write_reports`. Measured on the shipped
+`paraphrase-ml-uint8` on 2026-11-07. Against the int8 file that came before it, 40 of 40 plans still meet every constraint, the plans
+change slightly (items per plan on an always-valid fake, 3.9 to 4.0), and every recommendation score stays inside its earlier interval.
 
 ## Itineraries
 
@@ -13,11 +15,11 @@ plan against the tables with its own SQL and arithmetic, for catalogue membershi
 <!-- table:itineraries -->
 | Provider | Constraints met | First-pass valid | Repaired | Fell back | ms p50 / p95 | Tokens per plan | Items per plan | Days covered | Budget used |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Deterministic only (no provider) | 100% | - | - | - | 35 / 230 | 0 | 5.2 | 89% | 75% |
-| Fake: always valid | 100% | 100% | 0% | 0% | 50 / 94 | 9136 | 3.9 | 86% | 63% |
-| Fake: invalid, then valid | 100% | 0% | 100% | 0% | 54 / 78 | 18219 | 3.9 | 86% | 63% |
-| Fake: never valid | 100% | 0% | 0% | 100% | 42 / 62 | 27249 | 5.2 | 89% | 75% |
-| Fake: obeys an injected instruction | 100% | 0% | 0% | 100% | 45 / 73 | 27249 | 5.2 | 89% | 75% |
+| Deterministic only (no provider) | 100% | - | - | - | 44 / 179 | 0 | 5.2 | 88% | 76% |
+| Fake: always valid | 100% | 100% | 0% | 0% | 54 / 114 | 9132 | 4.0 | 87% | 63% |
+| Fake: invalid, then valid | 100% | 0% | 100% | 0% | 62 / 210 | 18208 | 4.0 | 87% | 63% |
+| Fake: never valid | 100% | 0% | 0% | 100% | 50 / 82 | 27227 | 5.2 | 88% | 76% |
+| Fake: obeys an injected instruction | 100% | 0% | 0% | 100% | 45 / 59 | 27227 | 5.2 | 88% | 76% |
 <!-- /table:itineraries -->
 
 **No real model has been run.** No API key was used, as agreed, and this table has no row for one. Every Fake row is scripted:
@@ -32,7 +34,7 @@ plan against the tables with its own SQL and arithmetic, for catalogue membershi
 To add a real provider, set `LLM_PROVIDER` and its settings, then:
 
 ```bash
-python -m eval.run_itineraries --model paraphrase-ml-int8 --provider none configured --out eval/results/itineraries.json
+python -m eval.run_itineraries --model paraphrase-ml-uint8 --provider none configured --out eval/results/itineraries.json
 ```
 
 That run spends money or needs a local model. Its first-pass validity, repair rate, latency and tokens are the numbers this
@@ -56,14 +58,14 @@ travellers would do, and it can't reward time decay at all, because simulated ta
 | System | Hit rate@10 | nDCG@10 | Taste match@10 | Catalogue coverage |
 | --- | --- | --- | --- | --- |
 | popularity | 0.140 [0.106, 0.176] | 0.054 [0.040, 0.071] | 0.32 | 0.5% |
-| content, last booking | 0.021 [0.008, 0.036] | 0.005 [0.002, 0.009] | 0.79 | 66.9% |
-| profile | 0.016 [0.005, 0.028] | 0.004 [0.001, 0.007] | 0.93 | 51.1% |
-| profile, no decay | 0.013 [0.003, 0.026] | 0.003 [0.001, 0.006] | 0.95 | 44.5% |
-| profile + MMR | 0.010 [0.003, 0.021] | 0.003 [0.000, 0.005] | 0.91 | 50.2% |
-| profile + popularity (RRF) | 0.054 [0.034, 0.078] | 0.017 [0.009, 0.026] | 0.87 | 33.1% |
-| profile + popularity + MMR | 0.065 [0.041, 0.091] | 0.023 [0.013, 0.033] | 0.82 | 25.3% |
-| same, no booking data | 0.013 [0.003, 0.026] | 0.004 [0.001, 0.007] | 0.92 | 50.7% |
-| same, no booking data, ties by id (the old bug) | 0.016 [0.005, 0.028] | 0.004 [0.001, 0.007] | 0.80 | 23.5% |
+| content, last booking | 0.023 [0.010, 0.039] | 0.006 [0.002, 0.010] | 0.79 | 67.6% |
+| profile | 0.013 [0.003, 0.026] | 0.003 [0.001, 0.007] | 0.94 | 50.4% |
+| profile, no decay | 0.016 [0.005, 0.028] | 0.004 [0.001, 0.007] | 0.95 | 43.8% |
+| profile + MMR | 0.010 [0.003, 0.021] | 0.004 [0.001, 0.007] | 0.91 | 50.0% |
+| profile + popularity (RRF) | 0.060 [0.036, 0.083] | 0.017 [0.009, 0.025] | 0.87 | 33.7% |
+| profile + popularity + MMR | 0.062 [0.039, 0.088] | 0.021 [0.012, 0.031] | 0.82 | 25.9% |
+| same, no booking data | 0.010 [0.003, 0.021] | 0.003 [0.000, 0.007] | 0.93 | 49.8% |
+| same, no booking data, ties by id (the old bug) | 0.016 [0.005, 0.028] | 0.004 [0.001, 0.008] | 0.80 | 23.1% |
 <!-- /table:recommendations -->
 
 Taste match is the share of the ten recommended tours in the traveller's simulated categories. Coverage is the share of the
@@ -83,7 +85,7 @@ What the numbers decided, and what they didn't:
 - **Ties in popularity first counted as a signal,** because equally popular tours were ranked by id. The simulated log has bookings
   everywhere that matters, so the table never showed it. The smoke test did: on a catalogue with no bookings, the closest match to what
   a traveller booked came 20th, behind unrelated tours with low ids. They now share a rank. With no booking data, that takes taste
-  match from 0.80 to 0.92 and coverage from 23.5% to 50.7%, and hit rate shows no clear difference. With booking data it leaves hit
-  rate where it was, and coverage falls from 27.1% to 25.3%. The last two rows are the record of it.
+  match from 0.80 to 0.93 and coverage from 23.1% to 49.8%, and hit rate shows no clear difference. With booking data, on the file that ran then, it left hit
+  rate where it was, and coverage fell from 27.1% to 25.3%. The last two rows are the record of it.
 - **Time decay shows no gain,** and can't here (see above). It stays because tastes and trips do change in reality, which is an
   assumption, not a finding.
