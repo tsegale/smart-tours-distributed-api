@@ -520,6 +520,55 @@ curl -s $GW/api/ai/itineraries -H "$AUTH" -H 'Content-Type: application/json' -d
 docker compose --profile ai up -d ai-service   # back to no provider
 ```
 
+Personalised recommendations through real events, from tour-core and a paid booking to the worker's read model:
+
+```bash
+RUN=$(date +%s)
+TRAVELLER=$(python scripts/dev_token.py --sub "traveller-$RUN")
+OP=$(python scripts/dev_token.py --sub op-1 --roles OPERATOR)
+recs() { curl -s "$GW/api/ai/recommendations/me?limit=20" -H "Authorization: Bearer $TRAVELLER"; }
+post() { curl -s -X POST "$GW$1" -H "Authorization: Bearer $2" -H 'Content-Type: application/json' -H "Idempotency-Key: $RUN-$RANDOM" -d "$3" | python -c "import json,sys; print(json.load(sys.stdin)['id'])"; }
+tour() { post /api/tours "$OP" "{\"name\":\"$1 $RUN\",\"description\":\"$2\",\"price\":1800.00,\"latitude\":-24.7,\"longitude\":15.3,\"category\":\"DESERT\",\"difficulty\":\"MODERATE\",\"durationMinutes\":300}"; }
+
+BOOKED=$(tour "Sossusvlei dune sunrise climb" "Climb a tall red sand dune in the Namib desert at dawn")
+SIMILAR=$(tour "Sesriem red dune walk" "Walk the red sand dunes of the Namib desert at first light")
+AV=$(post /api/availability "$OP" "{\"tour_id\":$BOOKED,\"starts_at\":\"2030-01-15T05:30:00+02:00\",\"total_slots\":8}")
+post /api/availability "$OP" "{\"tour_id\":$SIMILAR,\"starts_at\":\"2030-01-15T05:30:00+02:00\",\"total_slots\":8}"
+sleep 15    # embedding is asynchronous
+B=$(post /api/bookings "$TRAVELLER" "{\"availability_id\":$AV,\"slots\":1}")
+recs | python -c "import json,sys; print(json.load(sys.stdin)['source'])"    # popular: a hold is not a booking
+
+python scripts/fake_webhook.py --booking $B --event-id "evt_personal_$RUN"
+sleep 10
+# personalised, the booked tour absent, and with no booking data the similar tour near the top
+recs | python -c "import json,sys; d=json.load(sys.stdin); print(d['source'], [(r['tourId'], r['name']) for r in d['results'][:5]])"
+
+curl -s -X POST $GW/api/bookings/$B/cancel -H "Authorization: Bearer $TRAVELLER" > /dev/null
+sleep 10
+recs | python -c "import json,sys; print(json.load(sys.stdin)['source'])"    # popular: a refunded trip stops counting
+```
+
+## A replaced service
+
+The gateway must find a container that came back with a new IP, and say so in Problem Details until it does. Docker's DNS has a long
+TTL, and this used to fail for over five minutes after the service was healthy. Holding the old address forces a new one:
+
+```bash
+T=$(python scripts/dev_token.py --roles CUSTOMER)
+search() { curl -s -m 6 -o /dev/null -w '%{http_code} %{content_type}\n' "$GW/api/ai/search?q=dunes" -H "Authorization: Bearer $T"; }
+C=$(docker compose --profile ai ps -q ai-service)
+OLD=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $C)
+NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' $C)
+search    # 200: the gateway has cached the address
+
+docker compose --profile ai rm -f -s ai-service
+docker run -d --rm --name ip-holder --network "$NET" --ip "$OLD" busybox sleep 300
+docker compose --profile ai up -d --no-deps ai-service
+for _ in $(seq 60); do search; sleep 1; done
+# 502 application/problem+json until the service is up (measured: 22 s), then 200 from the same second
+docker rm -f ip-holder
+```
+
 ## Reset
 
 ```bash
