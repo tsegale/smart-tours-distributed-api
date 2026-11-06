@@ -20,6 +20,9 @@ smarttours:
       issuer-uri: ${KEYCLOAK_ISSUER_URI:}
       # Where this gateway fetches the keys, when that differs (a private network). Blank derives it from the issuer.
       jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+  upstream:
+    # Docker's DNS TTL would keep a replaced container's old IP in use for minutes (UpstreamClientConfig).
+    dns-max-ttl: ${UPSTREAM_DNS_MAX_TTL:10s}
   rate-limit:
     # CIDRs of proxies in front of the gateway (a load balancer). X-Forwarded-For is believed only on
     # connections from these; with none configured, the TCP peer address is the client.
