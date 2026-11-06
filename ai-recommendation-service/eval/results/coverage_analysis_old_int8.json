@@ -1,0 +1,3653 @@
+{
+ "model": "paraphrase-ml-int8",
+ "summary": {
+  "chosen": {
+   "curated": {
+    "ndcg": [
+     0.75574241175012,
+     0.6871415709718831,
+     0.8178060966344296
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.41552710658225944,
+     0.30108977120516317,
+     0.5271828285739197
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8861823975820193,
+     0.8412830985191398,
+     0.9235480667876509
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8612848178284342,
+     0.7504376175144868,
+     0.9610437284876723
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9383211334693888,
+     0.8989789453401368,
+     0.975169421530613
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.6898942881692439,
+     0.6187378335920765,
+     0.755300632169043
+    ]
+   }
+  },
+  "dense + parser (no lexical list)": {
+   "curated": {
+    "ndcg": [
+     0.7950992988410778,
+     0.7248998042705727,
+     0.8628221596152815
+    ],
+    "paired": [
+     0.039356887090957665,
+     -0.0029584369775930196,
+     0.08241234573105695
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.45145472581781393,
+     0.3368679287165144,
+     0.5539769053882165
+    ],
+    "paired": [
+     0.03592761923555448,
+     -0.055941373107323916,
+     0.13920703137259632
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8983993030167468,
+     0.8613662728093896,
+     0.9318668878241074
+    ],
+    "paired": [
+     0.012216905434727362,
+     -0.018904414148433687,
+     0.046421381805469994
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.5712058764981643,
+     0.42636612234903215,
+     0.7249229441102003
+    ],
+    "paired": [
+     -0.2900789413302699,
+     -0.430626743646109,
+     -0.15470470139445
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.8691419717986455,
+     0.8161007961612493,
+     0.9201440551004386
+    ],
+    "paired": [
+     -0.06917916167074334,
+     -0.10578107450768526,
+     -0.03514464538070306
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.8794148228110618,
+     0.7707351374423992,
+     0.9761890163594489
+    ],
+    "paired": [
+     -0.023810983640551127,
+     -0.05952745910137782,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.7285874459978655,
+     0.6569028328381037,
+     0.7970115748658452
+    ],
+    "paired": [
+     0.038693157828621566,
+     -0.0008971947043425497,
+     0.0786084846127836
+    ]
+   }
+  },
+  "dense, no parser": {
+   "curated": {
+    "ndcg": [
+     0.8145400497000087,
+     0.7423275074912423,
+     0.879661640278173
+    ],
+    "paired": [
+     0.058797637949888515,
+     0.00511842034979112,
+     0.11149479351577256
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.4865342301794766,
+     0.38968178560927313,
+     0.5727417778578735
+    ],
+    "paired": [
+     0.07100712359721714,
+     -0.012259738358680031,
+     0.15025108099726558
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.7474069000920783,
+     0.6946444632556316,
+     0.7953166036636856
+    ],
+    "paired": [
+     -0.13877549748994106,
+     -0.19720825746003134,
+     -0.08100878663053337
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.5539230336308673,
+     0.4010044886871398,
+     0.7120415991786847
+    ],
+    "paired": [
+     -0.307361784197567,
+     -0.4719052564392223,
+     -0.1316115061227542
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.925972486042547,
+     0.8895759887296245,
+     0.9609870972921875
+    ],
+    "paired": [
+     -0.012348647426841735,
+     -0.06258410044077922,
+     0.04081503353741662
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9761890163594489,
+     0.9404725408986222,
+     1.0
+    ],
+    "paired": [
+     0.07296320990783597,
+     -0.023810983640551127,
+     0.1935483870967742
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.7510550523734539,
+     0.6785154660531966,
+     0.8182028767872789
+    ],
+    "paired": [
+     0.06116076420421018,
+     0.01309765475973799,
+     0.10702836610923065
+    ]
+   }
+  },
+  "weight 0.1": {
+   "curated": {
+    "ndcg": [
+     0.8090855642105416,
+     0.7405025267231937,
+     0.8677003150776912
+    ],
+    "paired": [
+     0.05334315246042147,
+     0.030746935134026945,
+     0.07905493357441946
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.500683999922359,
+     0.3726757051181915,
+     0.6171468065321957
+    ],
+    "paired": [
+     0.0851568933400995,
+     0.014183093061125552,
+     0.15747726408701815
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8985415606575144,
+     0.8611785209532935,
+     0.9320779230289564
+    ],
+    "paired": [
+     0.012359163075495078,
+     -0.011408201133296157,
+     0.039184827654750065
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.6986954947396212,
+     0.5402177619926066,
+     0.845659113103057
+    ],
+    "paired": [
+     -0.162589323088813,
+     -0.3028313120773768,
+     -0.04867560807002886
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9205409443059152,
+     0.8737754785388515,
+     0.9637384387163457
+    ],
+    "paired": [
+     -0.01778018916347363,
+     -0.03990843505669045,
+     -0.0019071732904577569
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.7493949388644416,
+     0.6813484334262941,
+     0.814277806427854
+    ],
+    "paired": [
+     0.05950065069519786,
+     0.03538052068886802,
+     0.0851613478789662
+    ]
+   }
+  },
+  "weight 0.25": {
+   "curated": {
+    "ndcg": [
+     0.7880040983865563,
+     0.7181467881597815,
+     0.8480128389968046
+    ],
+    "paired": [
+     0.032261686636436165,
+     0.017379909496723335,
+     0.04928209462666759
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.49137241368557155,
+     0.3691587619585184,
+     0.6054411042286901
+    ],
+    "paired": [
+     0.0758453071033121,
+     0.035343863910697555,
+     0.12568096035105458
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8964666777844487,
+     0.8569102506284149,
+     0.9305118803295123
+    ],
+    "paired": [
+     0.010284280202429238,
+     -0.005102183006543909,
+     0.02905682696271547
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.7518460445438282,
+     0.6035138057014818,
+     0.8908132442655767
+    ],
+    "paired": [
+     -0.10943877328460598,
+     -0.23375650069361742,
+     -0.00893311202439605
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9240354191836746,
+     0.8776633215986408,
+     0.9656456120068034
+    ],
+    "paired": [
+     -0.014285714285714285,
+     -0.037074183435374976,
+     0.0
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.7305915142508819,
+     0.6610864297830897,
+     0.7927186361739585
+    ],
+    "paired": [
+     0.04069722608163796,
+     0.0252501030925622,
+     0.05829929501778465
+    ]
+   }
+  },
+  "weight 0.75": {
+   "curated": {
+    "ndcg": [
+     0.7349286685911871,
+     0.6611477755371835,
+     0.7980864705444953
+    ],
+    "paired": [
+     -0.02081374315893308,
+     -0.03929029544044953,
+     -0.006534554388446839
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.4059865812307943,
+     0.2909501822331538,
+     0.519836468385622
+    ],
+    "paired": [
+     -0.00954052535146522,
+     -0.018348512138313882,
+     -0.002523058076304275
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8711045500038185,
+     0.8253163977961554,
+     0.9133759557661386
+    ],
+    "paired": [
+     -0.015077847578200841,
+     -0.03507618986423354,
+     0.0016830118488660021
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8744358722208505,
+     0.7695618180545467,
+     0.9612412570538289
+    ],
+    "paired": [
+     0.01315105439241632,
+     0.0,
+     0.039453163177248965
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9418360881972797,
+     0.9012469500340138,
+     0.9786843762585039
+    ],
+    "paired": [
+     0.0035149547278908806,
+     0.0,
+     0.010544864183672642
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.6712624581343368,
+     0.5999720593597339,
+     0.7382803984113087
+    ],
+    "paired": [
+     -0.018631830034907045,
+     -0.03408063037566773,
+     -0.0063278842094336915
+    ]
+   }
+  },
+  "weight 1.0": {
+   "curated": {
+    "ndcg": [
+     0.7300214516400336,
+     0.6584740373928679,
+     0.7935739183019871
+    ],
+    "paired": [
+     -0.02572096011008645,
+     -0.046946142908040986,
+     -0.009252254929645204
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.3783737325372203,
+     0.2692782503215961,
+     0.48717187073936885
+    ],
+    "paired": [
+     -0.037153374045039204,
+     -0.0711357597199493,
+     -0.009729293813623937
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8363326203401827,
+     0.7845489535714313,
+     0.8840331242344315
+    ],
+    "paired": [
+     -0.04984977724183673,
+     -0.08506276203753996,
+     -0.020158468991711326
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8848578362493126,
+     0.7809828177546623,
+     0.9670523765422689
+    ],
+    "paired": [
+     0.023573018420878382,
+     0.0,
+     0.07071905526263514
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9430830382312936,
+     0.9027197954421785,
+     0.9786843762585039
+    ],
+    "paired": [
+     0.004761904761904762,
+     0.0,
+     0.013038764251700405
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.6619606027814245,
+     0.5879156988184823,
+     0.7306243377271892
+    ],
+    "paired": [
+     -0.027933685387819245,
+     -0.04682849346925765,
+     -0.013105912555977667
+    ]
+   }
+  },
+  "0.1 from 6 words": {
+   "curated": {
+    "ndcg": [
+     0.7799201139805269,
+     0.7112095962131765,
+     0.8403063078412889
+    ],
+    "paired": [
+     0.024177702230406717,
+     0.006769938713563984,
+     0.04404905765243552
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.500683999922359,
+     0.3726757051181915,
+     0.6171468065321957
+    ],
+    "paired": [
+     0.0851568933400995,
+     0.014183093061125552,
+     0.15747726408701815
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8976532566071221,
+     0.8570335148274448,
+     0.9317456816216244
+    ],
+    "paired": [
+     0.011470859025102849,
+     -0.005107196107284828,
+     0.031224456672173658
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8612848178284342,
+     0.7504376175144868,
+     0.9610437284876723
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9383211334693888,
+     0.8989789453401368,
+     0.975169421530613
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.7258744144853975,
+     0.6577816944043721,
+     0.7882134511150711
+    ],
+    "paired": [
+     0.03598012631615371,
+     0.015134317756172059,
+     0.05819736770046765
+    ]
+   }
+  },
+  "0.1 from 8 words": {
+   "curated": {
+    "ndcg": [
+     0.7668245825313175,
+     0.6980369500479875,
+     0.8269881587872202
+    ],
+    "paired": [
+     0.011082170781197323,
+     0.00042338128076641166,
+     0.025459284648700075
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.500683999922359,
+     0.3726757051181915,
+     0.6171468065321957
+    ],
+    "paired": [
+     0.0851568933400995,
+     0.014183093061125552,
+     0.15747726408701815
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8824522621511572,
+     0.8387199633385343,
+     0.9193767275995819
+    ],
+    "paired": [
+     -0.0037301354308621392,
+     -0.013069942540781818,
+     0.005358381734044375
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8612848178284342,
+     0.7504376175144868,
+     0.9610437284876723
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9383211334693888,
+     0.8989789453401368,
+     0.975169421530613
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.7153135020263578,
+     0.6491504817281215,
+     0.7765300422234607
+    ],
+    "paired": [
+     0.025419213857113876,
+     0.006755687144724185,
+     0.04519134018277237
+    ]
+   }
+  },
+  "0.25 from 8 words": {
+   "curated": {
+    "ndcg": [
+     0.764635323599787,
+     0.695588001553697,
+     0.8252964430349559
+    ],
+    "paired": [
+     0.008892911849666918,
+     0.0011497368593790759,
+     0.019586170366679086
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.49137241368557155,
+     0.3691587619585184,
+     0.6054411042286901
+    ],
+    "paired": [
+     0.0758453071033121,
+     0.035343863910697555,
+     0.12568096035105458
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8854604578287797,
+     0.8413542036811966,
+     0.9218966271626715
+    ],
+    "paired": [
+     -0.0007219397532396547,
+     -0.005264081831212578,
+     0.004604958904117981
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8612848178284342,
+     0.7504376175144868,
+     0.9610437284876723
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9383211334693888,
+     0.8989789453401368,
+     0.975169421530613
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.7117457281325196,
+     0.643396394931988,
+     0.7723319029829251
+    ],
+    "paired": [
+     0.02185143996327566,
+     0.008834098995384407,
+     0.036078542735545144
+    ]
+   }
+  },
+  "negation stripped, lexical only": {
+   "curated": {
+    "ndcg": [
+     0.7594512831737952,
+     0.691026294114556,
+     0.8189698391733063
+    ],
+    "paired": [
+     0.003708871423674971,
+     0.0,
+     0.011126614271024913
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.44642603797029673,
+     0.33700838635426994,
+     0.5490459894003689
+    ],
+    "paired": [
+     0.030898931388037305,
+     0.0,
+     0.0767249435755794
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8861823975820193,
+     0.8412830985191398,
+     0.9235480667876509
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8612848178284342,
+     0.7504376175144868,
+     0.9610437284876723
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9383211334693888,
+     0.8989789453401368,
+     0.975169421530613
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.6988657518440857,
+     0.6318864155943279,
+     0.7616243497250555
+    ],
+    "paired": [
+     0.008971463674841874,
+     0.00043146917976790637,
+     0.020660697521817564
+    ]
+   }
+  },
+  "negation stripped, both lists": {
+   "curated": {
+    "ndcg": [
+     0.7595732519460036,
+     0.6911482628867645,
+     0.8190918079455147
+    ],
+    "paired": [
+     0.003830840195883425,
+     0.0,
+     0.011492520587650275
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.42686621701759386,
+     0.3093977691789947,
+     0.5505772600627221
+    ],
+    "paired": [
+     0.011339110435334367,
+     -0.02954576802147138,
+     0.05248452537301634
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8861823975820193,
+     0.8412830985191398,
+     0.9235480667876509
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8612848178284342,
+     0.7504376175144868,
+     0.9610437284876723
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9383211334693888,
+     0.8989789453401368,
+     0.975169421530613
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.6951783419598597,
+     0.6256316654935814,
+     0.7605339109591066
+    ],
+    "paired": [
+     0.005284053790615865,
+     -0.004512157621919106,
+     0.016201041165349723
+    ]
+   }
+  },
+  "negation stripped + 0.1 from 8 words": {
+   "curated": {
+    "ndcg": [
+     0.7705334539549924,
+     0.7045150117560821,
+     0.8299830405235307
+    ],
+    "paired": [
+     0.014791042204872294,
+     0.002445181568915473,
+     0.03112453914250076
+    ]
+   },
+   "coverage": {
+    "ndcg": [
+     0.5101660381098764,
+     0.38473376387941793,
+     0.6216229261331216
+    ],
+    "paired": [
+     0.09463893152761682,
+     0.019145823235318982,
+     0.1706228359941946
+    ]
+   },
+   "rule": {
+    "ndcg": [
+     0.8824522621511572,
+     0.8387199633385343,
+     0.9193767275995819
+    ],
+    "paired": [
+     -0.0037301354308621392,
+     -0.013069942540781818,
+     0.005358381734044375
+    ]
+   },
+   "known": {
+    "ndcg": [
+     0.8612848178284342,
+     0.7504376175144868,
+     0.9610437284876723
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "titles": {
+    "ndcg": [
+     0.9383211334693888,
+     0.8989789453401368,
+     0.975169421530613
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "long titles": {
+    "ndcg": [
+     0.9032258064516129,
+     0.8064516129032258,
+     1.0
+    ],
+    "paired": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "curated+coverage": {
+    "ndcg": [
+     0.7201397605656151,
+     0.6542547966345004,
+     0.7792670505344867
+    ],
+    "paired": [
+     0.030245472396371233,
+     0.009702194758957646,
+     0.051618191618980465
+    ]
+   }
+  }
+ },
+ "detail": {
+  "coverage": [
+   {
+    "q": "easy evening with a drink watching the sun go down over huge scenery",
+    "language": "en",
+    "tokens": 13,
+    "negated": false,
+    "chosen": 0.6646640981668568,
+    "dense": 0.6281003213139302,
+    "lexical": 0.3592245898432796,
+    "promoted": [
+     {
+      "name": "Two days on the Olive Trail and beyond",
+      "grade": 0,
+      "matched": [
+       "watch"
+      ]
+     },
+     {
+      "name": "Elephants at the river's edge",
+      "grade": 0,
+      "matched": [
+       "watch"
+      ]
+     },
+     {
+      "name": "Helicopter with the doors off",
+      "grade": 0,
+      "matched": [
+       "watch"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Thermal springs and a slow soak",
+      "grade": 0
+     },
+     {
+      "name": "Nashörner am beleuchteten Wasserloch",
+      "grade": 0
+     },
+     {
+      "name": "Der Rauch, der donnert",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "entspannter Abend mit einem Drink, während die Sonne über einer riesigen Landschaft untergeht",
+    "language": "de",
+    "tokens": 13,
+    "negated": false,
+    "chosen": 0.45891114736926064,
+    "dense": 0.46108662244119253,
+    "lexical": 0.21349296764773776,
+    "promoted": [
+     {
+      "name": "Ganztägig rund um die Salzpfanne",
+      "grade": 0,
+      "matched": [
+       "riesig"
+      ]
+     },
+     {
+      "name": "Wildwasser auf dem Kunene",
+      "grade": 0,
+      "matched": [
+       "sonn"
+      ]
+     },
+     {
+      "name": "Tigerfish on the Zambezi",
+      "grade": 0,
+      "matched": [
+       "drink"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Thermal springs and a slow soak",
+      "grade": 0
+     },
+     {
+      "name": "Canyon rim at sunset",
+      "grade": 3
+     },
+     {
+      "name": "Der Rauch, der donnert",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "strenuous walk uphill to a big view, I want to feel it in my legs",
+    "language": "en",
+    "tokens": 15,
+    "negated": false,
+    "chosen": 0.21877465577271557,
+    "dense": 0.7023565491231288,
+    "lexical": 0.16971579032035816,
+    "promoted": [
+     {
+      "name": "Walking with a Bayei tracker",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Sleeping out on the salt",
+      "grade": 0,
+      "matched": [
+       "feel"
+      ]
+     },
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0,
+      "matched": [
+       "view"
+      ]
+     },
+     {
+      "name": "Baobabs above the falls",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Bush walk on a private reserve",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Van Zyl's Pass in a convoy",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Stone church and a railway past",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Horse ride on a Kalahari farm",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Zu Fuß auf den Tafelberg",
+      "grade": 3
+     },
+     {
+      "name": "Sundowner am Canyonrand",
+      "grade": 0
+     },
+     {
+      "name": "Zwei Tage im Naukluftgebirge",
+      "grade": 1
+     },
+     {
+      "name": "Sandstone climb to the plateau rim",
+      "grade": 2
+     },
+     {
+      "name": "Canyon rim at sunset",
+      "grade": 0
+     },
+     {
+      "name": "Two days on the Olive Trail and beyond",
+      "grade": 1
+     },
+     {
+      "name": "Tandemsprung über Wüste und Meer",
+      "grade": 0
+     },
+     {
+      "name": "Table Mountain by Platteklip Gorge",
+      "grade": 3
+     }
+    ]
+   },
+   {
+    "q": "anstrengender Aufstieg zu Fuß mit weitem Ausblick, ich will es in den Beinen spüren",
+    "language": "de",
+    "tokens": 14,
+    "negated": false,
+    "chosen": 0.4988774820831369,
+    "dense": 0.36533185919006333,
+    "lexical": 0.36771754569410936,
+    "promoted": [
+     {
+      "name": "Im Einbaum durchs Delta",
+      "grade": 0,
+      "matched": [
+       "fuss"
+      ]
+     },
+     {
+      "name": "Wüstenelefanten im Huab-Tal",
+      "grade": 0,
+      "matched": [
+       "spur"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Roped ascent of Namibia's Matterhorn",
+      "grade": 1
+     },
+     {
+      "name": "Swimming at the edge of the falls",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "weird rock shapes and geology without anything physically demanding",
+    "language": "en",
+    "tokens": 9,
+    "negated": true,
+    "chosen": 0.6826720493122369,
+    "dense": 0.6519576583770119,
+    "lexical": 0.41493967757771366,
+    "promoted": [
+     {
+      "name": "Copper town museum and minerals",
+      "grade": 1,
+      "matched": [
+       "shape"
+      ]
+     },
+     {
+      "name": "Fly-in shipwreck expedition",
+      "grade": 0,
+      "matched": [
+       "without"
+      ]
+     },
+     {
+      "name": "Van Zyl's Pass in a convoy",
+      "grade": 0,
+      "matched": [
+       "rock"
+      ]
+     },
+     {
+      "name": "Woodcarvers of the Kavango",
+      "grade": 0,
+      "matched": [
+       "shape"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Canyon rim at sunset",
+      "grade": 1
+     },
+     {
+      "name": "Sandstone climb to the plateau rim",
+      "grade": 0
+     },
+     {
+      "name": "Table Mountain by Platteklip Gorge",
+      "grade": 0
+     },
+     {
+      "name": "Felsgalerie der San",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "bizarre Felsformationen und Geologie, ohne dass es körperlich anstrengend wird",
+    "language": "de",
+    "tokens": 10,
+    "negated": true,
+    "chosen": 0.6565767206234707,
+    "dense": 0.6044165224918996,
+    "lexical": 0.21199296869493098,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "something truly terrifying in the water, so I have a story to tell",
+    "language": "en",
+    "tokens": 13,
+    "negated": false,
+    "chosen": 0.5181620394173683,
+    "dense": 0.5673351920388784,
+    "lexical": 0.14360671578169248,
+    "promoted": [
+     {
+      "name": "Thermal springs and a slow soak",
+      "grade": 0,
+      "matched": [
+       "water"
+      ]
+     },
+     {
+      "name": "Photo boat with swivel seats",
+      "grade": 0,
+      "matched": [
+       "water"
+      ]
+     },
+     {
+      "name": "Masubia village on the floodplain",
+      "grade": 0,
+      "matched": [
+       "water"
+      ]
+     },
+     {
+      "name": "Inside the Sesriem gorge",
+      "grade": 0,
+      "matched": [
+       "water"
+      ]
+     },
+     {
+      "name": "Ovatwa hunters' forest stories",
+      "grade": 0,
+      "matched": [
+       "stori"
+      ]
+     },
+     {
+      "name": "The smoke that thunders, step by step",
+      "grade": 0,
+      "matched": [
+       "water"
+      ]
+     },
+     {
+      "name": "Poled through the channels by mokoro",
+      "grade": 0,
+      "matched": [
+       "water"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Nashörner am beleuchteten Wasserloch",
+      "grade": 0
+     },
+     {
+      "name": "Grade five on the Batoka Gorge",
+      "grade": 2
+     },
+     {
+      "name": "Elephants at the river's edge",
+      "grade": 0
+     },
+     {
+      "name": "Cage diving at Gansbaai day trip",
+      "grade": 3
+     },
+     {
+      "name": "Flamingos, Austern und Katamaran",
+      "grade": 0
+     },
+     {
+      "name": "Elefanten beim Durchschwimmen",
+      "grade": 0
+     },
+     {
+      "name": "Fünf Tage durch den Fischfluss-Canyon",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "etwas richtig Furchteinflößendes im Wasser, damit ich etwas zu erzählen habe",
+    "language": "de",
+    "tokens": 11,
+    "negated": false,
+    "chosen": 0.3397715039214018,
+    "dense": 0.42354514285981076,
+    "lexical": 0.0,
+    "promoted": [
+     {
+      "name": "Geisterstadt im Sand",
+      "grade": 0,
+      "matched": [
+       "erzahl"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Grade five on the Batoka Gorge",
+      "grade": 2
+     }
+    ]
+   },
+   {
+    "q": "all-day game drive through wide open country",
+    "language": "en",
+    "tokens": 8,
+    "negated": false,
+    "chosen": 0.4852358831438022,
+    "dense": 0.23476928534022565,
+    "lexical": 0.33583167201218944,
+    "promoted": [
+     {
+      "name": "Five days through Africa's great gorge",
+      "grade": 0,
+      "matched": [
+       "day",
+       "open"
+      ]
+     },
+     {
+      "name": "The smoke that thunders, step by step",
+      "grade": 0,
+      "matched": [
+       "wide"
+      ]
+     },
+     {
+      "name": "Kalahari red dunes by sundowner truck",
+      "grade": 1,
+      "matched": [
+       "drive"
+      ]
+     },
+     {
+      "name": "Two days on the Olive Trail and beyond",
+      "grade": 0,
+      "matched": [
+       "day"
+      ]
+     },
+     {
+      "name": "Mountain bike down the Aba-Huab",
+      "grade": 0,
+      "matched": [
+       "countri"
+      ]
+     },
+     {
+      "name": "Canyon rim at sunset",
+      "grade": 0,
+      "matched": [
+       "drive"
+      ]
+     },
+     {
+      "name": "Tundavala's great escarpment",
+      "grade": 0,
+      "matched": [
+       "drive"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Zwei Tage im Naukluftgebirge",
+      "grade": 0
+     },
+     {
+      "name": "Zu Fuß auf den Tafelberg",
+      "grade": 0
+     },
+     {
+      "name": "Im Einbaum durchs Delta",
+      "grade": 0
+     },
+     {
+      "name": "Camel ride beside the Swakop riverbed",
+      "grade": 0
+     },
+     {
+      "name": "Horse ride on a Kalahari farm",
+      "grade": 0
+     },
+     {
+      "name": "Sleeping out on the salt",
+      "grade": 0
+     },
+     {
+      "name": "Balloon over the Namib at dawn",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Pirschfahrt den ganzen Tag durch offene, weite Landschaft",
+    "language": "de",
+    "tokens": 8,
+    "negated": false,
+    "chosen": 0.0,
+    "dense": 0.0,
+    "lexical": 0.0,
+    "promoted": [
+     {
+      "name": "Fünf Tage durch den Fischfluss-Canyon",
+      "grade": 0,
+      "matched": [
+       "tag"
+      ]
+     },
+     {
+      "name": "Windhoek zwischen Vergangenheit und Gegenwart",
+      "grade": 0,
+      "matched": [
+       "off"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Tandemsprung über Wüste und Meer",
+      "grade": 0
+     },
+     {
+      "name": "Baobabs above the falls",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "exploring the wild under my own power, not sitting in a safari car",
+    "language": "en",
+    "tokens": 13,
+    "negated": true,
+    "chosen": 0.23066342205440574,
+    "dense": 0.43513233988960837,
+    "lexical": 0.13782129472912666,
+    "promoted": [
+     {
+      "name": "Aufstieg zum roten Felsrand",
+      "grade": 2,
+      "matched": [
+       "wild"
+      ]
+     },
+     {
+      "name": "Sandstone climb to the plateau rim",
+      "grade": 2,
+      "matched": [
+       "wild"
+      ]
+     },
+     {
+      "name": "Rhino breeding on the sandstone top",
+      "grade": 0,
+      "matched": [
+       "sit"
+      ]
+     },
+     {
+      "name": "Floodlit waterhole after dark",
+      "grade": 0,
+      "matched": [
+       "sit"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Two days on the Olive Trail and beyond",
+      "grade": 2
+     },
+     {
+      "name": "Bush walk on a private reserve",
+      "grade": 3
+     },
+     {
+      "name": "Die Kleinen Fünf der Wüste",
+      "grade": 0
+     },
+     {
+      "name": "Walking with a Bayei tracker",
+      "grade": 3
+     }
+    ]
+   },
+   {
+    "q": "die Wildnis aus eigener Kraft erkunden, statt im Safariwagen zu sitzen",
+    "language": "de",
+    "tokens": 11,
+    "negated": true,
+    "chosen": 0.2320162771224581,
+    "dense": 0.34342521674801785,
+    "lexical": 0.0,
+    "promoted": [
+     {
+      "name": "Schwarzmähnenlöwen im Auob-Tal",
+      "grade": 0,
+      "matched": [
+       "sitz"
+      ]
+     },
+     {
+      "name": "Nashörner am beleuchteten Wasserloch",
+      "grade": 0,
+      "matched": [
+       "sitz"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Two days on the Olive Trail and beyond",
+      "grade": 2
+     },
+     {
+      "name": "Horse ride on a Kalahari farm",
+      "grade": 1
+     }
+    ]
+   }
+  ],
+  "curated": [
+   {
+    "q": "abandoned town swallowed by the desert",
+    "language": "en",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 0.8583829726868019,
+    "dense": 0.997768637240619,
+    "lexical": 0.6067965417982035,
+    "promoted": [
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0,
+      "matched": [
+       "desert"
+      ]
+     },
+     {
+      "name": "Stone church and a railway past",
+      "grade": 0,
+      "matched": [
+       "town"
+      ]
+     },
+     {
+      "name": "The battlefield and the graves",
+      "grade": 0,
+      "matched": [
+       "desert"
+      ]
+     },
+     {
+      "name": "Desert elephants of the Huab",
+      "grade": 0,
+      "matched": [
+       "desert"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Gedenken am Waterberg",
+      "grade": 0
+     },
+     {
+      "name": "Zu Fuß auf den Tafelberg",
+      "grade": 0
+     },
+     {
+      "name": "Schiffswracks der Skelettküste",
+      "grade": 0
+     },
+     {
+      "name": "Die Kleinen Fünf der Wüste",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "verlassene Stadt in der Wüste",
+    "language": "de",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.815471956383002,
+    "dense": 0.9948021162954078,
+    "lexical": 0.2559142474022588,
+    "promoted": [
+     {
+      "name": "Gedenken am Waterberg",
+      "grade": 0,
+      "matched": [
+       "wust"
+      ]
+     },
+     {
+      "name": "Tandemsprung über Wüste und Meer",
+      "grade": 0,
+      "matched": [
+       "wust"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Frühmorgens im Deadvlei",
+      "grade": 0
+     },
+     {
+      "name": "Köcherbaumwald bei Sonnenuntergang",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "see dead trees on a white clay floor",
+    "language": "en",
+    "tokens": 8,
+    "negated": false,
+    "chosen": 0.6131471927654584,
+    "dense": 0.9197207891481876,
+    "lexical": 0.38685280723454163,
+    "promoted": [
+     {
+      "name": "Sandstone climb to the plateau rim",
+      "grade": 0,
+      "matched": [
+       "tree"
+      ]
+     },
+     {
+      "name": "Baobabs above the falls",
+      "grade": 0,
+      "matched": [
+       "tree"
+      ]
+     },
+     {
+      "name": "Black-maned lions of the Auob",
+      "grade": 0,
+      "matched": [
+       "dead",
+       "tree"
+      ]
+     },
+     {
+      "name": "Sleeping out on the salt",
+      "grade": 0,
+      "matched": [
+       "white"
+      ]
+     },
+     {
+      "name": "Full day across the great white pan",
+      "grade": 0,
+      "matched": [
+       "tree",
+       "white"
+      ]
+     },
+     {
+      "name": "Namaqualand in flower",
+      "grade": 0,
+      "matched": [
+       "white"
+      ]
+     },
+     {
+      "name": "Rhino breeding on the sandstone top",
+      "grade": 0,
+      "matched": [
+       "white"
+      ]
+     },
+     {
+      "name": "Cheetah conservation behind the scenes",
+      "grade": 0,
+      "matched": [
+       "see"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Frühmorgens im Deadvlei",
+      "grade": 3
+     },
+     {
+      "name": "Köcherbaumwald bei Sonnenuntergang",
+      "grade": 0
+     },
+     {
+      "name": "Natural arches at golden hour",
+      "grade": 0
+     },
+     {
+      "name": "Ghost town drowned in sand",
+      "grade": 0
+     },
+     {
+      "name": "Hunderttausend Pelzrobben",
+      "grade": 0
+     },
+     {
+      "name": "Geisterstadt im Sand",
+      "grade": 0
+     },
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0
+     },
+     {
+      "name": "The smoke that thunders, step by step",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "tote Bäume auf weißem Boden fotografieren",
+    "language": "de",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 0.8503449055347546,
+    "dense": 0.8503449055347546,
+    "lexical": 0.38685280723454163,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "jump out of a plane",
+    "language": "en",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.6515815988762996,
+    "dense": 0.9091029925318581,
+    "lexical": 0.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "aus dem Flugzeug springen",
+    "language": "de",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.881130592761647,
+    "dense": 0.9580414003446834,
+    "lexical": 0.37062100517025215,
+    "promoted": [
+     {
+      "name": "Thermal springs and a slow soak",
+      "grade": 0,
+      "matched": [
+       "spring"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Sleeping out on the salt",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "tiny desert reptiles and insects",
+    "language": "en",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.8404085891102678,
+    "dense": 0.9580414003446834,
+    "lexical": 0.5874203951744313,
+    "promoted": [
+     {
+      "name": "Desert elephants of the Huab",
+      "grade": 0,
+      "matched": [
+       "desert"
+      ]
+     },
+     {
+      "name": "Orange River vineyards and raisins",
+      "grade": 0,
+      "matched": [
+       "desert"
+      ]
+     },
+     {
+      "name": "The battlefield and the graves",
+      "grade": 0,
+      "matched": [
+       "desert"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Ganztägig rund um die Salzpfanne",
+      "grade": 0
+     },
+     {
+      "name": "Deadvlei before the crowds",
+      "grade": 0
+     },
+     {
+      "name": "Schwarzmähnenlöwen im Auob-Tal",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "kleine Wüstentiere wie Schlangen und Eidechsen",
+    "language": "de",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 0.9197207891481876,
+    "dense": 1.0,
+    "lexical": 0.6131471927654584,
+    "promoted": [
+     {
+      "name": "Elefanten beim Durchschwimmen",
+      "grade": 0,
+      "matched": [
+       "klein"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Full day across the great white pan",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "something for wine lovers",
+    "language": "en",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.6910511952591204,
+    "dense": 0.8912965015913479,
+    "lexical": 0.11680051191326977,
+    "promoted": [
+     {
+      "name": "Lagoon flamingos and oyster farm",
+      "grade": 1,
+      "matched": [
+       "wine"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Katutura market and kapana grills",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "taste beer and cake from the colonial era",
+    "language": "en",
+    "tokens": 8,
+    "negated": false,
+    "chosen": 0.8996052605611106,
+    "dense": 1.0,
+    "lexical": 0.7871546029909718,
+    "promoted": [
+     {
+      "name": "Camel ride beside the Swakop riverbed",
+      "grade": 0,
+      "matched": [
+       "coloni"
+      ]
+     },
+     {
+      "name": "Orange River vineyards and raisins",
+      "grade": 0,
+      "matched": [
+       "tast"
+      ]
+     },
+     {
+      "name": "Independence museum and Christuskirche",
+      "grade": 0,
+      "matched": [
+       "coloni",
+       "era"
+      ]
+     },
+     {
+      "name": "A hundred thousand fur seals",
+      "grade": 0,
+      "matched": [
+       "coloni"
+      ]
+     },
+     {
+      "name": "Fly-in shipwreck expedition",
+      "grade": 0,
+      "matched": [
+       "coloni"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Balloon over the Namib at dawn",
+      "grade": 0
+     },
+     {
+      "name": "Living museum of the Damara",
+      "grade": 0
+     },
+     {
+      "name": "Katutura mit Einheimischen entdecken",
+      "grade": 0
+     },
+     {
+      "name": "Windhoek zwischen Vergangenheit und Gegenwart",
+      "grade": 0
+     },
+     {
+      "name": "Woodcarvers of the Kavango",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "learn what really happened during the genocide of the Herero",
+    "language": "en",
+    "tokens": 10,
+    "negated": false,
+    "chosen": 0.930271696263078,
+    "dense": 0.9677327793493801,
+    "lexical": 0.43704596934019013,
+    "promoted": [
+     {
+      "name": "Katutura market and kapana grills",
+      "grade": 0,
+      "matched": [
+       "learn"
+      ]
+     },
+     {
+      "name": "Salt works and a port at work",
+      "grade": 0,
+      "matched": [
+       "learn"
+      ]
+     },
+     {
+      "name": "Himba homestead with a Himba guide",
+      "grade": 0,
+      "matched": [
+       "learn"
+      ]
+     },
+     {
+      "name": "Walking with a Bayei tracker",
+      "grade": 0,
+      "matched": [
+       "learn"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Schiffswracks der Skelettküste",
+      "grade": 0
+     },
+     {
+      "name": "The old German fort at Namutoni",
+      "grade": 0
+     },
+     {
+      "name": "Poled through the channels by mokoro",
+      "grade": 0
+     },
+     {
+      "name": "Masubia village on the floodplain",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Völkermord an den Herero verstehen",
+    "language": "de",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.855349530090474,
+    "dense": 0.7112698616589098,
+    "lexical": 0.855349530090474,
+    "promoted": [
+     {
+      "name": "Aufstieg zum roten Felsrand",
+      "grade": 0,
+      "matched": [
+       "den"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Schiffswracks der Skelettküste",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "apartheid history told by people who lived it",
+    "language": "en",
+    "tokens": 8,
+    "negated": false,
+    "chosen": 0.3667074010168134,
+    "dense": 0.32202380241072304,
+    "lexical": 0.2538743545501016,
+    "promoted": [
+     {
+      "name": "Katutura market and kapana grills",
+      "grade": 3,
+      "matched": [
+       "apartheid"
+      ]
+     },
+     {
+      "name": "Living museum of the Damara",
+      "grade": 0,
+      "matched": [
+       "live"
+      ]
+     },
+     {
+      "name": "Art Nouveau houses of a diamond town",
+      "grade": 0,
+      "matched": [
+       "live"
+      ]
+     },
+     {
+      "name": "Ovatwa hunters' forest stories",
+      "grade": 0,
+      "matched": [
+       "peopl"
+      ]
+     },
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0,
+      "matched": [
+       "live"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Bo-Kaap and District Six stories",
+      "grade": 3
+     },
+     {
+      "name": "Van Zyl's Pass in a convoy",
+      "grade": 0
+     },
+     {
+      "name": "Geisterstadt im Sand",
+      "grade": 0
+     },
+     {
+      "name": "Five days through Africa's great gorge",
+      "grade": 0
+     },
+     {
+      "name": "Deadvlei before the crowds",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "extreme rafting with big rapids",
+    "language": "en",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.9584925251677543,
+    "dense": 0.9673387413348701,
+    "lexical": 0.6254336383564085,
+    "promoted": [
+     {
+      "name": "Mahango and the Bwabwata floodplain",
+      "grade": 0,
+      "matched": [
+       "big"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Elephants at the river's edge",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Rafting auf wildem Fluss",
+    "language": "de",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.8179809735263114,
+    "dense": 0.7328286204777911,
+    "lexical": 0.4692787260227565,
+    "promoted": [
+     {
+      "name": "Aufstieg zum roten Felsrand",
+      "grade": 0,
+      "matched": [
+       "wild"
+      ]
+     },
+     {
+      "name": "Sandstone climb to the plateau rim",
+      "grade": 0,
+      "matched": [
+       "wild"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Im Einbaum durchs Delta",
+      "grade": 0
+     },
+     {
+      "name": "Inside the Sesriem gorge",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "relaxing hot bath after travelling",
+    "language": "en",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 1.0,
+    "lexical": 1.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "technical rock climbing with ropes",
+    "language": "en",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.7977228895450266,
+    "dense": 1.0,
+    "lexical": 0.6131471927654584,
+    "promoted": [
+     {
+      "name": "Mountain bike down the Aba-Huab",
+      "grade": 0,
+      "matched": [
+       "technic"
+      ]
+     },
+     {
+      "name": "The quiver tree forest",
+      "grade": 0,
+      "matched": [
+       "rock"
+      ]
+     },
+     {
+      "name": "Grade five on the Batoka Gorge",
+      "grade": 0,
+      "matched": [
+       "climb"
+      ]
+     },
+     {
+      "name": "Van Zyl's Pass in a convoy",
+      "grade": 0,
+      "matched": [
+       "rock"
+      ]
+     },
+     {
+      "name": "Art Nouveau houses of a diamond town",
+      "grade": 0,
+      "matched": [
+       "climb"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Table Mountain by Platteklip Gorge",
+      "grade": 0
+     },
+     {
+      "name": "Bungee from the old bridge",
+      "grade": 0
+     },
+     {
+      "name": "Tandemsprung über Wüste und Meer",
+      "grade": 0
+     },
+     {
+      "name": "Two days on the Olive Trail and beyond",
+      "grade": 0
+     },
+     {
+      "name": "Sandboarding Dune 7",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Klettern mit Seil am Fels",
+    "language": "de",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.5912352048230278,
+    "dense": 0.5912352048230278,
+    "lexical": 0.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "shipwrecks and whale bones",
+    "language": "en",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.6131471927654584,
+    "dense": 0.38685280723454163,
+    "lexical": 0.6131471927654584,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "gestrandete Schiffe an einsamer Küste",
+    "language": "de",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.0,
+    "dense": 0.0,
+    "lexical": 0.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "penguins",
+    "language": "en",
+    "tokens": 1,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 1.0,
+    "lexical": 1.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "enormous colony of seals, easy to walk",
+    "language": "en",
+    "tokens": 7,
+    "negated": false,
+    "chosen": 0.6074259113632317,
+    "dense": 0.8503962759085243,
+    "lexical": 0.598262106472065,
+    "promoted": [
+     {
+      "name": "Fly-in shipwreck expedition",
+      "grade": 1,
+      "matched": [
+       "coloni",
+       "seal"
+      ]
+     },
+     {
+      "name": "Sailing to Halifax Island penguins",
+      "grade": 0,
+      "matched": [
+       "coloni"
+      ]
+     },
+     {
+      "name": "Bush walk on a private reserve",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Baobabs above the falls",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Walking with a Bayei tracker",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Independence museum and Christuskirche",
+      "grade": 0,
+      "matched": [
+       "coloni"
+      ]
+     },
+     {
+      "name": "Stone church and a railway past",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Hunderttausend Pelzrobben",
+      "grade": 3
+     },
+     {
+      "name": "Im Einbaum durchs Delta",
+      "grade": 0
+     },
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0
+     },
+     {
+      "name": "Die Kleinen Fünf der Wüste",
+      "grade": 0
+     },
+     {
+      "name": "Köcherbaumwald bei Sonnenuntergang",
+      "grade": 0
+     },
+     {
+      "name": "Ganztägig rund um die Salzpfanne",
+      "grade": 0
+     },
+     {
+      "name": "Nashörner am beleuchteten Wasserloch",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Robbenkolonie auf Holzstegen besuchen",
+    "language": "de",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.6131471927654584,
+    "dense": 0.38685280723454163,
+    "lexical": 0.3065735963827292,
+    "promoted": [
+     {
+      "name": "Besuch bei einer Himba-Familie",
+      "grade": 0,
+      "matched": [
+       "besuch"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Bo-Kaap and District Six stories",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "see fast cats and how they're protected",
+    "language": "en",
+    "tokens": 8,
+    "negated": false,
+    "chosen": 0.6509209298071325,
+    "dense": 0.8065735963827293,
+    "lexical": 0.38685280723454163,
+    "promoted": [
+     {
+      "name": "Bushman's Paradise paintings",
+      "grade": 0,
+      "matched": [
+       "protect",
+       "re"
+      ]
+     },
+     {
+      "name": "Masubia village on the floodplain",
+      "grade": 0,
+      "matched": [
+       "see"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Hunderttausend Pelzrobben",
+      "grade": 0
+     },
+     {
+      "name": "Black-maned lions of the Auob",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Schutzprojekt für Raubkatzen",
+    "language": "de",
+    "tokens": 3,
+    "negated": false,
+    "chosen": 0.8404085891102678,
+    "dense": 0.8404085891102678,
+    "lexical": 0.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "floating over the desert in the morning, no effort",
+    "language": "en",
+    "tokens": 9,
+    "negated": false,
+    "chosen": 0.28938205550465007,
+    "dense": 0.5787641110093001,
+    "lexical": 0.0,
+    "promoted": [
+     {
+      "name": "Thermal springs and a slow soak",
+      "grade": 0,
+      "matched": [
+       "float"
+      ]
+     },
+     {
+      "name": "Sandstone climb to the plateau rim",
+      "grade": 0,
+      "matched": [
+       "effort"
+      ]
+     },
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0,
+      "matched": [
+       "desert"
+      ]
+     },
+     {
+      "name": "Desert elephants of the Huab",
+      "grade": 0,
+      "matched": [
+       "desert"
+      ]
+     },
+     {
+      "name": "Cage diving at Gansbaai day trip",
+      "grade": 0,
+      "matched": [
+       "float"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Kalahari red dunes by sundowner truck",
+      "grade": 0
+     },
+     {
+      "name": "Canyon rim at sunset",
+      "grade": 0
+     },
+     {
+      "name": "Fly-in shipwreck expedition",
+      "grade": 0
+     },
+     {
+      "name": "Full day across the great white pan",
+      "grade": 0
+     },
+     {
+      "name": "Sandwich Harbour by four-by-four",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "ride an animal through the dunes",
+    "language": "en",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 0.8772153153380492,
+    "dense": 0.6131471927654584,
+    "lexical": 0.6934264036172708,
+    "promoted": [
+     {
+      "name": "Camel ride beside the Swakop riverbed",
+      "grade": 3,
+      "matched": [
+       "ride"
+      ]
+     },
+     {
+      "name": "Sandwich Harbour by four-by-four",
+      "grade": 0,
+      "matched": [
+       "dune"
+      ]
+     },
+     {
+      "name": "Ghost town drowned in sand",
+      "grade": 0,
+      "matched": [
+       "dune"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0
+     },
+     {
+      "name": "Wüstenelefanten im Huab-Tal",
+      "grade": 0
+     },
+     {
+      "name": "Aufstieg zum roten Felsrand",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "slide down sand on a board",
+    "language": "en",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 1.0,
+    "lexical": 0.33333333333333337,
+    "promoted": [
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0,
+      "matched": [
+       "sand"
+      ]
+     },
+     {
+      "name": "Balloon over the Namib at dawn",
+      "grade": 0,
+      "matched": [
+       "sand"
+      ]
+     },
+     {
+      "name": "Ghost town drowned in sand",
+      "grade": 0,
+      "matched": [
+       "sand"
+      ]
+     },
+     {
+      "name": "Poled through the channels by mokoro",
+      "grade": 0,
+      "matched": [
+       "slide"
+      ]
+     },
+     {
+      "name": "Deadvlei before the crowds",
+      "grade": 0,
+      "matched": [
+       "sand"
+      ]
+     },
+     {
+      "name": "Geisterstadt im Sand",
+      "grade": 0,
+      "matched": [
+       "sand"
+      ]
+     },
+     {
+      "name": "The forbidden diamond zone",
+      "grade": 0,
+      "matched": [
+       "sand"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Fly-in shipwreck expedition",
+      "grade": 0
+     },
+     {
+      "name": "Tandem skydive above the Atlantic",
+      "grade": 0
+     },
+     {
+      "name": "Sleeping out on the salt",
+      "grade": 0
+     },
+     {
+      "name": "Swimming at the edge of the falls",
+      "grade": 0
+     },
+     {
+      "name": "Sandstone climb to the plateau rim",
+      "grade": 0
+     },
+     {
+      "name": "Zu Fuß auf den Tafelberg",
+      "grade": 0
+     },
+     {
+      "name": "Roped ascent of Namibia's Matterhorn",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "traditional canoe through reeds",
+    "language": "en",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.08391719931063304,
+    "dense": 0.052945857881464595,
+    "lexical": 0.08391719931063304,
+    "promoted": [
+     {
+      "name": "Camel ride beside the Swakop riverbed",
+      "grade": 0,
+      "matched": [
+       "tradit"
+      ]
+     },
+     {
+      "name": "Living museum of the Damara",
+      "grade": 0,
+      "matched": [
+       "tradit"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Fünf Tage durch den Fischfluss-Canyon",
+      "grade": 0
+     },
+     {
+      "name": "Masubia village on the floodplain",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "im traditionellen Boot durch das Schilf",
+    "language": "de",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 0.3261738017157946,
+    "dense": 0.2537197738173151,
+    "lexical": 0.5874203951744313,
+    "promoted": [
+     {
+      "name": "Elefanten beim Durchschwimmen",
+      "grade": 0,
+      "matched": [
+       "boot"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Living museum of the Damara",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "wildflowers in bloom",
+    "language": "en",
+    "tokens": 3,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 1.0,
+    "lexical": 0.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "strange trees at sunset, not much walking",
+    "language": "en",
+    "tokens": 7,
+    "negated": true,
+    "chosen": 0.6037576051112482,
+    "dense": 0.8577031949525243,
+    "lexical": 0.6704695573627031,
+    "promoted": [
+     {
+      "name": "Kalahari red dunes by sundowner truck",
+      "grade": 0,
+      "matched": [
+       "sunset"
+      ]
+     },
+     {
+      "name": "Bush walk on a private reserve",
+      "grade": 0,
+      "matched": [
+       "walk"
+      ]
+     },
+     {
+      "name": "Full day across the great white pan",
+      "grade": 0,
+      "matched": [
+       "tree"
+      ]
+     },
+     {
+      "name": "Black-maned lions of the Auob",
+      "grade": 0,
+      "matched": [
+       "much",
+       "tree"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Sundowner am Canyonrand",
+      "grade": 0
+     },
+     {
+      "name": "Köcherbaumwald bei Sonnenuntergang",
+      "grade": 3
+     },
+     {
+      "name": "Zwei Tage im Naukluftgebirge",
+      "grade": 0
+     },
+     {
+      "name": "Frühmorgens im Deadvlei",
+      "grade": 1
+     }
+    ]
+   },
+   {
+    "q": "seltsame Bäume im Abendlicht",
+    "language": "de",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.5432583434148459,
+    "dense": 0.6492270160110142,
+    "lexical": 0.0,
+    "promoted": [
+     {
+      "name": "Schwarzmähnenlöwen im Auob-Tal",
+      "grade": 0,
+      "matched": [
+       "baum"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Sleeping out on the salt",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "elephants swimming across a river",
+    "language": "en",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.6180299280149257,
+    "dense": 1.0,
+    "lexical": 0.6180299280149257,
+    "promoted": [
+     {
+      "name": "Grade five on the Batoka Gorge",
+      "grade": 0,
+      "matched": [
+       "swim"
+      ]
+     },
+     {
+      "name": "Inside the Sesriem gorge",
+      "grade": 0,
+      "matched": [
+       "river"
+      ]
+     },
+     {
+      "name": "Orange River vineyards and raisins",
+      "grade": 0,
+      "matched": [
+       "river"
+      ]
+     },
+     {
+      "name": "Swimming at the edge of the falls",
+      "grade": 0,
+      "matched": [
+       "swim"
+      ]
+     },
+     {
+      "name": "Mountain bike down the Aba-Huab",
+      "grade": 0,
+      "matched": [
+       "swim"
+      ]
+     },
+     {
+      "name": "Painted dogs in teak woodland",
+      "grade": 0,
+      "matched": [
+       "eleph"
+      ]
+     },
+     {
+      "name": "Poled through the channels by mokoro",
+      "grade": 0,
+      "matched": [
+       "eleph"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Elefanten beim Durchschwimmen",
+      "grade": 3
+     },
+     {
+      "name": "Wüstenelefanten im Huab-Tal",
+      "grade": 1
+     },
+     {
+      "name": "Nashörner am beleuchteten Wasserloch",
+      "grade": 0
+     },
+     {
+      "name": "Wildwasser auf dem Kunene",
+      "grade": 0
+     },
+     {
+      "name": "Im Einbaum durchs Delta",
+      "grade": 0
+     },
+     {
+      "name": "Baobabs above the falls",
+      "grade": 0
+     },
+     {
+      "name": "Schwarzmähnenlöwen im Auob-Tal",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Elefanten im Wasser sehen",
+    "language": "de",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.8661979824480306,
+    "dense": 0.996450709094314,
+    "lexical": 0.6074259113632317,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "see endangered wild dogs",
+    "language": "en",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 1.0,
+    "lexical": 1.0,
+    "promoted": [
+     {
+      "name": "Masubia village on the floodplain",
+      "grade": 0,
+      "matched": [
+       "see"
+      ]
+     },
+     {
+      "name": "Aufstieg zum roten Felsrand",
+      "grade": 0,
+      "matched": [
+       "wild"
+      ]
+     },
+     {
+      "name": "Sandstone climb to the plateau rim",
+      "grade": 0,
+      "matched": [
+       "wild"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0
+     },
+     {
+      "name": "Frühmorgens im Deadvlei",
+      "grade": 0
+     },
+     {
+      "name": "Die Kleinen Fünf der Wüste",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "the waterfall, but I use a wheelchair",
+    "language": "en",
+    "tokens": 7,
+    "negated": false,
+    "chosen": 0.9197207891481876,
+    "dense": 0.6240505200038379,
+    "lexical": 0.38685280723454163,
+    "promoted": [
+     {
+      "name": "Mondesa township with a resident guide",
+      "grade": 0,
+      "matched": [
+       "use"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Sandboarding Dune 7",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Wasserfall mit dem Rollstuhl besuchen",
+    "language": "de",
+    "tokens": 5,
+    "negated": false,
+    "chosen": 0.8175295903539446,
+    "dense": 0.8175295903539446,
+    "lexical": 0.0,
+    "promoted": [
+     {
+      "name": "Besuch bei einer Himba-Familie",
+      "grade": 0,
+      "matched": [
+       "besuch"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Poled through the channels by mokoro",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "cross a very rough road by four by four",
+    "language": "en",
+    "tokens": 9,
+    "negated": false,
+    "chosen": 0.9737576937588317,
+    "dense": 0.5787641110093001,
+    "lexical": 0.7098097413968655,
+    "promoted": [
+     {
+      "name": "Sandwich Harbour by four-by-four",
+      "grade": 1,
+      "matched": [
+       "four"
+      ]
+     },
+     {
+      "name": "A UNESCO gallery in sandstone",
+      "grade": 0,
+      "matched": [
+       "rough"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Night drive with a spotlight",
+      "grade": 0
+     },
+     {
+      "name": "Im Einbaum durchs Delta",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "hand-made crafts you can try yourself",
+    "language": "en",
+    "tokens": 7,
+    "negated": false,
+    "chosen": 0.8817275317749064,
+    "dense": 0.9651194532279319,
+    "lexical": 0.2834654253028414,
+    "promoted": [
+     {
+      "name": "Mondesa township with a resident guide",
+      "grade": 0,
+      "matched": [
+       "tri"
+      ]
+     },
+     {
+      "name": "Organ Pipes and Burnt Mountain",
+      "grade": 0,
+      "matched": [
+       "made"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Felsgalerie der San",
+      "grade": 0
+     },
+     {
+      "name": "Windhoek breweries and German bakers",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "lying under the stars on a salt flat",
+    "language": "en",
+    "tokens": 8,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 1.0,
+    "lexical": 1.0,
+    "promoted": [
+     {
+      "name": "Salt works and a port at work",
+      "grade": 0,
+      "matched": [
+       "salt"
+      ]
+     },
+     {
+      "name": "Fly-in shipwreck expedition",
+      "grade": 0,
+      "matched": [
+       "flat"
+      ]
+     },
+     {
+      "name": "The forbidden diamond zone",
+      "grade": 0,
+      "matched": [
+       "lie"
+      ]
+     },
+     {
+      "name": "Sandboarding Dune 7",
+      "grade": 0,
+      "matched": [
+       "lie"
+      ]
+     },
+     {
+      "name": "Five days through Africa's great gorge",
+      "grade": 0,
+      "matched": [
+       "star"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Köcherbaumwald bei Sonnenuntergang",
+      "grade": 0
+     },
+     {
+      "name": "Ghost town drowned in sand",
+      "grade": 0
+     },
+     {
+      "name": "Schiffswracks der Skelettküste",
+      "grade": 0
+     },
+     {
+      "name": "Little Five in the living desert",
+      "grade": 0
+     },
+     {
+      "name": "Sundowner am Canyonrand",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "rare minerals and an old mine",
+    "language": "en",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 0.9828422279067397,
+    "lexical": 0.9639988080961093,
+    "promoted": [
+     {
+      "name": "Thermal springs and a slow soak",
+      "grade": 0,
+      "matched": [
+       "miner"
+      ]
+     },
+     {
+      "name": "The old German fort at Namutoni",
+      "grade": 0,
+      "matched": [
+       "old"
+      ]
+     },
+     {
+      "name": "Bungee from the old bridge",
+      "grade": 0,
+      "matched": [
+       "old"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Stone church and a railway past",
+      "grade": 0
+     },
+     {
+      "name": "Köcherbaumwald bei Sonnenuntergang",
+      "grade": 0
+     },
+     {
+      "name": "Ghost town drowned in sand",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "ancient rock engravings",
+    "language": "en",
+    "tokens": 3,
+    "negated": false,
+    "chosen": 0.734985810997439,
+    "dense": 0.9571397038691709,
+    "lexical": 0.34192741420282435,
+    "promoted": [
+     {
+      "name": "Inside the Sesriem gorge",
+      "grade": 0,
+      "matched": [
+       "ancient"
+      ]
+     },
+     {
+      "name": "Baobabs above the falls",
+      "grade": 0,
+      "matched": [
+       "ancient"
+      ]
+     },
+     {
+      "name": "Van Zyl's Pass in a convoy",
+      "grade": 0,
+      "matched": [
+       "rock"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Köcherbaumwald bei Sonnenuntergang",
+      "grade": 0
+     },
+     {
+      "name": "Bushman's Paradise paintings",
+      "grade": 2
+     },
+     {
+      "name": "Copper town museum and minerals",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "uralte Bilder im Fels",
+    "language": "de",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.3031967279051293,
+    "dense": 0.3954017495217986,
+    "lexical": 0.0,
+    "promoted": [
+     {
+      "name": "Frühmorgens im Deadvlei",
+      "grade": 0,
+      "matched": [
+       "bild"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Der Rauch, der donnert",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "Himba-Kultur kennenlernen",
+    "language": "de",
+    "tokens": 3,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 1.0,
+    "lexical": 1.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "long multi-day backpacking through a gorge",
+    "language": "en",
+    "tokens": 7,
+    "negated": false,
+    "chosen": 0.8397235679107024,
+    "dense": 0.8028641094528696,
+    "lexical": 0.6258764478439752,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "mehrtägige Trekkingtour mit Rucksack",
+    "language": "de",
+    "tokens": 4,
+    "negated": false,
+    "chosen": 0.8899603164338973,
+    "dense": 0.8899603164338973,
+    "lexical": 0.0,
+    "promoted": [],
+    "displaced": []
+   },
+   {
+    "q": "whitewashed fort with a violent past",
+    "language": "en",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 1.0,
+    "dense": 1.0,
+    "lexical": 1.0,
+    "promoted": [
+     {
+      "name": "Stone church and a railway past",
+      "grade": 0,
+      "matched": [
+       "past"
+      ]
+     },
+     {
+      "name": "Bush walk on a private reserve",
+      "grade": 0,
+      "matched": [
+       "past"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Windhoek zwischen Vergangenheit und Gegenwart",
+      "grade": 0
+     },
+     {
+      "name": "Zu Fuß auf den Tafelberg",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "rhinos at night while sitting down",
+    "language": "en",
+    "tokens": 6,
+    "negated": false,
+    "chosen": 0.6811235677163552,
+    "dense": 0.7476986273872607,
+    "lexical": 0.41555462422718187,
+    "promoted": [
+     {
+      "name": "Sleeping out on the salt",
+      "grade": 0,
+      "matched": [
+       "night"
+      ]
+     },
+     {
+      "name": "Fly-in shipwreck expedition",
+      "grade": 0,
+      "matched": [
+       "night"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Die Kleinen Fünf der Wüste",
+      "grade": 0
+     },
+     {
+      "name": "Schwarzmähnenlöwen im Auob-Tal",
+      "grade": 0
+     }
+    ]
+   },
+   {
+    "q": "abends am Wasserloch sitzen und Nashörner sehen",
+    "language": "de",
+    "tokens": 7,
+    "negated": false,
+    "chosen": 0.8738076713177506,
+    "dense": 0.9490048483988982,
+    "lexical": 0.5669308506056828,
+    "promoted": [
+     {
+      "name": "Schwarzmähnenlöwen im Auob-Tal",
+      "grade": 0,
+      "matched": [
+       "sitz"
+      ]
+     }
+    ],
+    "displaced": [
+     {
+      "name": "Sundowner am Canyonrand",
+      "grade": 0
+     }
+    ]
+   }
+  ]
+ },
+ "groups": {
+  "coverage": {
+   "queries": 12,
+   "dense_minus_chosen": 0.03592761923555448,
+   "chosen": 0.41552710658225944,
+   "dense": 0.45145472581781393,
+   "lexical": 0.19619526852509483,
+   "tokens": 11.5,
+   "promoted_mean_grade": 0.13953488372093023,
+   "displaced_mean_grade": 0.7674418604651163,
+   "promoted": 43
+  },
+  "curated": {
+   "queries": 50,
+   "dense_minus_chosen": 0.039356887090957665,
+   "chosen": 0.75574241175012,
+   "dense": 0.7950992988410778,
+   "lexical": 0.46317928145501325,
+   "tokens": 5.52,
+   "promoted_mean_grade": 0.08256880733944955,
+   "displaced_mean_grade": 0.1743119266055046,
+   "promoted": 109
+  },
+  "negated": {
+   "queries": 5,
+   "dense_minus_chosen": 0.09738977164704847,
+   "chosen": 0.48113721484476396,
+   "dense": 0.5785269864918124,
+   "lexical": 0.28704469967289487,
+   "tokens": 10.0,
+   "promoted_mean_grade": 0.35714285714285715,
+   "displaced_mean_grade": 1.1428571428571428,
+   "promoted": 14
+  },
+  "negated, coverage": {
+   "queries": 4,
+   "dense_minus_chosen": 0.058250817098491565,
+   "chosen": 0.45048211727814286,
+   "dense": 0.5087329343766345,
+   "lexical": 0.19118848525044282,
+   "tokens": 10.75,
+   "promoted_mean_grade": 0.5,
+   "displaced_mean_grade": 1.2,
+   "promoted": 10
+  },
+  "negated, curated": {
+   "queries": 1,
+   "dense_minus_chosen": 0.25394558984127613,
+   "chosen": 0.6037576051112482,
+   "dense": 0.8577031949525243,
+   "lexical": 0.6704695573627031,
+   "tokens": 7.0,
+   "promoted_mean_grade": 0.0,
+   "displaced_mean_grade": 1.0,
+   "promoted": 4
+  },
+  "not negated, coverage": {
+   "queries": 8,
+   "dense_minus_chosen": 0.02476602030408593,
+   "chosen": 0.39804960123431776,
+   "dense": 0.42281562153840374,
+   "lexical": 0.19869866016242085,
+   "tokens": 11.875,
+   "promoted_mean_grade": 0.030303030303030304,
+   "displaced_mean_grade": 0.6363636363636364,
+   "promoted": 33
+  },
+  "under 6 words": {
+   "queries": 27,
+   "dense_minus_chosen": 0.046760076188317554,
+   "chosen": 0.73422977515048,
+   "dense": 0.7809898513387976,
+   "lexical": 0.38759209218278196,
+   "tokens": 4.148148148148148,
+   "promoted_mean_grade": 0.02857142857142857,
+   "displaced_mean_grade": 0.17142857142857143,
+   "promoted": 35
+  },
+  "6 to 8 words": {
+   "queries": 22,
+   "dense_minus_chosen": 0.02377300653719602,
+   "chosen": 0.7388518680027403,
+   "dense": 0.7626248745399363,
+   "lexical": 0.5401342520495767,
+   "tokens": 6.909090909090909,
+   "promoted_mean_grade": 0.1111111111111111,
+   "displaced_mean_grade": 0.18055555555555555,
+   "promoted": 72
+  },
+  "9 words or more": {
+   "queries": 13,
+   "dense_minus_chosen": 0.047188275728588525,
+   "chosen": 0.5149616031822978,
+   "dense": 0.5621498789108863,
+   "lexical": 0.24348978930969262,
+   "tokens": 11.538461538461538,
+   "promoted_mean_grade": 0.13333333333333333,
+   "displaced_mean_grade": 0.7333333333333333,
+   "promoted": 45
+  }
+ },
+ "length_vs_gain_spearman": 0.0353269599919054
+}

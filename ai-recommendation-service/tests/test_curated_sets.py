@@ -1,10 +1,12 @@
-"""The signed-off labels and the unreviewed ones have to stay apart, because decisions rest on only one of them."""
+"""The two signed-off query sets stay apart: the decisions rest on the first, and the second is reported on its own."""
 
 from pathlib import Path
 
+from eval.coverage_analysis import strip_negation
 from eval.curated import CURATED, NEEDS_REVIEW, REVIEWED_ON
 from eval.curated_coverage import CURATED_COVERAGE
 from eval.curated_coverage import NEEDS_REVIEW as COVERAGE_NEEDS_REVIEW
+from eval.curated_coverage import REVIEWED_ON as COVERAGE_REVIEWED_ON
 from eval.run_eval import curated_queries, load_tours, query_sets
 
 STILL_UNLABELLED = {"Tigerfish on the Zambezi", "Photo boat with swivel seats", "Stone church and a railway past"}
@@ -14,11 +16,12 @@ def labelled(source: list[tuple]) -> set[str]:
     return {name for *_, judgments in source for name in judgments}
 
 
-def test_the_reviewed_set_is_signed_off_and_the_new_one_is_not():
+def test_both_sets_are_signed_off():
     assert NEEDS_REVIEW is False
     assert REVIEWED_ON == "2026-11-06"
     assert len(CURATED) == 50
-    assert COVERAGE_NEEDS_REVIEW is True
+    assert COVERAGE_NEEDS_REVIEW is False
+    assert COVERAGE_REVIEWED_ON == "2026-11-06"
 
 
 def test_no_query_is_in_both_sets():
@@ -52,3 +55,11 @@ def test_coverage_is_reported_apart_and_stays_out_of_the_ci_gate():
     assert "CURATED_COVERAGE" not in gate.read_text(encoding="utf-8")
     assert '"coverage"' not in gate.read_text(encoding="utf-8")
     assert [q["q"] for q in curated_queries(tours)] == [query for _, _, query, _ in CURATED]
+
+
+def test_stripping_a_negation_keeps_what_is_wanted():
+    assert strip_negation("exploring the wild, not sitting in a safari car") == "exploring the wild"
+    assert strip_negation("die Wildnis erkunden, statt im Safariwagen zu sitzen") == "die Wildnis erkunden"
+    assert strip_negation("rocks without anything demanding") == "rocks"
+    assert strip_negation("dunes at sunrise") == "dunes at sunrise"
+    assert strip_negation("not a query with anything left") == "not a query with anything left"

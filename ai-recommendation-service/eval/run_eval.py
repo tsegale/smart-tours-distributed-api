@@ -343,7 +343,7 @@ def main() -> None:
         merged["queries"] |= results["queries"]
         for section in ("systems", "per_query"):
             for label, by_set in results[section].items():
-                merged[section][label] |= by_set
+                merged[section].setdefault(label, {}).update(by_set)
         results = merged
     args.out.write_text(json.dumps(results, indent=1))
     print("wrote", args.out)

@@ -14,7 +14,10 @@ from .metrics import paired_difference_ci
 
 RESULTS = Path(__file__).with_name("results")
 DOCS = Path(__file__).resolve().parents[2] / "docs" / "benchmarks"
-CHOSEN = "hybrid+parser:paraphrase-ml-int8:w0.5"
+SHIPPED = "paraphrase-ml-uint8"
+OLD = "paraphrase-ml-int8"  # shipped until issue #10: its quality depended on the CPU
+CHOSEN = f"hybrid+parser:{SHIPPED}:w0.5"
+OLD_CHOSEN = f"hybrid+parser:{OLD}:w0.5"
 SETS = ("curated", "rule", "known")
 
 
@@ -29,7 +32,7 @@ def interval(triple: list[float]) -> str:
 def shapes_row(models: dict, before: dict, label: str, name: str | None = None) -> str:
     """Latency comes from the earlier run: labels can't change it, and the later run shared a busy laptop."""
     row = models["systems"][label]
-    timing = before["systems"][label]
+    timing = before["systems"].get(label) or row["curated"]
     cells = " | ".join(interval(row[s]["ndcg"]) for s in SETS)
     return f"| {name or label} | {cells} | {timing['ms_p50']:.0f} / {timing['ms_p95']:.0f} |"
 
@@ -40,27 +43,33 @@ def table(header: list[str], rows: list[str]) -> str:
 
 MODES = [
     ("lexical", "Lexical only"),
-    ("dense:paraphrase-ml-int8", "Dense only"),
-    ("hybrid:paraphrase-ml-int8:k60", "Hybrid, equal weights, k = 60"),
-    ("hybrid:paraphrase-ml-int8:k10", "Hybrid, equal weights, k = 10"),
-    ("hybrid:paraphrase-ml-int8:w0.5", "Hybrid, lexical weight 0.5"),
-    ("dense+parser:paraphrase-ml-int8", "Dense + parser"),
-    ("hybrid+parser:paraphrase-ml-int8", "Hybrid + parser, equal weights"),
+    (f"dense:{SHIPPED}", "Dense only"),
+    (f"hybrid:{SHIPPED}:k60", "Hybrid, equal weights, k = 60"),
+    (f"hybrid:{SHIPPED}:k10", "Hybrid, equal weights, k = 10"),
+    (f"hybrid:{SHIPPED}:w0.5", "Hybrid, lexical weight 0.5"),
+    (f"dense+parser:{SHIPPED}", "Dense + parser"),
+    (f"hybrid+parser:{SHIPPED}", "Hybrid + parser, equal weights"),
     (CHOSEN, "**Hybrid + parser, lexical weight 0.5 (chosen)**"),
-    ("hybrid+parser+rerank:paraphrase-ml-int8:en-de-l6-int8", "... + EN-DE cross-encoder"),
-    ("hybrid+parser+rerank:paraphrase-ml-int8:ms-marco-l6-int8", "... + EN cross-encoder"),
+    (f"hybrid+parser+rerank:{SHIPPED}:en-de-l6-int8", "... + EN-DE cross-encoder"),
+    (f"hybrid+parser+rerank:{SHIPPED}:ms-marco-l6-int8", "... + EN cross-encoder"),
 ]
 COMPARED = [
     ("lexical", "Lexical only"),
-    ("dense+parser:paraphrase-ml-int8", "Dense + parser"),
-    ("hybrid+parser:paraphrase-ml-int8", "Equal weights"),
-    ("hybrid+parser+rerank:paraphrase-ml-int8:en-de-l6-int8", "With EN-DE cross-encoder"),
-    ("hybrid+parser+rerank:paraphrase-ml-int8:ms-marco-l6-int8", "With EN cross-encoder"),
-    ("hybrid+parser:paraphrase-ml:w0.5", "Float instead of int8"),
+    (f"dense+parser:{SHIPPED}", "Dense + parser"),
+    (f"hybrid+parser:{SHIPPED}", "Equal weights"),
+    (f"hybrid+parser+rerank:{SHIPPED}:en-de-l6-int8", "With EN-DE cross-encoder"),
+    (f"hybrid+parser+rerank:{SHIPPED}:ms-marco-l6-int8", "With EN cross-encoder"),
+    ("hybrid+parser:paraphrase-ml:w0.5", "Float instead of U8U8"),
+    (OLD_CHOSEN, "The previous int8 file, on a VNNI CPU"),
     ("hybrid+parser:e5-small-int8:w0.5", "e5-small int8"),
     ("hybrid+parser:bge-small-en:w0.5", "bge-small-en"),
     ("hybrid+parser:minilm-l6:w0.5", "all-MiniLM-L6-v2"),
 ]
+
+
+def _old(label: str) -> str:
+    """The same system on the int8 file: what the label reviews were measured on."""
+    return label.replace(SHIPPED, OLD)
 
 
 def verdict(low: float, high: float) -> str:
@@ -90,7 +99,9 @@ def review(models: dict, before: dict) -> str:
     """Every system's curated score under Claude's labels and the owner's. Other sets' labels didn't change: checked."""
     rows = []
     for label, row in models["systems"].items():
-        old = before["systems"][label]
+        old = before["systems"].get(label)
+        if old is None:
+            continue  # a model added after the review
         for set_name in ("rule", "known"):
             if abs(row[set_name]["ndcg"][0] - old[set_name]) > 1e-9:
                 raise SystemExit(f"{label} {set_name} moved, and its labels didn't: this isn't only the review")
@@ -105,8 +116,8 @@ def _difference(per_query: dict, label: str, reference: str) -> tuple[float, flo
 
 def decisions(models: dict, before: dict) -> str:
     """Each decision's comparison on the curated set, under both sets of labels, as a paired difference."""
-    k_label, k_reference = "hybrid:paraphrase-ml-int8:k10", "hybrid:paraphrase-ml-int8:k60"
-    comparisons = [(label, name, CHOSEN) for label, name in COMPARED]
+    k_label, k_reference = f"hybrid:{OLD}:k10", f"hybrid:{OLD}:k60"
+    comparisons = [(_old(label), name, OLD_CHOSEN) for label, name in COMPARED if label != OLD_CHOSEN]
     comparisons.append((k_label, "k = 10 against k = 60, equal weights", k_reference))
     rows = []
     for label, name, reference in comparisons:
@@ -117,7 +128,7 @@ def decisions(models: dict, before: dict) -> str:
             f"| {name} | {old[0]:+.3f}, {verdict(*old[1:])} | "
             f"{new[0]:+.3f} [{new[1]:+.3f}, {new[2]:+.3f}], {verdict(*new[1:])} | {changed} |"
         )
-    return table(["Against the chosen system", "Before", "After", "Verdict changed"], rows)
+    return table(["Against the system chosen then", "Before", "After", "Verdict changed"], rows)
 
 
 def coverage(models: dict) -> str:
@@ -131,13 +142,143 @@ def coverage(models: dict) -> str:
     return table(["System", "nDCG@10", "EN", "DE", "Recall@20"], rows)
 
 
+def coverage_review(models: dict, before: dict) -> str:
+    """Every system's coverage score under Claude's labels and the owner's, on the int8 file both were measured on."""
+    rows = []
+    for label, old in before["systems"].items():
+        new = models["systems"][label]["coverage"]["ndcg"]
+        rows.append(f"| {label} | {old['ndcg'][0]:.3f} | {interval(new)} | {new[0] - old['ndcg'][0]:+.3f} |")
+    return table(["System", "Before", "After [95% CI]", "Change"], rows)
+
+
+def _pair(values: list[float]) -> str:
+    return f"{values[0]:+.3f} [{values[1]:+.3f}, {values[2]:+.3f}], {verdict(*values[1:])}"
+
+
+def coverage_gap(models: dict, before: dict, old: dict, new: dict) -> str:
+    """Does dense's lead over the chosen system survive the review? On coverage, and on the 50 reviewed queries."""
+    rows = []
+    for name, candidate, label in (
+        ("Dense, no parser", "dense, no parser", "dense:"),
+        ("Dense + parser", "dense + parser (no lexical list)", "dense+parser:"),
+    ):
+        rows.append(
+            f"| {name} | {_pair(before['paired'][label + OLD])} | "
+            f"{_pair(old['summary'][candidate]['coverage']['paired'])} | "
+            f"{_pair(new['summary'][candidate]['coverage']['paired'])} | "
+            f"{_pair(new['summary'][candidate]['curated']['paired'])} |"
+        )
+    header = [
+        "Minus the chosen system",
+        "Coverage, Claude's labels, int8",
+        "Coverage, owner's labels, int8",
+        "Coverage, owner's labels, U8U8",
+        "The 50 reviewed queries, U8U8",
+    ]
+    return table(header, rows)
+
+
+def coverage_queries(analysis: dict) -> str:
+    rows = []
+    for row in analysis["detail"]["coverage"]:
+        words = sorted({word for tour in row["promoted"] for word in tour["matched"]})
+        promoted = [tour["grade"] for tour in row["promoted"]]
+        displaced = [tour["grade"] for tour in row["displaced"]]
+        rows.append(
+            f"| {row['q']} | {row['tokens']} | {'yes' if row['negated'] else ''} | {row['chosen']:.3f} | "
+            f"{row['dense']:.3f} | {row['chosen'] - row['dense']:+.3f} | {row['lexical']:.3f} | "
+            f"{', '.join(map(str, promoted))} | "
+            f"{', '.join(map(str, displaced))} | {', '.join(words)} |"
+        )
+    header = [
+        "Query",
+        "Words",
+        "Negated",
+        "Chosen",
+        "Dense + parser",
+        "Lexical's effect",
+        "Lexical alone",
+        "Grades it pushed in",
+        "Grades it pushed out",
+        "Words that matched",
+    ]
+    return table(header, rows)
+
+
+def coverage_groups(analysis: dict) -> str:
+    def grade(value) -> str:
+        return "-" if value is None else f"{value:.2f}"
+
+    rows = [
+        f"| {name} | {g['queries']} | {g['tokens']:.1f} | {g['chosen']:.3f} | {g['dense']:.3f} | "
+        f"{g['dense_minus_chosen']:+.3f} | {g['promoted']} | {grade(g['promoted_mean_grade'])} | "
+        f"{grade(g['displaced_mean_grade'])} |"
+        for name, g in analysis["groups"].items()
+    ]
+    header = [
+        "Queries",
+        "n",
+        "Mean words",
+        "Chosen",
+        "Dense + parser",
+        "Dense minus chosen",
+        "Tours lexical pushed in",
+        "Their mean grade",
+        "Mean grade of those pushed out",
+    ]
+    return table(header, rows)
+
+
+def coverage_candidates(analysis: dict) -> str:
+    rows = []
+    for name, by_set in analysis["summary"].items():
+        cells = []
+        for set_name in ("curated", "coverage", "rule", "known", "long titles"):
+            cell = by_set[set_name]
+            text = f"{cell['ndcg'][0]:.3f}"
+            if "paired" in cell:
+                text += f", {_pair(cell['paired'])}"
+            cells.append(text)
+        rows.append(f"| {name} | " + " | ".join(cells) + " |")
+    return table(["Candidate", "Curated", "Coverage", "Rule", "Known", "Long titles"], rows)
+
+
+def drift(summary: dict) -> str:
+    def cell(values: list[float]) -> str:
+        return " to ".join(f"{value:.4f}" for value in values) if len(values) > 1 else f"{values[0]:.4f}"
+
+    rows = []
+    for name, row in summary["variants"].items():
+        yes, no = row["vnni"], row["no_vnni"]
+        rows.append(
+            f"| {name} | {cell(yes['chosen_ndcg'])} | {cell(no['chosen_ndcg'])} | {cell(yes['gate_ndcg'])} | "
+            f"{cell(no['gate_ndcg'])} | {row['cross_cpu_cosine_mean']:.5f} / {row['cross_cpu_cosine_min']:.5f} | "
+            f"{no['cosine_to_float_min']:.4f} | {_pair(yes['chosen_vs_float'])} | {_pair(no['chosen_vs_float'])} | "
+            f"{yes['query_ms_p50']:.1f} / {no['query_ms_p50']:.1f} |"
+        )
+    header = [
+        "Variant",
+        "Chosen system, VNNI",
+        "Chosen system, no VNNI",
+        "Gate, VNNI",
+        "Gate, no VNNI",
+        "Cosine across CPUs, mean / min",
+        "Worst cosine to float, no VNNI",
+        "Against float, VNNI",
+        "Against float, no VNNI",
+        "Query ms p50, VNNI / no VNNI",
+    ]
+    return table(header, rows)
+
+
 def models_table(models: dict, footprint: dict) -> str:
     rows = []
     files = {
         "minilm-l6": ("all-MiniLM-L6-v2", "EN", 90),
         "bge-small-en": ("bge-small-en-v1.5", "EN", 133),
         "paraphrase-ml": ("paraphrase-multilingual-MiniLM-L12-v2", "50", 470),
-        "paraphrase-ml-int8": ("same, int8", "50", 118),
+        OLD: ("same, previous int8 file", "50", 118),
+        SHIPPED: ("same, U8U8 (shipped)", "50", 118),
         "e5-small-int8": ("multilingual-e5-small, int8", "94", 118),
     }
     for key, (name, languages, megabytes) in files.items():
@@ -235,6 +376,9 @@ def fill(path: Path, tables: dict[str, str]) -> None:
 def main() -> None:
     models = load("models.json")
     before = load("curated_before_review.json")
+    coverage_before = load("coverage_before_review.json")
+    analysis = load("coverage_analysis.json")
+    analysis_old = load("coverage_analysis_old_int8.json")
     lines = (RESULTS / "footprint.jsonl").read_text(encoding="utf-8").splitlines()
     footprint_rows = [json.loads(line) for line in lines if line.strip()]
     onnx = {row["model"]: row for row in footprint_rows if row["runtime"] == "onnx"}
@@ -246,6 +390,12 @@ def main() -> None:
             "review": review(models, before),
             "decisions": decisions(models, before),
             "coverage": coverage(models),
+            "coverage-review": coverage_review(models, coverage_before),
+            "coverage-gap": coverage_gap(models, coverage_before, analysis_old, analysis),
+            "coverage-queries": coverage_queries(analysis),
+            "coverage-groups": coverage_groups(analysis),
+            "coverage-candidates": coverage_candidates(analysis),
+            "drift": drift(load("cpu_survey.json")),
             "models": models_table(models, onnx),
             "runtimes": runtimes(footprint_rows),
         },
