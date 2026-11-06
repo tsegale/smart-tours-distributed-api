@@ -25,7 +25,7 @@ from .gazetteer import load_csv
 from .itinerary.service import Event, ItineraryQuery, PlannerConfig, plan_itinerary
 from .itinerary.validator import Constraints
 from .llm import LLMClient, get_llm_client
-from .model_registry import ensure_active, get_registry
+from .model_registry import check_configured_revisions, ensure_active, get_registry
 from .personalisation import recommend_for
 from .query_parser import QueryParser
 from .quota import TokenQuota, get_quota
@@ -54,6 +54,7 @@ def get_parser() -> QueryParser:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    check_configured_revisions(get_settings())
     with SessionLocal() as db, db.begin():
         ensure_active(db, get_settings().embedding_model)
     # Load everything once at startup, not on the first request.

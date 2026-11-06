@@ -12,6 +12,7 @@ import hashlib
 import json
 import statistics
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -29,19 +30,24 @@ from .curated_coverage import CURATED_COVERAGE
 from .metrics import ndcg_at, paired_difference_ci, recall_at
 from .run_eval import curated_queries, embed_corpus, load_read_model, load_tours
 
-REPO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 FLOAT = "paraphrase-ml"
 OLD = "paraphrase-ml-int8"
 LOCAL = "local:"
+
+
+def _candidate(filename: str) -> ModelSpec:
+    """Built from the float model by eval/quantize_candidates.py, so there is no published hash to pin it to."""
+    return replace(MODELS[FLOAT], onnx_file=LOCAL + filename, onnx_sha256=None)
+
+
 VARIANTS = {
     FLOAT: None,
     OLD: None,
     "paraphrase-ml-uint8": None,  # what ships
-    # Built from the float model by eval/quantize_candidates.py.
-    "qint8-rr": ModelSpec(REPO, LOCAL + "qint8-rr.onnx", max_length=128),
-    "qint8-rr-pc": ModelSpec(REPO, LOCAL + "qint8-rr-pc.onnx", max_length=128),
-    "quint8": ModelSpec(REPO, LOCAL + "quint8.onnx", max_length=128),
-    "quint8-pc": ModelSpec(REPO, LOCAL + "quint8-pc.onnx", max_length=128),
+    "qint8-rr": _candidate("qint8-rr.onnx"),
+    "qint8-rr-pc": _candidate("qint8-rr-pc.onnx"),
+    "quint8": _candidate("quint8.onnx"),
+    "quint8-pc": _candidate("quint8-pc.onnx"),
 }
 LATENCY_PASSES = 3
 

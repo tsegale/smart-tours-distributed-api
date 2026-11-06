@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     embedding_runtime: str = "onnx"
     embedding_model: str = "paraphrase-ml-uint8"  # a key of embeddings.MODELS; the database's active model outranks it
     embedding_dimension: int = 384
+    # The deployment's statement of what it expects. Empty: trust the pin in code. Set: startup refuses a mismatch.
+    embedding_model_revision: str = ""
 
     rrf_k: int = 60
     default_near_radius_km: float = 100.0
@@ -20,6 +22,7 @@ class Settings(BaseSettings):
     # Cross-encoder re-ranking, a key of reranker.RERANKERS. Empty: off.
     rerank_model: str = ""
     rerank_depth: int = 50
+    rerank_model_revision: str = ""  # as embedding_model_revision
 
     # Itinerary planner (ADR 0021). No provider: deterministic plans only, and no key is needed anywhere.
     llm_provider: str = ""  # "", "anthropic", "openai" (any compatible endpoint, Ollama included) or "fake"

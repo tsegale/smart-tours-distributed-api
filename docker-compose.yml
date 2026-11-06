@@ -410,7 +410,10 @@ services:
       # Decided by evaluation: docs/benchmarks/search-quality.md. A cutover needs no change here (the database's active
       # model outranks it): docs/runbooks/embedding-model-migration.md.
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-paraphrase-ml-uint8}
+      # Must match the pin in app/embeddings.py, or the service refuses to start. Change them together, after evaluating.
+      EMBEDDING_MODEL_REVISION: ${EMBEDDING_MODEL_REVISION:-e8f8c211226b894fcb81acc59f3b34ba3efd5f42}
       RERANK_MODEL: ${RERANK_MODEL:-}
+      RERANK_MODEL_REVISION: ${RERANK_MODEL_REVISION:-}
       REDIS_URL: redis://redis:6379/1
       # Empty: deterministic itineraries, and no key is needed anywhere (ADR 0021).
       LLM_PROVIDER: ${LLM_PROVIDER:-}

@@ -25,7 +25,7 @@ from pika.exceptions import AMQPConnectionError, ChannelClosedByBroker
 from .config import Settings, get_settings
 from .database import SessionLocal
 from .messages import PoisonMessageError, handle_event
-from .model_registry import ensure_active, get_registry
+from .model_registry import check_configured_revisions, ensure_active, get_registry
 from .telemetry import configure_logging, configure_telemetry
 
 log = logging.getLogger("ai.worker")
@@ -128,6 +128,7 @@ def run() -> None:
     configure_logging("ai-worker")
     configure_telemetry("ai-worker")
     settings = get_settings()
+    check_configured_revisions(settings)
     # Before the model: a first start can spend minutes downloading it, and events published with no queue are lost.
     declare_before_loading(settings)
     registry = get_registry()

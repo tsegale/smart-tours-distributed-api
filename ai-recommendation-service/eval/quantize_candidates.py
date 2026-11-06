@@ -3,10 +3,11 @@
 import sys
 from pathlib import Path
 
-from huggingface_hub import hf_hub_download
 from onnxruntime.quantization import QuantType, quantize_dynamic
 
-REPO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+from app.embeddings import MODELS
+from app.model_files import pinned_file
+
 CANDIDATES = {
     "qint8-rr": {"weight_type": QuantType.QInt8, "reduce_range": True},
     "qint8-rr-pc": {"weight_type": QuantType.QInt8, "reduce_range": True, "per_channel": True},
@@ -16,7 +17,8 @@ CANDIDATES = {
 
 
 def main(directory: str) -> None:
-    source = hf_hub_download(REPO, "onnx/model.onnx")
+    spec = MODELS["paraphrase-ml"]
+    source = pinned_file(spec.repo, spec.onnx_file, spec.revision, spec.onnx_sha256)
     out = Path(directory)
     out.mkdir(parents=True, exist_ok=True)
     for name, options in CANDIDATES.items():

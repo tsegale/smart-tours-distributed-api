@@ -44,7 +44,7 @@ def main() -> None:
     if args.runtime == "onnx":
         embedder = OnnxEmbedder(args.model, spec)
     else:
-        embedder = SentenceTransformerEmbedder(spec.repo, 384, spec.query_prefix, spec.document_prefix)
+        embedder = SentenceTransformerEmbedder(spec.repo, 384, spec.query_prefix, spec.document_prefix, spec.revision)
     embedder.warm_up()
     load_s = time.perf_counter() - began
     loaded = process.memory_info().rss

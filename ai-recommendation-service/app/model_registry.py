@@ -23,9 +23,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from . import repository
-from .config import get_settings
+from .config import Settings, get_settings
 from .database import SessionLocal
 from .embeddings import MODELS, Embedder, OnnxEmbedder, document_text
+from .reranker import RERANKERS
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,22 @@ _OUTSTANDING = """
 
 class CutoverRefusedError(Exception):
     pass
+
+
+class RevisionMismatchError(RuntimeError):
+    pass
+
+
+def check_configured_revisions(settings: Settings) -> None:
+    """Config and code must agree on a model's revision. A change of revision comes with a new hash and an evaluation,
+    so config can't override it: it can only say what this deployment expects, and stop if that isn't what would run."""
+    expected = [(settings.embedding_model, settings.embedding_model_revision, MODELS)]
+    if settings.rerank_model:
+        expected.append((settings.rerank_model, settings.rerank_model_revision, RERANKERS))
+    for name, revision, specs in expected:
+        pinned = specs[name].revision
+        if revision and revision != pinned:
+            raise RevisionMismatchError(f"{name} is configured at {revision}, but pinned in code at {pinned}")
 
 
 def ensure_active(db: Session, default_model: str) -> None:

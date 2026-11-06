@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from .config import get_settings
+from .model_files import pinned_file
 
 log = logging.getLogger(__name__)
 
@@ -14,12 +15,48 @@ log = logging.getLogger(__name__)
 class RerankerSpec:
     repo: str
     onnx_file: str
+    revision: str
+    onnx_sha256: str
+    tokenizer_sha256: str
     max_length: int = 256
 
 
+_MS_MARCO = ("cross-encoder/ms-marco-MiniLM-L-6-v2", "233902d25c440f23af6f7d6e94d2946bac0bee0a")
+_MS_MARCO_TOKENIZER = "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+_EN_DE = ("cross-encoder/msmarco-MiniLM-L6-en-de-v1", "9eb610d90d409cfefb7422e13debd405f8465af6")
+_EN_DE_TOKENIZER = "96ef91dd5d1c3b157a0437e85ff1f29d0eb3cf32fd40f863dab45baa5e839fad"
+_INT8 = "onnx/model_qint8_avx512_vnni.onnx"
+_UINT8 = "onnx/model_quint8_avx2.onnx"
+
 RERANKERS = {
-    "ms-marco-l6-int8": RerankerSpec("cross-encoder/ms-marco-MiniLM-L-6-v2", "onnx/model_qint8_avx512_vnni.onnx"),
-    "en-de-l6-int8": RerankerSpec("cross-encoder/msmarco-MiniLM-L6-en-de-v1", "onnx/model_qint8_avx512_vnni.onnx"),
+    "ms-marco-l6-int8": RerankerSpec(
+        _MS_MARCO[0],
+        _INT8,
+        _MS_MARCO[1],
+        "3573b6b9593cb2f75987a31815d409ca3dd8808629118fd20451bb1a5d90cec7",
+        _MS_MARCO_TOKENIZER,
+    ),
+    "ms-marco-l6-uint8": RerankerSpec(
+        _MS_MARCO[0],
+        _UINT8,
+        _MS_MARCO[1],
+        "c80a8b34256ea453093d612e3ac48d3d965a0c0a48c7906709af8b8e28461bf9",
+        _MS_MARCO_TOKENIZER,
+    ),
+    "en-de-l6-int8": RerankerSpec(
+        _EN_DE[0],
+        _INT8,
+        _EN_DE[1],
+        "bee1436cd1041bab174dd26d9cb1a7795ad14df79e55f8b9e4f538c96efa9b21",
+        _EN_DE_TOKENIZER,
+    ),
+    "en-de-l6-uint8": RerankerSpec(
+        _EN_DE[0],
+        _UINT8,
+        _EN_DE[1],
+        "5d849b007fb3975d130f6f476eea9977980f5f260cbef8b0c4ba00efac67f1ab",
+        _EN_DE_TOKENIZER,
+    ),
 }
 
 
@@ -34,16 +71,19 @@ class OnnxCrossEncoder:
         if self._session is not None:
             return
         import onnxruntime
-        from huggingface_hub import hf_hub_download
         from tokenizers import Tokenizer
 
+        spec = self._spec
         onnxruntime.disable_telemetry_events()
-        log.info("Loading reranker %s", self.name)
+        log.info("Loading reranker %s at %s", self.name, spec.revision)
         self._session = onnxruntime.InferenceSession(
-            hf_hub_download(self._spec.repo, self._spec.onnx_file), providers=["CPUExecutionProvider"]
+            pinned_file(spec.repo, spec.onnx_file, spec.revision, spec.onnx_sha256),
+            providers=["CPUExecutionProvider"],
         )
         self._inputs = {i.name for i in self._session.get_inputs()}
-        self._tokenizer = Tokenizer.from_file(hf_hub_download(self._spec.repo, "tokenizer.json"))
+        self._tokenizer = Tokenizer.from_file(
+            pinned_file(spec.repo, "tokenizer.json", spec.revision, spec.tokenizer_sha256)
+        )
         self._tokenizer.enable_truncation(max_length=self._spec.max_length)
         self._tokenizer.enable_padding()
 
