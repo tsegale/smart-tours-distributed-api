@@ -7,7 +7,7 @@ No LLM, no paid API. Run from ai-recommendation-service, with DATABASE_URL point
     python -m eval.regression              compare with eval/baseline.json, exit 1 on a regression
     python -m eval.regression --update     rewrite the baseline, for a change that is meant to move it
 
-The tolerance exists for arithmetic differences between CPUs, not to forgive a slide: quality moves in the baseline's
+The tolerance is the measured difference between CPUs, not an allowance for a slide: quality moves in the baseline's
 diff, where a reviewer can see it.
 """
 
@@ -28,16 +28,9 @@ from .metrics import ndcg_at, recall_at
 from .run_eval import curated_queries, embed_corpus, load_read_model, load_tours
 
 BASELINE = Path(__file__).with_name("baseline.json")
-TOLERANCE = 0.005
-DRIFT_ISSUE = "https://github.com/tsegale/smart-tours-distributed-api/issues/10"
-
-
-def drift_notice(failures: list[str]) -> list[str]:
-    """Vector scores have differed between runners on one commit, so say so until that's fixed. Lexical can't drift."""
-    if not any(failure.startswith("hybrid") for failure in failures):
-        return []
-    message = f"possible CPU-dependent int8 drift; see issue {DRIFT_ISSUE}"
-    return [message, f"::error title=Retrieval gate::{message}"]
+# The shipped model's largest spread between CPUs on any gate metric is 0.0050 (eval/results/cpu_survey.json, issue
+# #10), and every job on one side of VNNI agrees exactly. Re-measure before changing the model or ONNX Runtime.
+TOLERANCE = 0.006
 
 
 def measure(model: str) -> dict:
@@ -88,8 +81,6 @@ def main() -> int:
     ]
     for failure in failures:
         print("REGRESSION", failure, file=sys.stderr)
-    for line in drift_notice(failures):
-        print(line, file=sys.stderr)
     return 1 if failures else 0
 
 

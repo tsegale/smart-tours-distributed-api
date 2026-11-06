@@ -1,12 +1,12 @@
 {
- "model": "paraphrase-ml-int8",
+ "model": "paraphrase-ml-uint8",
  "queries": 50,
  "lexical": {
   "ndcg@10": 0.4585,
   "recall@20": 0.472
  },
  "hybrid": {
-  "ndcg@10": 0.7635,
-  "recall@20": 0.9193
+  "ndcg@10": 0.7725,
+  "recall@20": 0.93
  }
 }

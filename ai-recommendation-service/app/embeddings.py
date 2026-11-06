@@ -75,6 +75,12 @@ MODELS = {
         "onnx/model_qint8_avx512_vnni.onnx",
         max_length=128,
     ),
+    # What runs. U8U8 weights, because the int8 file above loses quality on a CPU without VNNI: issue #10, ADR 0020.
+    "paraphrase-ml-uint8": ModelSpec(
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        "onnx/model_quint8_avx2.onnx",
+        max_length=128,
+    ),
     "e5-small": ModelSpec(
         "intfloat/multilingual-e5-small",
         "onnx/model.onnx",

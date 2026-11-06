@@ -1,9 +1,8 @@
 # Issue #10: do the embedding model's scores depend on the CPU? Hosted runners differ, so many parallel jobs sample them.
+# By hand: run it before changing the model or ONNX Runtime, because the gate's tolerance comes from what it finds.
 name: int8 CPU survey
 
 on:
-  push:
-    branches: [ci/int8-cpu-survey]
   workflow_dispatch:
 
 permissions:

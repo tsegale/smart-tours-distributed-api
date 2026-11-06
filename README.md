@@ -118,20 +118,21 @@ curl -s localhost:8080/api/ai/itineraries -H "Authorization: Bearer $CUSTOMER" -
 curl -s localhost:8080/api/ai/recommendations/me -H "Authorization: Bearer $CUSTOMER"
 ```
 
-What the evaluation decided, as nDCG@10 with `paraphrase-multilingual-MiniLM-L12-v2` (int8, ONNX) on three query shapes:
+What the evaluation decided, as nDCG@10 with `paraphrase-multilingual-MiniLM-L12-v2` (U8U8, ONNX) on three query shapes:
 
 | Retrieval | Vague description | Filter phrases | Exact name |
 | --- | --- | --- | --- |
 | Lexical only | 0.459 | 0.476 | 0.876 |
-| Dense + query understanding | 0.795 | 0.898 | 0.571 |
-| Hybrid + query understanding, equal weights | 0.730 | 0.836 | 0.885 |
-| **Hybrid + query understanding, lexical weight 0.5 (chosen)** | **0.756** | **0.886** | **0.861** |
+| Dense + query understanding | 0.781 | 0.895 | 0.577 |
+| Hybrid + query understanding, equal weights | 0.736 | 0.830 | 0.902 |
+| **Hybrid + query understanding, lexical weight 0.5 (chosen)** | **0.752** | **0.880** | **0.878** |
 
 | Runtime, same model | Resident memory | Query p50 | Image |
 | --- | --- | --- | --- |
 | PyTorch | 901 MB | 18.0 ms | 2.16 GB |
 | ONNX | 823 MB | 7.6 ms | |
-| **ONNX int8 (chosen)** | **489 MB** | **3.7 ms** | **615 MB** |
+| ONNX int8, first choice: lost quality without VNNI | 489 MB | 3.7 ms | 615 MB |
+| **ONNX U8U8 (chosen)** | **490 MB** | **10 to 25% slower than int8, on shared runners** | **615 MB** |
 
 - **Hybrid retrieval in one SQL statement** ([ADR 0019](docs/adr/0019-hybrid-retrieval-with-rrf-in-one-sql-statement.md)): pgvector,
   full-text search and PostGIS over the same filters, fused by reciprocal rank. The first results said dense search beat hybrid. A

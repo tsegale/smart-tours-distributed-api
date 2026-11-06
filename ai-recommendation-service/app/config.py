@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # Decided by evaluation (ADR 0020, docs/benchmarks/search-quality.md). "torch" needs requirements-torch.txt.
     embedding_runtime: str = "onnx"
-    embedding_model: str = "paraphrase-ml-int8"  # a key of embeddings.MODELS; the database's active model outranks it
+    embedding_model: str = "paraphrase-ml-uint8"  # a key of embeddings.MODELS; the database's active model outranks it
     embedding_dimension: int = 384
 
     rrf_k: int = 60

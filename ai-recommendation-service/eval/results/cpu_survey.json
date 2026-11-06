@@ -1,0 +1,517 @@
+{
+ "jobs": {
+  "vnni": 10,
+  "no_vnni": 2
+ },
+ "cpus": [
+  "AMD EPYC 7763 64-Core Processor, VNNI False, AVX-512 False",
+  "AMD EPYC 9V45 96-Core Processor, VNNI True, AVX-512 True",
+  "AMD EPYC 9V74 80-Core Processor, VNNI True, AVX-512 True",
+  "INTEL(R) XEON(R) PLATINUM 8573C, VNNI True, AVX-512 True",
+  "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz, VNNI True, AVX-512 True"
+ ],
+ "variants": {
+  "paraphrase-ml": {
+   "vnni": {
+    "gate_ndcg": [
+     0.7687
+    ],
+    "gate_recall": [
+     0.9227
+    ],
+    "chosen_ndcg": [
+     0.749
+    ],
+    "coverage_ndcg": [
+     0.43
+    ],
+    "known_ndcg": [
+     0.8635
+    ],
+    "cosine_to_float_mean": 0.9999999912839538,
+    "cosine_to_float_min": 0.9999998589585688,
+    "query_ms_p50": 3.9712292500020396,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "coverage_vs_float": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "no_vnni": {
+    "gate_ndcg": [
+     0.7687
+    ],
+    "gate_recall": [
+     0.9227
+    ],
+    "chosen_ndcg": [
+     0.749
+    ],
+    "coverage_ndcg": [
+     0.43
+    ],
+    "known_ndcg": [
+     0.8635
+    ],
+    "cosine_to_float_mean": 0.9999999902380495,
+    "cosine_to_float_min": 0.9999998589585688,
+    "query_ms_p50": 5.174134249990914,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "coverage_vs_float": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "cross_cpu_cosine_mean": 0.9999999999997113,
+   "cross_cpu_cosine_min": 0.9999999999970063,
+   "gate_ndcg_gap": 0.0,
+   "chosen_ndcg_gap": 0.0,
+   "coverage_ndcg_gap": 0.0,
+   "known_ndcg_gap": 0.0
+  },
+  "paraphrase-ml-int8": {
+   "vnni": {
+    "gate_ndcg": [
+     0.7635
+    ],
+    "gate_recall": [
+     0.9193
+    ],
+    "chosen_ndcg": [
+     0.7557
+    ],
+    "coverage_ndcg": [
+     0.4155
+    ],
+    "known_ndcg": [
+     0.8613
+    ],
+    "cosine_to_float_mean": 0.9959533392616945,
+    "cosine_to_float_min": 0.9674867437073088,
+    "query_ms_p50": 2.1454687500011005,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     0.006740325561859999,
+     -0.010186495108191522,
+     0.02581569597384164
+    ],
+    "coverage_vs_float": [
+     -0.014492331803429341,
+     -0.028645130339942138,
+     -0.003243541673068918
+    ]
+   },
+   "no_vnni": {
+    "gate_ndcg": [
+     0.7558
+    ],
+    "gate_recall": [
+     0.911
+    ],
+    "chosen_ndcg": [
+     0.7399
+    ],
+    "coverage_ndcg": [
+     0.427
+    ],
+    "known_ndcg": [
+     0.8635
+    ],
+    "cosine_to_float_mean": 0.9809524429573877,
+    "cosine_to_float_min": 0.8821425577728434,
+    "query_ms_p50": 3.6413572499967017,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.009121716707230968,
+     -0.026178460608138186,
+     0.0073743421169388534
+    ],
+    "coverage_vs_float": [
+     -0.002976504429534501,
+     -0.02424655543946594,
+     0.020988706943672775
+    ]
+   },
+   "cross_cpu_cosine_mean": 0.9814316904196982,
+   "cross_cpu_cosine_min": 0.8790715309452232,
+   "gate_ndcg_gap": -0.007699999999999929,
+   "chosen_ndcg_gap": -0.015800000000000036,
+   "coverage_ndcg_gap": 0.01150000000000001,
+   "known_ndcg_gap": 0.0022000000000000908
+  },
+  "paraphrase-ml-uint8": {
+   "vnni": {
+    "gate_ndcg": [
+     0.7725
+    ],
+    "gate_recall": [
+     0.93
+    ],
+    "chosen_ndcg": [
+     0.7516
+    ],
+    "coverage_ndcg": [
+     0.4173
+    ],
+    "known_ndcg": [
+     0.8783
+    ],
+    "cosine_to_float_mean": 0.995560726704152,
+    "cosine_to_float_min": 0.9511540739151352,
+    "query_ms_p50": 2.5127059999938695,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     0.002644561116151719,
+     -0.008365464914590122,
+     0.015085582398555251
+    ],
+    "coverage_vs_float": [
+     -0.012750153052551595,
+     -0.03957544141971358,
+     0.015497641580203553
+    ]
+   },
+   "no_vnni": {
+    "gate_ndcg": [
+     0.7677
+    ],
+    "gate_recall": [
+     0.935
+    ],
+    "chosen_ndcg": [
+     0.7511
+    ],
+    "coverage_ndcg": [
+     0.4231
+    ],
+    "known_ndcg": [
+     0.8783
+    ],
+    "cosine_to_float_mean": 0.9955607255089204,
+    "cosine_to_float_min": 0.9511540739151352,
+    "query_ms_p50": 4.023864000004096,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     0.0021407195411771575,
+     -0.010884720499365041,
+     0.01580106648884608
+    ],
+    "coverage_vs_float": [
+     -0.006926222328867433,
+     -0.034518894166724,
+     0.02269146990696665
+    ]
+   },
+   "cross_cpu_cosine_mean": 0.9999999999933571,
+   "cross_cpu_cosine_min": 0.9999999995901208,
+   "gate_ndcg_gap": -0.0047999999999999154,
+   "chosen_ndcg_gap": -0.000500000000000056,
+   "coverage_ndcg_gap": 0.005799999999999972,
+   "known_ndcg_gap": 0.0
+  },
+  "qint8-rr": {
+   "vnni": {
+    "gate_ndcg": [
+     0.7445
+    ],
+    "gate_recall": [
+     0.896
+    ],
+    "chosen_ndcg": [
+     0.7363
+    ],
+    "coverage_ndcg": [
+     0.4251
+    ],
+    "known_ndcg": [
+     0.8351
+    ],
+    "cosine_to_float_mean": 0.9751810374972584,
+    "cosine_to_float_min": 0.9256325020646444,
+    "query_ms_p50": 1.755732499994167,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.012726176666531704,
+     -0.038422071482587035,
+     0.01260110320812758
+    ],
+    "coverage_vs_float": [
+     -0.004878397454572467,
+     -0.04282630232227295,
+     0.02874665884043064
+    ]
+   },
+   "no_vnni": {
+    "gate_ndcg": [
+     0.7509
+    ],
+    "gate_recall": [
+     0.906
+    ],
+    "chosen_ndcg": [
+     0.7378
+    ],
+    "coverage_ndcg": [
+     0.4239
+    ],
+    "known_ndcg": [
+     0.8344
+    ],
+    "cosine_to_float_mean": 0.9751946463875001,
+    "cosine_to_float_min": 0.9256325020646444,
+    "query_ms_p50": 3.2384772500080317,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.01123224655279053,
+     -0.037026747548335584,
+     0.01459478789090225
+    ],
+    "coverage_vs_float": [
+     -0.0061361639348003275,
+     -0.03904249368479935,
+     0.02712747581185009
+    ]
+   },
+   "cross_cpu_cosine_mean": 0.9999632208399081,
+   "cross_cpu_cosine_min": 0.9977196920782587,
+   "gate_ndcg_gap": 0.006399999999999961,
+   "chosen_ndcg_gap": 0.0015000000000000568,
+   "coverage_ndcg_gap": -0.0011999999999999789,
+   "known_ndcg_gap": -0.0006999999999999229
+  },
+  "qint8-rr-pc": {
+   "vnni": {
+    "gate_ndcg": [
+     0.7673
+    ],
+    "gate_recall": [
+     0.9227
+    ],
+    "chosen_ndcg": [
+     0.7416
+    ],
+    "coverage_ndcg": [
+     0.4449
+    ],
+    "known_ndcg": [
+     0.8763
+    ],
+    "cosine_to_float_mean": 0.9957853353963056,
+    "cosine_to_float_min": 0.9528780102251295,
+    "query_ms_p50": 1.9659300000043345,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.007366424438648096,
+     -0.02437890806819091,
+     0.010005589270320369
+    ],
+    "coverage_vs_float": [
+     0.014903217307260413,
+     -0.006390333882186253,
+     0.04024445682563005
+    ]
+   },
+   "no_vnni": {
+    "gate_ndcg": [
+     0.7657
+    ],
+    "gate_recall": [
+     0.916
+    ],
+    "chosen_ndcg": [
+     0.7409
+    ],
+    "coverage_ndcg": [
+     0.4375
+    ],
+    "known_ndcg": [
+     0.879
+    ],
+    "cosine_to_float_mean": 0.9957853902259858,
+    "cosine_to_float_min": 0.9528780102251295,
+    "query_ms_p50": 3.5753699999787614,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.008142537896293472,
+     -0.030297679460920202,
+     0.012252217565448807
+    ],
+    "coverage_vs_float": [
+     0.007492094703777728,
+     -0.013196484898040406,
+     0.03417580596067534
+    ]
+   },
+   "cross_cpu_cosine_mean": 0.9999999302327411,
+   "cross_cpu_cosine_min": 0.9999956744324446,
+   "gate_ndcg_gap": -0.0015999999999999348,
+   "chosen_ndcg_gap": -0.0007000000000000339,
+   "coverage_ndcg_gap": -0.007400000000000018,
+   "known_ndcg_gap": 0.0027000000000000357
+  },
+  "quint8": {
+   "vnni": {
+    "gate_ndcg": [
+     0.7606
+    ],
+    "gate_recall": [
+     0.926
+    ],
+    "chosen_ndcg": [
+     0.7423
+    ],
+    "coverage_ndcg": [
+     0.4437
+    ],
+    "known_ndcg": [
+     0.8625
+    ],
+    "cosine_to_float_mean": 0.9948810900973598,
+    "cosine_to_float_min": 0.9884985232343848,
+    "query_ms_p50": 2.703281999995255,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.006744100090145949,
+     -0.01958440168779239,
+     0.005932372116975364
+    ],
+    "coverage_vs_float": [
+     0.013697500560454696,
+     -0.0032083587256348245,
+     0.032156860227719526
+    ]
+   },
+   "no_vnni": {
+    "gate_ndcg": [
+     0.765
+    ],
+    "gate_recall": [
+     0.926
+    ],
+    "chosen_ndcg": [
+     0.741
+    ],
+    "coverage_ndcg": [
+     0.4421
+    ],
+    "known_ndcg": [
+     0.8625
+    ],
+    "cosine_to_float_mean": 0.9948780172099769,
+    "cosine_to_float_min": 0.9884985232343848,
+    "query_ms_p50": 3.6291017499792133,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.008033095109231557,
+     -0.02232085414419192,
+     0.005507325500083257
+    ],
+    "coverage_vs_float": [
+     0.012051290934237598,
+     -0.0044020201819352095,
+     0.028983129361673254
+    ]
+   },
+   "cross_cpu_cosine_mean": 0.9999910885628962,
+   "cross_cpu_cosine_min": 0.9994474909040508,
+   "gate_ndcg_gap": 0.0043999999999999595,
+   "chosen_ndcg_gap": -0.0012999999999999678,
+   "coverage_ndcg_gap": -0.0015999999999999903,
+   "known_ndcg_gap": 0.0
+  },
+  "quint8-pc": {
+   "vnni": {
+    "gate_ndcg": [
+     0.76
+    ],
+    "gate_recall": [
+     0.9093
+    ],
+    "chosen_ndcg": [
+     0.7475
+    ],
+    "coverage_ndcg": [
+     0.4348
+    ],
+    "known_ndcg": [
+     0.8756
+    ],
+    "cosine_to_float_mean": 0.9965544941751436,
+    "cosine_to_float_min": 0.9883944592033187,
+    "query_ms_p50": 2.4660862499956693,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.0014814619624131443,
+     -0.0160803050661125,
+     0.014385498025215169
+    ],
+    "coverage_vs_float": [
+     0.004745526794129211,
+     -0.006044320947527271,
+     0.015456569518204974
+    ]
+   },
+   "no_vnni": {
+    "gate_ndcg": [
+     0.7583
+    ],
+    "gate_recall": [
+     0.9093
+    ],
+    "chosen_ndcg": [
+     0.745
+    ],
+    "coverage_ndcg": [
+     0.4466
+    ],
+    "known_ndcg": [
+     0.8756
+    ],
+    "cosine_to_float_mean": 0.9965544932251112,
+    "cosine_to_float_min": 0.9883944592033187,
+    "query_ms_p50": 3.9022935000048165,
+    "distinct_vectors": 1,
+    "chosen_vs_float": [
+     -0.004021797057209298,
+     -0.019339488060294795,
+     0.012030980818627022
+    ],
+    "coverage_vs_float": [
+     0.016561987669941765,
+     -0.0043227264506664614,
+     0.04615105194732153
+    ]
+   },
+   "cross_cpu_cosine_mean": 0.9999999999999363,
+   "cross_cpu_cosine_min": 0.9999999999980433,
+   "gate_ndcg_gap": -0.0017000000000000348,
+   "chosen_ndcg_gap": -0.0025000000000000577,
+   "coverage_ndcg_gap": 0.011799999999999977,
+   "known_ndcg_gap": 0.0
+  }
+ },
+ "samples": {
+  "runs": [
+   "42284106367",
+   "42287222816 attempt 1",
+   "42287222816 attempt 2"
+  ],
+  "jobs": {
+   "vnni": 18,
+   "no_vnni": 18
+  },
+  "note": "Every job on one side of VNNI gave the same scores for each model. The table is the last sample."
+ }
+}

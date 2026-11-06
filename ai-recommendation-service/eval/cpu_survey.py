@@ -31,12 +31,12 @@ from .run_eval import curated_queries, embed_corpus, load_read_model, load_tours
 
 REPO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 FLOAT = "paraphrase-ml"
-SHIPPED = "paraphrase-ml-int8"
+OLD = "paraphrase-ml-int8"
 LOCAL = "local:"
 VARIANTS = {
     FLOAT: None,
-    SHIPPED: None,
-    "upstream-quint8-avx2": ModelSpec(REPO, "onnx/model_quint8_avx2.onnx", max_length=128),
+    OLD: None,
+    "paraphrase-ml-uint8": None,  # what ships
     # Built from the float model by eval/quantize_candidates.py.
     "qint8-rr": ModelSpec(REPO, LOCAL + "qint8-rr.onnx", max_length=128),
     "qint8-rr-pc": ModelSpec(REPO, LOCAL + "qint8-rr-pc.onnx", max_length=128),
@@ -152,7 +152,7 @@ def measure() -> dict:
             "chosen_known": _scores(chosen, known),
         }
         row = result["variants"][name]
-        print(name, row["vector_sha"], round(row["gate"]["ndcg@10"], 4), round(row["chosen"]["ndcg@10"], 4), flush=True)
+        print(name, row["vector_sha"], round(row["chosen"]["ndcg@10"], 4), flush=True)
     return result
 
 
@@ -215,7 +215,8 @@ def report(summary: dict) -> str:
         f"Jobs: {summary['jobs']}",
         *summary["cpus"],
         "",
-        "| Variant | Chosen, VNNI | Chosen, none | Gate, VNNI | Gate, none | Coverage, VNNI | Coverage, none "
+        "| Variant | Chosen, VNNI | Chosen, none | Gate, VNNI | Gate, none | Coverage, VNNI "
+        "| Coverage, none "
         "| Cross-CPU cosine, mean / min | vs float, VNNI | vs float, none | ms p50, VNNI / none |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
@@ -224,7 +225,8 @@ def report(summary: dict) -> str:
         lines.append(
             f"| {name} | {cell(yes['chosen_ndcg'])} | {cell(no['chosen_ndcg'])} | {cell(yes['gate_ndcg'])} | "
             f"{cell(no['gate_ndcg'])} | {cell(yes['coverage_ndcg'])} | {cell(no['coverage_ndcg'])} | "
-            f"{row['cross_cpu_cosine_mean']:.5f} / {row['cross_cpu_cosine_min']:.5f} | {pair(yes['chosen_vs_float'])} | "
+            f"{row['cross_cpu_cosine_mean']:.5f} / {row['cross_cpu_cosine_min']:.5f} | "
+            f"{pair(yes['chosen_vs_float'])} | "
             f"{pair(no['chosen_vs_float'])} | {yes['query_ms_p50']:.1f} / {no['query_ms_p50']:.1f} |"
         )
     return chr(10).join(lines)

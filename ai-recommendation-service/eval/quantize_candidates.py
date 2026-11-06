@@ -1,4 +1,4 @@
-"""Issue #10: int8 candidates built from the float model, using ONNX Runtime's documented dynamic quantisation options."""
+"""Issue #10: int8 candidates built from the float model, with ONNX Runtime's dynamic quantisation options."""
 
 import sys
 from pathlib import Path
