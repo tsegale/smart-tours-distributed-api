@@ -475,6 +475,51 @@ for g in json.load(sys.stdin)['data']['groups']:
 curl -s -u "$RABBITMQ_USER:$RABBITMQ_PASSWORD" -X DELETE "$MQ/queues/%2F/core.availability-summary.dlq/contents"   # clean up
 ```
 
+## AI: hybrid search and itineraries
+
+Needs the `ai` profile. `scripts/seed_ai_catalogue.py` publishes `datasets/tours_v1` (clearly synthetic: `docs/datasets.md`)
+as tour events through the real broker, with departures, so the worker builds the read model the normal way.
+
+```bash
+python scripts/seed_ai_catalogue.py --limit 300
+GW=http://127.0.0.1:8080
+TOKEN=$(python scripts/dev_token.py --roles CUSTOMER)
+AUTH="Authorization: Bearer $TOKEN"
+
+# English, with phrases that become filters. Expect understood.place and understood.maxPrice, and explain on each result.
+curl -s -G $GW/api/ai/search -H "$AUTH" --data-urlencode "q=kayaking near Walvis Bay under N\$1500" -d explain=true | python -m json.tool
+
+# German. Expect German tours, and English ones if the model is multilingual.
+curl -s -G $GW/api/ai/search -H "$AUTH" --data-urlencode "q=Kajak bei Walfischbucht nächstes Wochenende" -d explain=true | python -m json.tool
+
+START=$(python -c "import datetime as d; print(d.date.today() + d.timedelta(days=20))")
+BODY="{\"prompt\":\"Three days of dunes and wildlife\",\"startDate\":\"$START\",\"days\":3,\"partySize\":2,\"budget\":\"15000.00\"}"
+
+# No provider configured: expect path "deterministic", fallbackReason "no_provider", no tokens.
+curl -s $GW/api/ai/itineraries -H "$AUTH" -H 'Content-Type: application/json' -d "$BODY" | python -m json.tool
+
+# The same over SSE through the gateway: progress events as they happen, then one plan event.
+curl -sN $GW/api/ai/itineraries -H "$AUTH" -H 'Content-Type: application/json' -H 'Accept: text/event-stream' -d "$BODY"
+
+# Personalised, once this user has bookings. Without any: expect source "popular".
+curl -s $GW/api/ai/recommendations/me -H "$AUTH" | python -m json.tool
+```
+
+With the Fake provider, which needs no key and no network:
+
+```bash
+LLM_PROVIDER=fake docker compose --profile ai up -d ai-service
+curl -s $GW/api/ai/itineraries -H "$AUTH" -H 'Content-Type: application/json' -d "$BODY" | python -m json.tool   # path "llm", tokens counted
+
+LLM_PROVIDER=fake LLM_FAKE_SCENARIO=repair docker compose --profile ai up -d ai-service
+curl -s $GW/api/ai/itineraries -H "$AUTH" -H 'Content-Type: application/json' -d "$BODY" | python -m json.tool   # path "llm_repaired", violationsSeen
+
+LLM_PROVIDER=fake LLM_FAKE_SCENARIO=injected docker compose --profile ai up -d ai-service
+curl -s $GW/api/ai/itineraries -H "$AUTH" -H 'Content-Type: application/json' -d "$BODY" | python -m json.tool   # path "deterministic", no tour 999999
+
+docker compose --profile ai up -d ai-service   # back to no provider
+```
+
 ## Reset
 
 ```bash

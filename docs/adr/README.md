@@ -23,3 +23,7 @@ Format: [Michael Nygard's template](https://cognitect.com/blog/2011/11/15/docume
 | [0016](0016-keycloak-and-multi-issuer-validation.md) | Keycloak, and validating tokens from more than one issuer | Accepted |
 | [0017](0017-observability-and-trace-propagation-through-the-outbox.md) | Observability, and trace propagation through the outbox | Accepted |
 | [0018](0018-serial-gc-for-both-jvms.md) | Serial GC for tour-core and the gateway | Accepted |
+| [0019](0019-hybrid-retrieval-with-rrf-in-one-sql-statement.md) | Hybrid retrieval with RRF in one SQL statement | Accepted |
+| [0020](0020-embedding-model-and-runtime-by-evaluation.md) | Embedding model and runtime chosen by evaluation | Accepted |
+| [0021](0021-grounded-itinerary-generation.md) | Grounded itinerary generation | Accepted |
+| [0022](0022-personalised-recommendations.md) | Personalised recommendations | Accepted |

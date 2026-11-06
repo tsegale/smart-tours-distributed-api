@@ -89,6 +89,64 @@ Contradictory or out-of-range parameters get one 400 Problem Details listing eve
 endpoints. Departure availability comes from an event-fed read model and may lag booking-service by a moment;
 a booking always checks seats in booking-service itself ([ADR 0008](docs/adr/0008-outbox-and-cqrs-availability-read-model.md)).
 
+## AI: hybrid search and grounded itineraries
+
+Runs with no API key and no paid service. Every modelling choice below was decided by an offline evaluation, and the data behind
+them is **synthetic**: [the datasheet](docs/datasets.md), [search quality](docs/benchmarks/search-quality.md),
+[itineraries and recommendations](docs/benchmarks/itineraries.md).
+
+```bash
+# Phrases become filters, in English or German, relative to Windhoek's clock. The response says what it understood.
+curl -s -G localhost:8080/api/ai/search -H "Authorization: Bearer $CUSTOMER" \
+  --data-urlencode "q=Kajak bei Walfischbucht unter N\$1500" -d explain=true
+# {"understood": {"maxPrice": "unter n$1500", "place": "Walfischbucht"},
+#  "results": [{"tourId": 124, "name": "Kajaktour bei Walfischbucht", "price": 1360.00,
+#               "explain": {"denseRank": 2, "lexicalRank": 1, "fusedScore": 0.024326, "rerankScore": null}},
+#              {"tourId": 29, "name": "Kayaking at Walvis Bay", "price": 1220.00,
+#               "explain": {"denseRank": 1, "lexicalRank": null, "fusedScore": 0.016393, "rerankScore": null}}, ...]}
+
+# Also near=lat,lon, radius, maxPrice, from, to, minSlots, lang, mode=hybrid|dense|lexical.
+
+# A plan from real tours with seats on those dates. Add -H 'Accept: text/event-stream' to watch it over SSE.
+curl -s localhost:8080/api/ai/itineraries -H "Authorization: Bearer $CUSTOMER" -H 'Content-Type: application/json' \
+  -d '{"prompt": "Three days of dunes and wildlife", "startDate": "2026-12-01", "days": 3, "partySize": 2, "budget": "15000.00"}'
+# {"path": "deterministic", "fallbackReason": "no_provider", "totalCost": "11580.00", "tokens": {"input": 0, "output": 0},
+#  "days": [{"date": "2026-12-01", "items": [{"tourId": 70, "name": "Keetmanshoop dune quad adventure", "cost": "2440.00",
+#                                             "travelMinutesFromPrevious": 0, ...}, ...]}, ...]}
+
+# Bookable tours like the ones you booked and liked. New users get what is popular, and "source" says which.
+curl -s localhost:8080/api/ai/recommendations/me -H "Authorization: Bearer $CUSTOMER"
+```
+
+What the evaluation decided, as nDCG@10 with `paraphrase-multilingual-MiniLM-L12-v2` (int8, ONNX) on three query shapes:
+
+| Retrieval | Vague description | Filter phrases | Exact name |
+| --- | --- | --- | --- |
+| Lexical only | 0.462 | 0.476 | 0.876 |
+| Dense + query understanding | 0.793 | 0.898 | 0.571 |
+| Hybrid + query understanding, equal weights | 0.728 | 0.836 | 0.885 |
+| **Hybrid + query understanding, lexical weight 0.5 (chosen)** | **0.751** | **0.886** | **0.861** |
+
+| Runtime, same model | Resident memory | Query p50 | Image |
+| --- | --- | --- | --- |
+| PyTorch | 901 MB | 18.0 ms | 2.16 GB |
+| ONNX | 823 MB | 7.6 ms | |
+| **ONNX int8 (chosen)** | **489 MB** | **3.7 ms** | **615 MB** |
+
+- **Hybrid retrieval in one SQL statement** ([ADR 0019](docs/adr/0019-hybrid-retrieval-with-rrf-in-one-sql-statement.md)): pgvector,
+  full-text search and PostGIS over the same filters, fused by reciprocal rank. The first results said dense search beat hybrid. A
+  second test set of exact names reversed that.
+- **Model and runtime by evaluation** ([ADR 0020](docs/adr/0020-embedding-model-and-runtime-by-evaluation.md)), with a cross-encoder
+  measured and left off, a CI quality gate, and [model migration with no downtime](docs/runbooks/embedding-model-migration.md).
+- **Grounded itineraries** ([ADR 0021](docs/adr/0021-grounded-itinerary-generation.md)): a model proposes and code disposes. A validator
+  with one rule per way a plan can be wrong, at most two repairs, then a deterministic planner, and the response says which path
+  answered. Anthropic, any OpenAI-compatible endpoint (Ollama included), or a Fake: `LLM_PROVIDER`, empty by default. No real model
+  has been run yet, and [the benchmark](docs/benchmarks/itineraries.md) says so.
+- **Prompt injection is assumed to succeed sometimes** ([threat model](docs/threat-model.md)): the output schema has no free text, and
+  every id must be one that retrieval returned, so a fooled model can only choose among real, valid departures.
+- **Personalised recommendations** ([ADR 0022](docs/adr/0022-personalised-recommendations.md)), evaluated on a simulated log. Popularity
+  alone beats them on hit rate there, and the reasons for shipping them anyway are written down.
+
 ## Prices in your currency, weather for your departure
 
 Prices are stored and charged in NAD. Any tour, list or search response can add a display price in ZAR, USD,
@@ -261,7 +319,7 @@ container has a memory limit ([memory](docs/benchmarks/notifications.md#memory-b
 | *(none)* | the core | search, booking, payments with the fake provider, sections 0 to 8 of the smoke test |
 | `observability` | Collector, Tempo, Prometheus, Loki and Grafana in one container (with `--env-file infra/observability/observability.env`) | traces, dashboards and alerts: http://127.0.0.1:3001 ([section 12 of the smoke test](docs/smoke-test.md#12-one-trace-dashboards-and-alerts-observability-profile)) |
 | `auth` | Keycloak and its database (about 610 MiB; `python scripts/keycloak_secrets.py` first) | real login and RS256 tokens, [section 11 of the smoke test](docs/smoke-test.md#11-real-tokens-from-keycloak-auth-profile) |
-| `ai` | ai-service, ai-worker, ai-db | recommendations and semantic search; the first build downloads the embedding model (~90 MB) |
+| `ai` | ai-service, ai-worker, ai-db (about 1,180 MiB) | hybrid search, itineraries, recommendations; the first start downloads the embedding model (118 MB). `python scripts/seed_ai_catalogue.py` fills it with the synthetic dataset |
 | `notifications` | notification-service, -bridge, -worker, -beat, notifications-db, MinIO, Mailpit, booking-ticket-listener | emails (http://localhost:8025), PDF tickets, check-in |
 | `flower` | Flower, Celery's dashboard (http://localhost:5555) | with `notifications` |
 | `payments` | Stripe CLI webhook forwarding | Stripe test mode |
@@ -294,7 +352,7 @@ curl -s -X POST localhost:8080/api/bookings -H "Authorization: Bearer $CUSTOMER"
 # Pay for it. With the default fake provider, send the signed webhook Stripe would send:
 python scripts/fake_webhook.py --booking 1                                     # -> CONFIRMED
 
-# Semantic search over tour descriptions
+# Hybrid search over tour descriptions: see "AI" above
 curl -s "localhost:8080/api/ai/search?q=sunrise+in+the+desert" -H "Authorization: Bearer $CUSTOMER"
 ```
 
@@ -392,7 +450,7 @@ every push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 | 3 | Integrations: currency (Frankfurter, NAD base) and weather (Open-Meteo) behind Resilience4j, chaos profile | Done |
 | 4 | Async workers: tour-core outbox, booking lifecycle events, notification-service (Celery), PDF tickets with QR check-in, compose profiles | Done |
 | 5 | Production ops: Keycloak, OpenTelemetry + Grafana, live deployment with TLS | |
-| 6 | AI: hybrid pgvector + PostGIS search, RAG itinerary generation | |
+| 6 | AI: hybrid search by evaluation, grounded itineraries with validation and fallback, personalised recommendations | Done, with no real LLM run yet |
 
 ## Repository layout
 

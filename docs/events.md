@@ -46,9 +46,9 @@ Every payload is one flat JSON object with these three fields next to its own:
 | `tour.updated` | tour-core | ai-worker (`ai.tour-embedding`) | [tour-event](events/tour-event.schema.json) |
 | `availability.changed` | booking-service | tour-core (`core.availability-summary`), ai-worker (`ai.tour-embedding`) | [availability-changed](events/availability-changed.schema.json) |
 | `review.submitted` | booking-service | tour-core (`core.tour-rating`), ai-worker (`ai.tour-embedding`) | [review-submitted](events/review-submitted.schema.json) |
-| `booking.confirmed` | booking-service | notification-service (`notifications.booking-events`) | [booking-lifecycle](events/booking-lifecycle.schema.json) |
-| `booking.cancelled` | booking-service | notification-service | [booking-lifecycle](events/booking-lifecycle.schema.json) |
-| `booking.refunded` | booking-service | notification-service | [booking-lifecycle](events/booking-lifecycle.schema.json) |
+| `booking.confirmed` | booking-service | notification-service (`notifications.booking-events`), ai-worker (`ai.tour-embedding`) | [booking-lifecycle](events/booking-lifecycle.schema.json) |
+| `booking.cancelled` | booking-service | notification-service, ai-worker | [booking-lifecycle](events/booking-lifecycle.schema.json) |
+| `booking.refunded` | booking-service | notification-service, ai-worker | [booking-lifecycle](events/booking-lifecycle.schema.json) |
 | `booking.hold_expired` | booking-service | notification-service | [booking-lifecycle](events/booking-lifecycle.schema.json) |
 | `ticket.rendered` | notification-service | booking-service (`booking.tickets`) | [ticket-rendered](events/ticket-rendered.schema.json) |
 
