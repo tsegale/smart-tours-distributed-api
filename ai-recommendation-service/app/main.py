@@ -73,6 +73,10 @@ app = FastAPI(
     version="2.0.0",
     description="Hybrid tour search over pgvector and full-text search, and itineraries grounded in the catalogue.",
     lifespan=lifespan,
+    # Served through the gateway as they are, next to tour-core's under /docs/tours.
+    docs_url="/docs/ai/swagger-ui.html",
+    redoc_url=None,
+    openapi_url="/docs/ai/openapi.json",
 )
 instrument_fastapi(app)
 register_error_handlers(app)

@@ -44,3 +44,8 @@ def test_recommend_limit_is_bounded(client):
     response = client.get("/api/ai/recommend/1", params={"limit": 500})
     assert response.status_code == 422
     assert response.headers["content-type"].startswith("application/problem+json")
+
+
+def test_openapi_is_served_where_the_gateway_routes_it(client):
+    paths = client.get("/docs/ai/openapi.json").json()["paths"]
+    assert {"/api/ai/search", "/api/ai/itineraries", "/api/ai/recommendations/me"} <= set(paths)
