@@ -18,7 +18,7 @@ SHIPPED = "paraphrase-ml-uint8"
 OLD = "paraphrase-ml-int8"  # shipped until issue #10: its quality depended on the CPU
 CHOSEN = f"hybrid+parser:{SHIPPED}:w0.5"
 OLD_CHOSEN = f"hybrid+parser:{OLD}:w0.5"
-SETS = ("curated", "rule", "known")
+SETS = ("curated", "rule", "known", "coverage")
 
 
 def load(name: str):
@@ -50,15 +50,15 @@ MODES = [
     (f"dense+parser:{SHIPPED}", "Dense + parser"),
     (f"hybrid+parser:{SHIPPED}", "Hybrid + parser, equal weights"),
     (CHOSEN, "**Hybrid + parser, lexical weight 0.5 (chosen)**"),
-    (f"hybrid+parser+rerank:{SHIPPED}:en-de-l6-int8", "... + EN-DE cross-encoder"),
-    (f"hybrid+parser+rerank:{SHIPPED}:ms-marco-l6-int8", "... + EN cross-encoder"),
+    (f"hybrid+parser+rerank:{SHIPPED}:en-de-l6-uint8", "... + EN-DE cross-encoder"),
+    (f"hybrid+parser+rerank:{SHIPPED}:ms-marco-l6-uint8", "... + EN cross-encoder"),
 ]
 COMPARED = [
     ("lexical", "Lexical only"),
     (f"dense+parser:{SHIPPED}", "Dense + parser"),
     (f"hybrid+parser:{SHIPPED}", "Equal weights"),
-    (f"hybrid+parser+rerank:{SHIPPED}:en-de-l6-int8", "With EN-DE cross-encoder"),
-    (f"hybrid+parser+rerank:{SHIPPED}:ms-marco-l6-int8", "With EN cross-encoder"),
+    (f"hybrid+parser+rerank:{SHIPPED}:en-de-l6-uint8", "With EN-DE cross-encoder"),
+    (f"hybrid+parser+rerank:{SHIPPED}:ms-marco-l6-uint8", "With EN cross-encoder"),
     ("hybrid+parser:paraphrase-ml:w0.5", "Float instead of U8U8"),
     (OLD_CHOSEN, "The previous int8 file, on a VNNI CPU"),
     ("hybrid+parser:e5-small-int8:w0.5", "e5-small int8"),
@@ -69,7 +69,7 @@ COMPARED = [
 
 def _old(label: str) -> str:
     """The same system on the int8 file: what the label reviews were measured on."""
-    return label.replace(SHIPPED, OLD)
+    return label.replace(SHIPPED, OLD).replace("l6-uint8", "l6-int8")
 
 
 def verdict(low: float, high: float) -> str:
@@ -77,7 +77,7 @@ def verdict(low: float, high: float) -> str:
 
 
 def modes(models: dict, before: dict) -> str:
-    header = ["System", "Curated: vague", "Rule: filters", "Known: exact name", "ms p50 / p95"]
+    header = ["System", "Curated: vague", "Rule: filters", "Known: exact name", "Coverage", "ms p50 / p95"]
     return table(header, [shapes_row(models, before, label, name) for label, name in MODES])
 
 
@@ -92,7 +92,7 @@ def paired(models: dict) -> str:
             )
             cells.append(f"{diff:+.3f} [{low:+.3f}, {high:+.3f}], {verdict(low, high)}")
         rows.append(f"| {name} | " + " | ".join(cells) + " |")
-    return table(["Against the chosen system", "Curated", "Rule", "Known"], rows)
+    return table(["Against the chosen system", "Curated", "Rule", "Known", "Coverage"], rows)
 
 
 def review(models: dict, before: dict) -> str:
@@ -290,7 +290,7 @@ def models_table(models: dict, footprint: dict) -> str:
         rows.append(
             f"| {name} | {languages} | {interval(curated['ndcg'])} | {curated['ndcg_en'][0]:.3f} | "
             f"{curated['ndcg_de'][0]:.3f} | {row['rule']['ndcg'][0]:.3f} | {row['known']['ndcg'][0]:.3f} | "
-            f"{curated['recall'][0]:.3f} | {memory} | {latency} | {megabytes} |"
+            f"{row['coverage']['ndcg'][0]:.3f} | {curated['recall'][0]:.3f} | {memory} | {latency} | {megabytes} |"
         )
     header = [
         "Model (hybrid + parser, weight 0.5)",
@@ -300,6 +300,7 @@ def models_table(models: dict, footprint: dict) -> str:
         "DE",
         "Rule",
         "Known",
+        "Coverage",
         "Curated recall@20",
         "RSS MB",
         "Query ms p50",
@@ -318,6 +319,33 @@ def runtimes(footprint_rows: list[dict]) -> str:
         )
     header = ["Model", "Runtime", "RSS MB", "Query p50 ms", "Query p95 ms", "ms per document", "Load s"]
     return table(header, rows)
+
+
+def cross_encoders(survey: dict) -> str:
+    rows = []
+    for name, row in survey["rerankers"].items():
+        yes, no = row["vnni"], row["no_vnni"]
+        rows.append(
+            f"| {name} | {yes['ndcg@10'][0]:.4f} | {no['ndcg@10'][0]:.4f} | {row['score_difference_mean']:.3f} | "
+            f"{row['score_difference_max']:.3f} | {yes['ms_p50']:.0f} / {no['ms_p50']:.0f} |"
+        )
+    header = [
+        "Cross-encoder file",
+        "nDCG@10, VNNI",
+        "nDCG@10, no VNNI",
+        "Mean score difference across CPUs",
+        "Largest",
+        "ms p50, VNNI / no VNNI",
+    ]
+    return table(header, rows)
+
+
+def gate_lines(survey: dict) -> str:
+    rows = []
+    for name, line in survey["gate"][SHIPPED].items():
+        if line["spread"]:
+            rows.append(f"| {name} | {line['vnni'][0]:.4f} | {line['no_vnni'][0]:.4f} | {line['spread']:.4f} |")
+    return table(["Gate line, shipped model", "VNNI", "No VNNI", "Spread"], rows)
 
 
 def itineraries(results: list[dict]) -> str:
@@ -396,6 +424,8 @@ def main() -> None:
             "coverage-groups": coverage_groups(analysis),
             "coverage-candidates": coverage_candidates(analysis),
             "drift": drift(load("cpu_survey.json")),
+            "gate-lines": gate_lines(load("cpu_survey_gate.json")),
+            "cross-encoders": cross_encoders(load("cpu_survey_gate.json")),
             "models": models_table(models, onnx),
             "runtimes": runtimes(footprint_rows),
         },

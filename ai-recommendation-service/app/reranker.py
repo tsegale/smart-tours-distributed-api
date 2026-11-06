@@ -28,6 +28,8 @@ _EN_DE_TOKENIZER = "96ef91dd5d1c3b157a0437e85ff1f29d0eb3cf32fd40f863dab45baa5e83
 _INT8 = "onnx/model_qint8_avx512_vnni.onnx"
 _UINT8 = "onnx/model_quint8_avx2.onnx"
 
+# Off by default. Use a U8U8 file if one is turned on: it depends less on the CPU, though en-de still does (ADR 0020).
+# The int8 entries stay as the record the CPU survey compares against.
 RERANKERS = {
     "ms-marco-l6-int8": RerankerSpec(
         _MS_MARCO[0],

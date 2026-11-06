@@ -320,7 +320,7 @@ container has a memory limit ([memory](docs/benchmarks/notifications.md#memory-b
 | *(none)* | the core | search, booking, payments with the fake provider, sections 0 to 8 of the smoke test |
 | `observability` | Collector, Tempo, Prometheus, Loki and Grafana in one container (with `--env-file infra/observability/observability.env`) | traces, dashboards and alerts: http://127.0.0.1:3001 ([section 12 of the smoke test](docs/smoke-test.md#12-one-trace-dashboards-and-alerts-observability-profile)) |
 | `auth` | Keycloak and its database (about 610 MiB; `python scripts/keycloak_secrets.py` first) | real login and RS256 tokens, [section 11 of the smoke test](docs/smoke-test.md#11-real-tokens-from-keycloak-auth-profile) |
-| `ai` | ai-service, ai-worker, ai-db (about 1,180 MiB) | hybrid search, itineraries, recommendations; the first start downloads the embedding model (118 MB). `python scripts/seed_ai_catalogue.py` fills it with the synthetic dataset |
+| `ai` | ai-service, ai-worker, ai-db (about 1,125 MiB) | hybrid search, itineraries, recommendations; the first start downloads the embedding model (118 MB). `python scripts/seed_ai_catalogue.py` fills it with the synthetic dataset |
 | `notifications` | notification-service, -bridge, -worker, -beat, notifications-db, MinIO, Mailpit, booking-ticket-listener | emails (http://localhost:8025), PDF tickets, check-in |
 | `flower` | Flower, Celery's dashboard (http://localhost:5555) | with `notifications` |
 | `payments` | Stripe CLI webhook forwarding | Stripe test mode |

@@ -129,7 +129,7 @@ def query_sets(tours: list[dict]) -> dict[str, list[dict]]:
         "curated": curated,
         "rule": queries_rule.build(tours),
         "known": queries_known.build(written),
-        # Not reviewed, and reported apart: nothing is decided on it.
+        # The fourth set, reported beside the others and never averaged into them.
         "coverage": curated_queries(tours, CURATED_COVERAGE, "coverage"),
     }
 

@@ -12,16 +12,15 @@ lexical weight of 0.5, `k` = 60. No cross-encoder.** The owner's review of the l
 ## How to read this
 
 **The corpus is synthetic.** `datasets/tours_v1`: 2,505 tours, 105 of them individually written and 2,400 composed from 172
-sentences ([datasheet](../datasets.md)). **Nothing here has met a real user.** Three query sets, chosen because they fail in
-different ways, plus a fourth that doesn't yet decide anything. They are reported apart, because a single average would hide what decides
-this:
+sentences ([datasheet](../datasets.md)). **Nothing here has met a real user.** Four query sets, chosen because they fail in
+different ways. They are reported apart, because a single average would hide what decides this:
 
 | Set | Queries | Corpus | Shape | Labels |
 | --- | --- | --- | --- | --- |
 | Curated | 50, EN and DE | 105 written tours | Vague descriptions, deliberately avoiding the tours' wording | Reviewed: proposed by Claude, revised in a second Claude pass, contested calls decided and the set signed off by the owner on 2026-11-06 |
 | Rule | 106, EN and DE | 2,400 composed tours | Activity, area, price and family phrases | Computed from the tours' generating attributes |
 | Known-item | 26, EN and DE | 105 written tours | One exact, rare word | Computed: 3 if the term is in the name, 2 if in the description |
-| [Coverage](#coverage-the-tours-the-reviewed-set-misses) | 12, EN and DE | 105 written tours | Conversational, aimed at tours the curated set never labels | Reviewed the same way, and signed off by the owner on 2026-11-06. Reported apart: no decision rests on them yet |
+| [Coverage](#coverage-the-tours-the-reviewed-set-misses) | 12, EN and DE | 105 written tours | Conversational, aimed at tours the curated set never labels | Reviewed the same way, and signed off by the owner on 2026-11-06. Part of every decision since 2026-11-07, and has its own lines in the CI gate |
 
 The curated set disfavours lexical search by construction and the known-item set favours it, also by construction. Neither is
 "the truth". How often real people type each shape is unknown, and it would move the balance.
@@ -134,18 +133,18 @@ Every system on the curated set. "Before" is the same code under Claude's first 
 With the chosen model. nDCG@10 [95% CI]. Latency is on the curated set, from this model's own run on an otherwise idle laptop.
 
 <!-- table:modes -->
-| System | Curated: vague | Rule: filters | Known: exact name | ms p50 / p95 |
-| --- | --- | --- | --- | --- |
-| Lexical only | 0.459 [0.374, 0.549] | 0.476 [0.405, 0.550] | 0.876 [0.731, 0.984] | 5 / 8 |
-| Dense only | 0.820 [0.752, 0.882] | 0.751 [0.698, 0.800] | 0.560 [0.398, 0.720] | 29 / 116 |
-| Hybrid, equal weights, k = 60 | 0.755 [0.687, 0.812] | 0.705 [0.645, 0.761] | 0.900 [0.788, 0.988] | 29 / 49 |
-| Hybrid, equal weights, k = 10 | 0.772 [0.711, 0.825] | 0.674 [0.618, 0.727] | 0.900 [0.788, 0.988] | 30 / 41 |
-| Hybrid, lexical weight 0.5 | 0.773 [0.710, 0.826] | 0.759 [0.704, 0.810] | 0.864 [0.739, 0.963] | 22 / 27 |
-| Dense + parser | 0.781 [0.705, 0.855] | 0.895 [0.851, 0.932] | 0.577 [0.421, 0.740] | 25 / 53 |
-| Hybrid + parser, equal weights | 0.736 [0.664, 0.801] | 0.830 [0.777, 0.880] | 0.902 [0.801, 0.978] | 26 / 44 |
-| **Hybrid + parser, lexical weight 0.5 (chosen)** | 0.752 [0.685, 0.812] | 0.880 [0.834, 0.918] | 0.878 [0.769, 0.970] | 27 / 53 |
-| ... + EN-DE cross-encoder | 0.717 [0.644, 0.778] | 0.879 [0.837, 0.915] | 0.824 [0.686, 0.938] | 660 / 1178 |
-| ... + EN cross-encoder | 0.706 [0.639, 0.767] | 0.832 [0.777, 0.881] | 0.915 [0.816, 0.984] | 795 / 1077 |
+| System | Curated: vague | Rule: filters | Known: exact name | Coverage | ms p50 / p95 |
+| --- | --- | --- | --- | --- | --- |
+| Lexical only | 0.459 [0.374, 0.549] | 0.476 [0.405, 0.550] | 0.876 [0.731, 0.984] | 0.196 [0.117, 0.274] | 5 / 8 |
+| Dense only | 0.820 [0.752, 0.882] | 0.751 [0.698, 0.800] | 0.560 [0.398, 0.720] | 0.502 [0.413, 0.579] | 29 / 116 |
+| Hybrid, equal weights, k = 60 | 0.755 [0.687, 0.812] | 0.705 [0.645, 0.761] | 0.900 [0.788, 0.988] | 0.419 [0.313, 0.517] | 29 / 49 |
+| Hybrid, equal weights, k = 10 | 0.772 [0.711, 0.825] | 0.674 [0.618, 0.727] | 0.900 [0.788, 0.988] | 0.441 [0.337, 0.530] | 30 / 41 |
+| Hybrid, lexical weight 0.5 | 0.773 [0.710, 0.826] | 0.759 [0.704, 0.810] | 0.864 [0.739, 0.963] | 0.447 [0.353, 0.537] | 22 / 27 |
+| Dense + parser | 0.781 [0.705, 0.855] | 0.895 [0.851, 0.932] | 0.577 [0.421, 0.740] | 0.464 [0.351, 0.571] | 25 / 53 |
+| Hybrid + parser, equal weights | 0.736 [0.664, 0.801] | 0.830 [0.777, 0.880] | 0.902 [0.801, 0.978] | 0.393 [0.290, 0.493] | 26 / 44 |
+| **Hybrid + parser, lexical weight 0.5 (chosen)** | 0.752 [0.685, 0.812] | 0.880 [0.834, 0.918] | 0.878 [0.769, 0.970] | 0.417 [0.312, 0.516] | 27 / 53 |
+| ... + EN-DE cross-encoder | 0.713 [0.639, 0.779] | 0.881 [0.840, 0.917] | 0.831 [0.692, 0.940] | 0.257 [0.195, 0.321] | 664 / 1116 |
+| ... + EN cross-encoder | 0.698 [0.632, 0.759] | 0.836 [0.782, 0.886] | 0.915 [0.816, 0.984] | 0.306 [0.174, 0.449] | 972 / 1407 |
 <!-- /table:modes -->
 
 What the numbers decided:
@@ -159,26 +158,29 @@ What the numbers decided:
 - **Query understanding is the largest single gain on filter-style queries** and costs nothing measurable. It slightly hurts
   vague queries, whose words sometimes read as filters.
 - **`k` didn't matter enough to move** from the conventional 60: 10 is better on one set and worse on another.
-- **Cross-encoders are off.** On this model they add no clear gain anywhere, and at least 500 ms at p50 on this laptop against
-  about 27 ms. They did help the weaker models (next section's comparison was run with them too, in `models.json`), which is
+- **Cross-encoders are off.** On this model they add no clear gain anywhere, are clearly worse on coverage (-0.161 and -0.111), and
+  add at least 600 ms at p50 on this laptop against about 27 ms. They did help the weaker models (next section's comparison was run with them too, in `models.json`), which is
   why this took measuring rather than assuming. The code stays behind `RERANK_MODEL`, so that a better cross-encoder can be
   tried with one setting.
+
+**The fourth set changed no decision.** With coverage reported as a decision set, every choice stands. Its verdicts all favour what
+is chosen, or show no clear difference: the cross-encoders, `e5-small`, bge-small, MiniLM, equal weights and lexical alone are all clearly worse on it. Plain dense without the parser is clearly ahead on it, as it is on the curated set, and [still loses on filters and names](#does-dense-really-lead-here).
 
 Each alternative against the chosen system, as a paired difference in nDCG@10:
 
 <!-- table:paired -->
-| Against the chosen system | Curated | Rule | Known |
-| --- | --- | --- | --- |
-| Lexical only | -0.293 [-0.366, -0.220], worse | -0.404 [-0.479, -0.329], worse | -0.002 [-0.127, +0.130], no clear difference |
-| Dense + parser | +0.029 [-0.020, +0.079], no clear difference | +0.015 [-0.019, +0.050], no clear difference | -0.301 [-0.449, -0.160], worse |
-| Equal weights | -0.016 [-0.033, -0.003], worse | -0.050 [-0.083, -0.021], worse | +0.024 [+0.000, +0.071], no clear difference |
-| With EN-DE cross-encoder | -0.035 [-0.106, +0.032], no clear difference | -0.001 [-0.033, +0.033], no clear difference | -0.054 [-0.161, +0.028], no clear difference |
-| With EN cross-encoder | -0.046 [-0.111, +0.015], no clear difference | -0.049 [-0.086, -0.011], worse | +0.037 [+0.000, +0.097], no clear difference |
-| Float instead of U8U8 | -0.003 [-0.015, +0.009], no clear difference | +0.001 [-0.009, +0.009], no clear difference | -0.015 [-0.049, +0.005], no clear difference |
-| The previous int8 file, on a VNNI CPU | +0.004 [-0.007, +0.018], no clear difference | +0.006 [-0.001, +0.014], no clear difference | -0.017 [-0.048, +0.000], no clear difference |
-| e5-small int8 | -0.046 [-0.094, +0.001], no clear difference | -0.060 [-0.098, -0.023], worse | +0.053 [-0.003, +0.123], no clear difference |
-| bge-small-en | -0.100 [-0.150, -0.049], worse | -0.089 [-0.136, -0.046], worse | +0.047 [-0.007, +0.120], no clear difference |
-| all-MiniLM-L6-v2 | -0.124 [-0.182, -0.068], worse | -0.120 [-0.176, -0.070], worse | +0.005 [-0.045, +0.068], no clear difference |
+| Against the chosen system | Curated | Rule | Known | Coverage |
+| --- | --- | --- | --- | --- |
+| Lexical only | -0.293 [-0.366, -0.220], worse | -0.404 [-0.479, -0.329], worse | -0.002 [-0.127, +0.130], no clear difference | -0.221 [-0.288, -0.153], worse |
+| Dense + parser | +0.029 [-0.020, +0.079], no clear difference | +0.015 [-0.019, +0.050], no clear difference | -0.301 [-0.449, -0.160], worse | +0.047 [-0.032, +0.140], no clear difference |
+| Equal weights | -0.016 [-0.033, -0.003], worse | -0.050 [-0.083, -0.021], worse | +0.024 [+0.000, +0.071], no clear difference | -0.024 [-0.050, -0.002], worse |
+| With EN-DE cross-encoder | -0.039 [-0.114, +0.033], no clear difference | +0.001 [-0.031, +0.035], no clear difference | -0.047 [-0.152, +0.031], no clear difference | -0.161 [-0.274, -0.027], worse |
+| With EN cross-encoder | -0.054 [-0.117, +0.006], no clear difference | -0.044 [-0.081, -0.008], worse | +0.037 [+0.000, +0.097], no clear difference | -0.111 [-0.222, -0.009], worse |
+| Float instead of U8U8 | -0.003 [-0.015, +0.009], no clear difference | +0.001 [-0.009, +0.009], no clear difference | -0.015 [-0.049, +0.005], no clear difference | +0.013 [-0.015, +0.040], no clear difference |
+| The previous int8 file, on a VNNI CPU | +0.004 [-0.007, +0.018], no clear difference | +0.006 [-0.001, +0.014], no clear difference | -0.017 [-0.048, +0.000], no clear difference | -0.002 [-0.031, +0.021], no clear difference |
+| e5-small int8 | -0.046 [-0.094, +0.001], no clear difference | -0.060 [-0.098, -0.023], worse | +0.053 [-0.003, +0.123], no clear difference | -0.103 [-0.182, -0.020], worse |
+| bge-small-en | -0.100 [-0.150, -0.049], worse | -0.089 [-0.136, -0.046], worse | +0.047 [-0.007, +0.120], no clear difference | -0.138 [-0.227, -0.052], worse |
+| all-MiniLM-L6-v2 | -0.124 [-0.182, -0.068], worse | -0.120 [-0.176, -0.070], worse | +0.005 [-0.045, +0.068], no clear difference | -0.167 [-0.256, -0.082], worse |
 <!-- /table:paired -->
 
 ## 2. Embedding models
@@ -187,19 +189,19 @@ All 384 dimensions, so an index costs the same whichever is chosen. RSS and quer
 Linux container (`eval/footprint.py`).
 
 <!-- table:models -->
-| Model (hybrid + parser, weight 0.5) | Languages | Curated nDCG@10 | EN | DE | Rule | Known | Curated recall@20 | RSS MB | Query ms p50 | File MB |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| all-MiniLM-L6-v2 | EN | 0.627 [0.559, 0.693] | 0.686 | 0.523 | 0.760 | 0.884 | 0.644 | 202 | 3.8 | 90 |
-| bge-small-en-v1.5 | EN | 0.652 [0.578, 0.722] | 0.737 | 0.501 | 0.791 | 0.925 | 0.694 | - | - | 133 |
-| paraphrase-multilingual-MiniLM-L12-v2 | 50 | 0.749 [0.682, 0.811] | 0.779 | 0.696 | 0.881 | 0.864 | 0.916 | 823 | 7.6 | 470 |
-| same, previous int8 file | 50 | 0.756 [0.687, 0.818] | 0.781 | 0.711 | 0.886 | 0.861 | 0.909 | 489 | 3.7 | 118 |
-| same, U8U8 (shipped) | 50 | 0.752 [0.685, 0.812] | 0.781 | 0.699 | 0.880 | 0.878 | 0.926 | 490 | 8.4 | 118 |
-| multilingual-e5-small, int8 | 94 | 0.706 [0.644, 0.763] | 0.729 | 0.665 | 0.820 | 0.931 | 0.794 | - | - | 118 |
+| Model (hybrid + parser, weight 0.5) | Languages | Curated nDCG@10 | EN | DE | Rule | Known | Coverage | Curated recall@20 | RSS MB | Query ms p50 | File MB |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| all-MiniLM-L6-v2 | EN | 0.627 [0.559, 0.693] | 0.686 | 0.523 | 0.760 | 0.884 | 0.250 | 0.644 | 202 | 3.8 | 90 |
+| bge-small-en-v1.5 | EN | 0.652 [0.578, 0.722] | 0.737 | 0.501 | 0.791 | 0.925 | 0.279 | 0.694 | - | - | 133 |
+| paraphrase-multilingual-MiniLM-L12-v2 | 50 | 0.749 [0.682, 0.811] | 0.779 | 0.696 | 0.881 | 0.864 | 0.430 | 0.916 | 823 | 7.6 | 470 |
+| same, previous int8 file | 50 | 0.756 [0.687, 0.818] | 0.781 | 0.711 | 0.886 | 0.861 | 0.416 | 0.909 | 489 | 3.7 | 118 |
+| same, U8U8 (shipped) | 50 | 0.752 [0.685, 0.812] | 0.781 | 0.699 | 0.880 | 0.878 | 0.417 | 0.926 | 490 | 8.4 | 118 |
+| multilingual-e5-small, int8 | 94 | 0.706 [0.644, 0.763] | 0.729 | 0.665 | 0.820 | 0.931 | 0.314 | 0.794 | - | - | 118 |
 <!-- /table:models -->
 
 What the numbers decided: **German decides this.** The two English models are competitive on English and fall away on German
 queries, and the product has to serve both languages. Between the two multilingual models,
-`paraphrase-multilingual` is clearly ahead on filter queries and ahead on recall. On vague queries and exact names the gap to
+`paraphrase-multilingual` is clearly ahead on filter and coverage queries and ahead on recall. On vague queries and exact names the gap to
 `e5-small` is within noise, and both verdicts have moved with the labels and the quantised file.
 
 `paraphrase-multilingual` was a sentence-similarity model, and its `max_seq_length` of 128 tokens truncates long descriptions.
@@ -223,8 +225,8 @@ and a railway past" are still unlabelled. Claude proposed the labels before seei
 | Dense + parser | 0.464 [0.351, 0.571] | 0.597 | 0.330 | 0.539 |
 | Hybrid + parser, equal weights | 0.393 [0.290, 0.493] | 0.458 | 0.328 | 0.474 |
 | **Hybrid + parser, lexical weight 0.5 (chosen)** | 0.417 [0.312, 0.516] | 0.478 | 0.356 | 0.500 |
-| ... + EN-DE cross-encoder | 0.292 [0.210, 0.381] | 0.303 | 0.280 | 0.389 |
-| ... + EN cross-encoder | 0.272 [0.142, 0.421] | 0.398 | 0.147 | 0.375 |
+| ... + EN-DE cross-encoder | 0.257 [0.195, 0.321] | 0.275 | 0.238 | 0.394 |
+| ... + EN cross-encoder | 0.306 [0.174, 0.449] | 0.445 | 0.167 | 0.371 |
 | Float instead of U8U8 | 0.430 [0.317, 0.540] | 0.477 | 0.384 | 0.492 |
 | The previous int8 file, on a VNNI CPU | 0.416 [0.301, 0.527] | 0.467 | 0.364 | 0.492 |
 | e5-small int8 | 0.314 [0.208, 0.430] | 0.364 | 0.264 | 0.346 |
@@ -368,15 +370,15 @@ only that tour labelled: the case a length-based rule could break, and one the k
 | negation stripped + 0.1 from 8 words | 0.762, +0.010 [-0.003, +0.025], no clear difference | 0.499, +0.081 [+0.033, +0.140], better | 0.876, -0.004 [-0.018, +0.008], no clear difference | 0.878, +0.000 [+0.000, +0.000], no clear difference | 0.903, +0.000 [+0.000, +0.000], no clear difference |
 <!-- /table:coverage-candidates -->
 
-### Recommendations, for the owner to decide
+### What was recommended, and where it stands
 
-- **Fold the 12 into the decision set: yes, as a fourth reported set, not averaged in.** Their shape is different (11.5 words on average, against 5.5), and an average would hide that. Checked with all 62
+- **Fold the 12 into the decision set: done on 2026-11-07, as a fourth reported set, not averaged in.** Their shape is different (11.5 words on average, against 5.5), and an average would hide that. Checked with all 62
   queries together: no comparison changes direction, and the only verdicts that move are the EN cross-encoder and `e5-small`, both becoming clearly worse, which favours what is already chosen.
-- **Add them to the CI gate: yes, as their own lines.** Their spread between CPUs is 0.0058, inside the tolerance. Twelve queries are noisy, so this catches large falls only.
+- **Add them to the CI gate: done, as their own lines.** Their spread on the gate's own system is 0.0047 at most ([measured](#the-gates-lines-and-the-cross-encoders)), inside the tolerance.
 - **Negation handling: no.** No clear gain, on five queries, for a rule that would need maintaining in two languages.
 - **RRF weight: promising, but not yet.** `0.1 from 6 words` is the best candidate: clearly better on curated (+0.019) and coverage (+0.081), no clear difference on filters, and unchanged on exact names and long titles.
   A flat 0.1 or 0.25 is ruled out by its clear loss on exact names. But the threshold was picked after looking at these same queries, with coverage providing most of the gain. Test it on queries written afterwards, ideally real ones, before shipping it.
-- **Worth testing next, not tested here:** matching each query in one language rather than both stemmers, given what the stray words show.
+- **Being tested:** that rule, one stemmer chosen by the query's language, and a minimum share of matching query terms, on 24 fresh queries in `eval/heldout.py`. They were committed before any system ran on them, and their labels await the owner's review. Nothing here is shipped.
 
 ## 3. Runtimes
 
@@ -413,7 +415,7 @@ What the numbers decided:
   about 130 MB for MiniLM int8. A smaller English model would save 360 MB and lose German: not worth it, but it is the first
   thing to revisit if memory gets tight.
 
-An ARM server, or an x86 CPU without AVX2, would see different latencies and possibly different quality: not measured.
+An ARM server, or an x86 CPU without AVX2, would see different latencies and possibly different quality: not measured. Upstream's `model_qint8_arm64.onnx` is byte-identical to the file that lost quality on x86 without VNNI, so it can't be assumed safe either ([ADR 0020](../adr/0020-embedding-model-and-runtime-by-evaluation.md)).
 
 ## Does the score depend on the CPU?
 
@@ -446,26 +448,59 @@ An ARM server, or an x86 CPU without AVX2, would see different latencies and pos
 - **Against the old file on a VNNI laptop, it shows no clear difference on any set:** vague -0.004, filters -0.006, exact names +0.017, coverage +0.002.
 - **The gate's tolerance is now measured:** the largest spread on a gate metric is 0.0050 (recall 0.930 against 0.935), so 0.006, and a test keeps that
   tied to `eval/results/cpu_survey.json`. The old file's spread, 0.0083, would fail it, as it should.
-- **Not re-measured on the new file:** the `docker stats` table below, though a process's resident memory is unchanged at 490 MB; and the
-  [itinerary and recommendation benchmarks](itineraries.md), which ran on the old file.
+
+### The gate's lines and the cross-encoders
+
+`.github/workflows/gate-cpu-survey.yml` then ran 12 more jobs at the pinned revision, 5 with VNNI and 7 without, for two questions the first survey left open.
+
+**Does the tolerance hold for the coverage lines? Yes.** Every gate line of the shipped model stays within 0.006, so the coverage lines use the same tolerance. These are the lines that differ at all; lexical doesn't depend on the CPU:
+
+<!-- table:gate-lines -->
+| Gate line, shipped model | VNNI | No VNNI | Spread |
+| --- | --- | --- | --- |
+| curated hybrid ndcg@10 | 0.7725 | 0.7677 | 0.0048 |
+| curated hybrid recall@20 | 0.9300 | 0.9350 | 0.0050 |
+| coverage hybrid ndcg@10 | 0.4466 | 0.4479 | 0.0013 |
+| coverage hybrid recall@20 | 0.5299 | 0.5346 | 0.0047 |
+<!-- /table:gate-lines -->
+
+The old file's coverage nDCG@10 moved by 0.0092 here, which would fail, as it should. Twelve queries are noisy, so these lines catch large falls only.
+
+**Do the cross-encoders depend on the CPU? Their scores do, in both builds, but their quality barely moves.** On the curated and coverage queries, with the shipped embedding model:
+
+<!-- table:cross-encoders -->
+| Cross-encoder file | nDCG@10, VNNI | nDCG@10, no VNNI | Mean score difference across CPUs | Largest | ms p50, VNNI / no VNNI |
+| --- | --- | --- | --- | --- | --- |
+| ms-marco-l6-int8 | 0.6218 | 0.6198 | 0.357 | 0.948 | 223 / 430 |
+| ms-marco-l6-uint8 | 0.6221 | 0.6241 | 0.019 | 0.630 | 389 / 507 |
+| en-de-l6-int8 | 0.6344 | 0.6326 | 0.387 | 4.835 | 178 / 344 |
+| en-de-l6-uint8 | 0.6244 | 0.6250 | 0.238 | 3.596 | 315 / 404 |
+<!-- /table:cross-encoders -->
+
+- **U8U8 helps `ms-marco` a lot:** the mean score difference falls from 0.357 to 0.019. **It helps `en-de` much less:** 0.387 to 0.238, with one score still differing by 3.6. So the signed-weights explanation doesn't cover everything, and this file isn't CPU-independent. Why wasn't examined.
+- **Rankings are less sensitive than scores.** nDCG@10 moves by 0.002 or less between CPUs on all four files. Only the order is used, so this matters less than the scores suggest.
+- **`RERANKERS` keeps both builds, and U8U8 is the one reported above and the one to use.** All of them stay off, so the choice changes nothing that runs. Anyone turning one on should re-run this survey and look at `en-de` in particular.
+
 
 ## 4. Memory of the `ai` profile
 
-`docker stats`, idle, 3 minutes after start, on this laptop, with 300 tours embedded. "Before" is torch with MiniLM, from
-[the earlier budget](notifications.md#memory-budget).
+`docker stats`, idle, 3 minutes after start, on this laptop. "Before" is torch with MiniLM, from
+[the earlier budget](notifications.md#memory-budget). The U8U8 column is from 2026-11-07, with 309 tours and two models' vectors in the database, 197 MiB of the
+Docker VM's swap in use, and 685 MiB available in it. Each process verifies its model's hash at load, about 0.1 s.
 
-| Container | Before: torch, MiniLM | After: ONNX int8, first choice | With the EN-DE cross-encoder |
-| --- | --- | --- | --- |
-| ai-service | 409 MiB | 575 MiB | 811 MiB loaded, 1,007 after five searches. **Killed at the 768 MiB limit** |
-| ai-worker | 443 MiB | 536 MiB | no reranker |
-| ai-db | 36 MiB | 66 MiB | 66 MiB |
-| **`ai` adds** | **about 890 MiB** | **about 1,180 MiB** | about 1,610 MiB |
-| Container limit, each | 1,536 MiB | 768 MiB | needs more than 1 GiB |
-| Whole stack, default + `ai` | 2,416 MiB | 2,242 MiB | not sustained |
+| Container | Before: torch, MiniLM | ONNX int8, first choice | **ONNX U8U8, shipped** | With the EN-DE cross-encoder, int8 |
+| --- | --- | --- | --- | --- |
+| ai-service | 409 MiB | 575 MiB | **555 MiB** | 811 MiB loaded, 1,007 after five searches. **Killed at the 768 MiB limit** |
+| ai-worker | 443 MiB | 536 MiB | **505 MiB** | no reranker |
+| ai-db | 36 MiB | 66 MiB | **65 MiB** | 66 MiB |
+| **`ai` adds** | **about 890 MiB** | **about 1,180 MiB** | **about 1,125 MiB** | about 1,610 MiB |
+| Container limit, each | 1,536 MiB | 768 MiB | 768 MiB | needs more than 1 GiB |
+| Whole stack, default + `ai` | 2,416 MiB | 2,242 MiB | 2,562 MiB | not sustained |
 
-**The `ai` profile grew by about 290 MiB. That is the bigger multilingual model, and it still fits.** The same model on torch would be
-about 900 MB per process, and MiniLM int8 about 130 MB, which is what German queries cost. The whole-stack total fell only because
-other containers' idle figures vary between runs, so don't read it as a saving. The new memory limits are half the old, with about 190
+**The `ai` profile is about 235 MiB bigger than with torch and MiniLM. That is the bigger multilingual model, and it still fits.** The new file changes nothing measurable here: the 55 MiB against the first file is within what these idle figures vary by, and a process's resident memory was 490 MB for both.
+Right after a model is downloaded or swapped, `docker stats` can read 730 to 768 MiB on the service, because recently read file pages count until they're reclaimed. It wasn't killed: at idle, 533 of its 555 MiB is process memory. The same model on torch would be
+about 900 MB per process, and MiniLM int8 about 130 MB, which is what German queries cost. The whole-stack total moves mainly because
+other containers' idle figures vary between runs, so don't read its changes as savings or costs. The new memory limits are half the old, with about 190
 MiB of headroom on the service. A migration holds two models in the worker until cutover, so it needs its limit raised first (see
 [the runbook](../runbooks/embedding-model-migration.md)).
 
@@ -473,8 +508,8 @@ Which profiles to combine on an 8 GB laptop, from [the budget](notifications.md#
 
 | Demo | Profiles | About |
 | --- | --- | --- |
-| Search, itineraries | `ai` | 2.2 GiB |
-| AI with traces and the GenAI panel | `ai`, `observability` (a sum, not measured together), not for long | 3.2 GiB |
+| Search, itineraries | `ai` | 2.5 GiB |
+| AI with traces and the GenAI panel | `ai`, `observability` (a sum, not measured together), not for long | 3.5 GiB |
 | Emails and tickets | `notifications`, without `ai` | 2.4 GiB |
 | Everything at once | Not on this laptop | |
 
@@ -485,15 +520,16 @@ cd ai-recommendation-service
 export DATABASE_URL=postgresql+psycopg://...   # a migrated database with pgvector and PostGIS
 export HF_HUB_DISABLE_XET=1                    # the Xet transport stalled here at no bytes for 20 minutes; plain HTTP didn't
 python -m eval.run_eval --models minilm-l6 bge-small-en paraphrase-ml paraphrase-ml-int8 paraphrase-ml-uint8 e5-small-int8 \
-    --rrf-k 10 60 --lexical-weights 0.5 --rerankers ms-marco-l6-int8 en-de-l6-int8 --out eval/results/models.json
+    --rrf-k 10 60 --lexical-weights 0.5 --rerankers ms-marco-l6-uint8 en-de-l6-uint8 --out eval/results/models.json
 python -m eval.footprint --model paraphrase-ml-uint8 --runtime onnx
 python -m eval.coverage_analysis --out eval/results/coverage_analysis.json
 python -m eval.write_reports
 ```
 
 CI runs `python -m eval.regression` on the reviewed curated set against `eval/baseline.json`, with a cached ONNX model and no
-paid API, and fails if nDCG@10 or recall@20 falls by more than 0.005. The coverage set isn't part of it. Before changing the
-model or ONNX Runtime, run the `int8 CPU survey` workflow by hand and write its summary to `eval/results/cpu_survey.json`.
+paid API, and fails if nDCG@10 or recall@20 falls by more than 0.006 on either set's lines. Before changing the model or ONNX
+Runtime, run the `int8 CPU survey` and `Gate and cross-encoder CPU survey` workflows by hand, and write their summaries to
+`eval/results/cpu_survey.json` and `cpu_survey_gate.json`.
 
 `eval/results/curated_before_review.json` holds the scores from before the owner's review, with that run's latencies. It is a
 fixed record, and no command writes it.
