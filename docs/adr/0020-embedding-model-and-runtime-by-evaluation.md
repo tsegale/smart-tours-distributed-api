@@ -11,10 +11,11 @@ run with no paid service.
 **`paraphrase-multilingual-MiniLM-L12-v2`, int8 quantised, on ONNX Runtime. No cross-encoder. Torch leaves the runtime and CI.**
 All from [the evaluation](../benchmarks/search-quality.md), on 182 labelled queries in three shapes:
 
-- **Model.** On vague queries, nDCG@10 is 0.751 against 0.631 for MiniLM and 0.654 for bge-small, both clearly worse by paired
-  bootstrap. On German alone it is 0.697 against 0.525 and 0.503. `e5-small` is the close one: no clear difference on vague
-  queries, clearly worse on filter queries (-0.066), clearly better on exact names (+0.070). Filter queries are the larger part of
-  what the product is for, and that is a judgment, so it is a close call and a candidate to re-test on real queries.
+- **Model.** On vague queries, nDCG@10 is 0.756 against 0.627 for MiniLM and 0.652 for bge-small, both clearly worse by paired
+  bootstrap. On German alone it is 0.711 against 0.523 and 0.501. `e5-small` is the close one: clearly worse on vague queries
+  (-0.050, only just clear) and filter queries (-0.066), clearly better on exact names (+0.070). With the first labels its vague
+  score showed no clear difference, and the owner's review moved that towards this choice. Weighing filter queries above names is
+  still a judgment, so it stays a candidate to re-test on real queries.
 - **Runtime.** ONNX float and torch agree to a mean cosine of 1.0000, so the same quality by identity, at 7.6 ms against 18.0 per query.
 - **Precision.** int8 shows no clear difference from float on any query set, agrees with it to 0.998, and halves query time
   again to 3.7 ms. Resident memory is 489 MB against 823 for float and 901 for torch. The image goes from 2.16 GB to 615 MB.
@@ -35,8 +36,10 @@ cached ONNX model and no paid API, and fails on a fall of more than 0.005.
   ai-worker were 409 and 443 MiB with torch and MiniLM, and are 575 and 536 with this model. ONNX is what makes this model
   affordable: on torch it would take about 900 MB per process. A MiniLM int8 process needs about 130 MB, so the German queries cost
   about 360 MB per process. That is the first trade to revisit if memory is the constraint.
-- **The labels aren't human yet.** The curated set's judgments were proposed by Claude and are marked `needs_review`, the corpus is
-  synthetic, and no real user has touched any of this. The numbers rank these options on this data.
+- **The curated labels are reviewed; the rest is still synthetic.** The owner decided the contested calls and signed the set off on
+  2026-11-06, and [no decision changed](../benchmarks/search-quality.md#the-owners-review-before-and-after). The corpus is synthetic
+  and no real user has touched any of this, so the numbers rank these options on this data. A further 12 queries for tours the set
+  doesn't reach are unreviewed, and nothing rests on them.
 - **The chosen model truncates at 128 tokens.** Descriptions here are short. Long real ones would lose their ends.
 - **A model of another dimension needs a schema migration.** The column is `vector(384)`, and every candidate happens to be 384.
 - **`model_qint8_avx512_vnni.onnx`** runs on any x86-64 CPU and fastest on VNNI. ARM servers and older CPUs are unmeasured.

@@ -26,57 +26,109 @@ def interval(triple: list[float]) -> str:
     return f"{triple[0]:.3f} [{triple[1]:.3f}, {triple[2]:.3f}]"
 
 
-def shapes_row(models: dict, label: str, name: str | None = None) -> str:
+def shapes_row(models: dict, before: dict, label: str, name: str | None = None) -> str:
+    """Latency comes from the earlier run: labels can't change it, and the later run shared a busy laptop."""
     row = models["systems"][label]
+    timing = before["systems"][label]
     cells = " | ".join(interval(row[s]["ndcg"]) for s in SETS)
-    return f"| {name or label} | {cells} | {row['curated']['ms_p50']:.0f} / {row['curated']['ms_p95']:.0f} |"
+    return f"| {name or label} | {cells} | {timing['ms_p50']:.0f} / {timing['ms_p95']:.0f} |"
 
 
 def table(header: list[str], rows: list[str]) -> str:
     return "\n".join(["| " + " | ".join(header) + " |", "| " + " | ".join("---" for _ in header) + " |", *rows])
 
 
-def modes(models: dict) -> str:
-    rows = [
-        ("lexical", "Lexical only"),
-        ("dense:paraphrase-ml-int8", "Dense only"),
-        ("hybrid:paraphrase-ml-int8:k60", "Hybrid, equal weights, k = 60"),
-        ("hybrid:paraphrase-ml-int8:k10", "Hybrid, equal weights, k = 10"),
-        ("hybrid:paraphrase-ml-int8:w0.5", "Hybrid, lexical weight 0.5"),
-        ("dense+parser:paraphrase-ml-int8", "Dense + parser"),
-        ("hybrid+parser:paraphrase-ml-int8", "Hybrid + parser, equal weights"),
-        (CHOSEN, "**Hybrid + parser, lexical weight 0.5 (chosen)**"),
-        ("hybrid+parser+rerank:paraphrase-ml-int8:en-de-l6-int8", "... + EN-DE cross-encoder"),
-        ("hybrid+parser+rerank:paraphrase-ml-int8:ms-marco-l6-int8", "... + EN cross-encoder"),
-    ]
+MODES = [
+    ("lexical", "Lexical only"),
+    ("dense:paraphrase-ml-int8", "Dense only"),
+    ("hybrid:paraphrase-ml-int8:k60", "Hybrid, equal weights, k = 60"),
+    ("hybrid:paraphrase-ml-int8:k10", "Hybrid, equal weights, k = 10"),
+    ("hybrid:paraphrase-ml-int8:w0.5", "Hybrid, lexical weight 0.5"),
+    ("dense+parser:paraphrase-ml-int8", "Dense + parser"),
+    ("hybrid+parser:paraphrase-ml-int8", "Hybrid + parser, equal weights"),
+    (CHOSEN, "**Hybrid + parser, lexical weight 0.5 (chosen)**"),
+    ("hybrid+parser+rerank:paraphrase-ml-int8:en-de-l6-int8", "... + EN-DE cross-encoder"),
+    ("hybrid+parser+rerank:paraphrase-ml-int8:ms-marco-l6-int8", "... + EN cross-encoder"),
+]
+COMPARED = [
+    ("lexical", "Lexical only"),
+    ("dense+parser:paraphrase-ml-int8", "Dense + parser"),
+    ("hybrid+parser:paraphrase-ml-int8", "Equal weights"),
+    ("hybrid+parser+rerank:paraphrase-ml-int8:en-de-l6-int8", "With EN-DE cross-encoder"),
+    ("hybrid+parser+rerank:paraphrase-ml-int8:ms-marco-l6-int8", "With EN cross-encoder"),
+    ("hybrid+parser:paraphrase-ml:w0.5", "Float instead of int8"),
+    ("hybrid+parser:e5-small-int8:w0.5", "e5-small int8"),
+    ("hybrid+parser:bge-small-en:w0.5", "bge-small-en"),
+    ("hybrid+parser:minilm-l6:w0.5", "all-MiniLM-L6-v2"),
+]
+
+
+def verdict(low: float, high: float) -> str:
+    return "better" if low > 0 else ("worse" if high < 0 else "no clear difference")
+
+
+def modes(models: dict, before: dict) -> str:
     header = ["System", "Curated: vague", "Rule: filters", "Known: exact name", "ms p50 / p95"]
-    return table(header, [shapes_row(models, label, name) for label, name in rows])
+    return table(header, [shapes_row(models, before, label, name) for label, name in MODES])
 
 
 def paired(models: dict) -> str:
     rows = []
-    compared = [
-        ("lexical", "Lexical only"),
-        ("dense+parser:paraphrase-ml-int8", "Dense + parser"),
-        ("hybrid+parser:paraphrase-ml-int8", "Equal weights"),
-        ("hybrid+parser+rerank:paraphrase-ml-int8:en-de-l6-int8", "With EN-DE cross-encoder"),
-        ("hybrid+parser+rerank:paraphrase-ml-int8:ms-marco-l6-int8", "With EN cross-encoder"),
-        ("hybrid+parser:paraphrase-ml:w0.5", "Float instead of int8"),
-        ("hybrid+parser:e5-small-int8:w0.5", "e5-small int8"),
-        ("hybrid+parser:bge-small-en:w0.5", "bge-small-en"),
-        ("hybrid+parser:minilm-l6:w0.5", "all-MiniLM-L6-v2"),
-    ]
     per_query = models["per_query"]
-    for label, name in compared:
+    for label, name in COMPARED:
         cells = []
         for set_name in SETS:
             diff, low, high = paired_difference_ci(
                 per_query[label][set_name]["ndcg"], per_query[CHOSEN][set_name]["ndcg"]
             )
-            verdict = "better" if low > 0 else ("worse" if high < 0 else "no clear difference")
-            cells.append(f"{diff:+.3f} [{low:+.3f}, {high:+.3f}], {verdict}")
+            cells.append(f"{diff:+.3f} [{low:+.3f}, {high:+.3f}], {verdict(low, high)}")
         rows.append(f"| {name} | " + " | ".join(cells) + " |")
     return table(["Against the chosen system", "Curated", "Rule", "Known"], rows)
+
+
+def review(models: dict, before: dict) -> str:
+    """Every system's curated score under Claude's labels and the owner's. Other sets' labels didn't change: checked."""
+    rows = []
+    for label, row in models["systems"].items():
+        old = before["systems"][label]
+        for set_name in ("rule", "known"):
+            if abs(row[set_name]["ndcg"][0] - old[set_name]) > 1e-9:
+                raise SystemExit(f"{label} {set_name} moved, and its labels didn't: this isn't only the review")
+        new = row["curated"]["ndcg"]
+        rows.append(f"| {label} | {old['ndcg'][0]:.3f} | {interval(new)} | {new[0] - old['ndcg'][0]:+.3f} |")
+    return table(["System", "Before", "After [95% CI]", "Change"], rows)
+
+
+def _difference(per_query: dict, label: str, reference: str) -> tuple[float, float, float]:
+    return paired_difference_ci(per_query[label]["curated"]["ndcg"], per_query[reference]["curated"]["ndcg"])
+
+
+def decisions(models: dict, before: dict) -> str:
+    """Each decision's comparison on the curated set, under both sets of labels, as a paired difference."""
+    k_label, k_reference = "hybrid:paraphrase-ml-int8:k10", "hybrid:paraphrase-ml-int8:k60"
+    comparisons = [(label, name, CHOSEN) for label, name in COMPARED]
+    comparisons.append((k_label, "k = 10 against k = 60, equal weights", k_reference))
+    rows = []
+    for label, name, reference in comparisons:
+        old = before["paired"][f"{label} vs {reference}"]
+        new = _difference(models["per_query"], label, reference)
+        changed = "**yes**" if verdict(*old[1:]) != verdict(*new[1:]) else "no"
+        rows.append(
+            f"| {name} | {old[0]:+.3f}, {verdict(*old[1:])} | "
+            f"{new[0]:+.3f} [{new[1]:+.3f}, {new[2]:+.3f}], {verdict(*new[1:])} | {changed} |"
+        )
+    return table(["Against the chosen system", "Before", "After", "Verdict changed"], rows)
+
+
+def coverage(models: dict) -> str:
+    rows = []
+    for label, name in [*MODES, *COMPARED[5:]]:
+        row = models["systems"][label]["coverage"]
+        rows.append(
+            f"| {name} | {interval(row['ndcg'])} | {row['ndcg_en'][0]:.3f} | {row['ndcg_de'][0]:.3f} | "
+            f"{row['recall'][0]:.3f} |"
+        )
+    return table(["System", "nDCG@10", "EN", "DE", "Recall@20"], rows)
 
 
 def models_table(models: dict, footprint: dict) -> str:
@@ -182,14 +234,18 @@ def fill(path: Path, tables: dict[str, str]) -> None:
 
 def main() -> None:
     models = load("models.json")
+    before = load("curated_before_review.json")
     lines = (RESULTS / "footprint.jsonl").read_text(encoding="utf-8").splitlines()
     footprint_rows = [json.loads(line) for line in lines if line.strip()]
     onnx = {row["model"]: row for row in footprint_rows if row["runtime"] == "onnx"}
     fill(
         DOCS / "search-quality.md",
         {
-            "modes": modes(models),
+            "modes": modes(models, before),
             "paired": paired(models),
+            "review": review(models, before),
+            "decisions": decisions(models, before),
+            "coverage": coverage(models),
             "models": models_table(models, onnx),
             "runtimes": runtimes(footprint_rows),
         },

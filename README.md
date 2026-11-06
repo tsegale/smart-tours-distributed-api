@@ -122,10 +122,10 @@ What the evaluation decided, as nDCG@10 with `paraphrase-multilingual-MiniLM-L12
 
 | Retrieval | Vague description | Filter phrases | Exact name |
 | --- | --- | --- | --- |
-| Lexical only | 0.462 | 0.476 | 0.876 |
-| Dense + query understanding | 0.793 | 0.898 | 0.571 |
-| Hybrid + query understanding, equal weights | 0.728 | 0.836 | 0.885 |
-| **Hybrid + query understanding, lexical weight 0.5 (chosen)** | **0.751** | **0.886** | **0.861** |
+| Lexical only | 0.459 | 0.476 | 0.876 |
+| Dense + query understanding | 0.795 | 0.898 | 0.571 |
+| Hybrid + query understanding, equal weights | 0.730 | 0.836 | 0.885 |
+| **Hybrid + query understanding, lexical weight 0.5 (chosen)** | **0.756** | **0.886** | **0.861** |
 
 | Runtime, same model | Resident memory | Query p50 | Image |
 | --- | --- | --- | --- |

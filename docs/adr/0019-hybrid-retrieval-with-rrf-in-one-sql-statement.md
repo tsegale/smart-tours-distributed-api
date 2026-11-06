@@ -27,12 +27,13 @@ pgvector, PostGIS and full-text search side by side.
 - **`explain=true`** returns each result's dense rank, lexical rank and fused score.
 
 The numbers are in [search-quality](../benchmarks/search-quality.md). nDCG@10 with the chosen embedding model, on the three
-query shapes (vague descriptions / filter phrases / exact names): dense with parser 0.793 / 0.898 / 0.571; equal-weight hybrid with
-parser 0.728 / 0.836 / 0.885; weighted hybrid with parser 0.751 / 0.886 / 0.861. Lexical alone: 0.462 / 0.476 / 0.876.
+query shapes (vague descriptions / filter phrases / exact names): dense with parser 0.795 / 0.898 / 0.571; equal-weight hybrid with
+parser 0.730 / 0.836 / 0.885; weighted hybrid with parser 0.756 / 0.886 / 0.861. Lexical alone: 0.459 / 0.476 / 0.876. The vague
+scores use the labels the owner reviewed on 2026-11-06, which changed no decision here.
 
 ## Consequences
-- **This is a compromise, and the numbers show what it costs.** On vague descriptions, dense alone is ahead by 0.041, with an
-  interval that just includes zero, [-0.002, +0.086]. On exact names, dense alone loses by 0.290 [-0.431, -0.155]. A small loss on
+- **This is a compromise, and the numbers show what it costs.** On vague descriptions, dense alone is ahead by 0.039, with an
+  interval that just includes zero, [-0.003, +0.082]. On exact names, dense alone loses by 0.290 [-0.431, -0.155]. A small loss on
   one shape buys protection from a large one on the other.
 - **The weight was chosen on the same queries it is reported on,** from four coarse values. Treat it as a direction, not an
   optimum, and re-check it when real queries exist. `k` barely mattered, so it stayed at the conventional 60.
