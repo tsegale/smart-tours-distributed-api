@@ -26,6 +26,7 @@ from app.reranker import RERANKERS, OnnxCrossEncoder
 from app.retrieval import Filters, hydrate, search
 
 from . import queries_known, queries_rule
+from .cpu import cpu_features
 from .curated import CURATED
 from .curated_coverage import CURATED_COVERAGE
 from .metrics import bootstrap_ci, ndcg_at, percentile, recall_at, reciprocal_rank
@@ -203,19 +204,28 @@ def main() -> None:
     parser.add_argument("--lexical-weights", nargs="*", type=float, default=[])
     parser.add_argument("--rerankers", nargs="*", default=[], choices=list(RERANKERS))
     parser.add_argument("--rerank-depth", type=int, default=50)
+    parser.add_argument("--sets", nargs="*", help="Only these query sets, merged into an existing --out file")
     args = parser.parse_args()
 
     tours = load_tours()
     if not args.skip_load:
         load_read_model(tours)
     sets = query_sets(tours)
+    if args.sets:
+        sets = {name: sets[name] for name in args.sets}
     written_ids = tuple(t["id"] for t in tours if t["authored"])
     composed_ids = tuple(t["id"] for t in tours if not t["authored"])
     corpora = {"curated": written_ids, "rule": composed_ids, "known": written_ids, "coverage": written_ids}
     print({name: len(queries) for name, queries in sets.items()}, flush=True)
 
     parser = QueryParser(load_csv())
-    results: dict = {"queries": {k: len(v) for k, v in sets.items()}, "systems": {}, "per_query": {}, "models": {}}
+    results: dict = {
+        "cpu": cpu_features(),
+        "queries": {k: len(v) for k, v in sets.items()},
+        "systems": {},
+        "per_query": {},
+        "models": {},
+    }
 
     def record(label, set_name, per_query):
         results["systems"].setdefault(label, {})[set_name] = summarise(per_query)
@@ -328,6 +338,13 @@ def main() -> None:
                 record(label, set_name, run(rerank_system, queries, corpora[set_name]))
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    if args.sets:
+        merged = json.loads(args.out.read_text(encoding="utf-8"))
+        merged["queries"] |= results["queries"]
+        for section in ("systems", "per_query"):
+            for label, by_set in results[section].items():
+                merged[section][label] |= by_set
+        results = merged
     args.out.write_text(json.dumps(results, indent=1))
     print("wrote", args.out)
 

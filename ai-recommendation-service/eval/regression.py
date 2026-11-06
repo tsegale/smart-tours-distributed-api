@@ -23,11 +23,21 @@ from app.database import SessionLocal
 from app.embeddings import MODELS
 from app.retrieval import search
 
+from .cpu import cpu_features
 from .metrics import ndcg_at, recall_at
 from .run_eval import curated_queries, embed_corpus, load_read_model, load_tours
 
 BASELINE = Path(__file__).with_name("baseline.json")
 TOLERANCE = 0.005
+DRIFT_ISSUE = "https://github.com/tsegale/smart-tours-distributed-api/issues/10"
+
+
+def drift_notice(failures: list[str]) -> list[str]:
+    """Vector scores have differed between runners on one commit, so say so until that's fixed. Lexical can't drift."""
+    if not any(failure.startswith("hybrid") for failure in failures):
+        return []
+    message = f"possible CPU-dependent int8 drift; see issue {DRIFT_ISSUE}"
+    return [message, f"::error title=Retrieval gate::{message}"]
 
 
 def measure(model: str) -> dict:
@@ -63,7 +73,7 @@ def main() -> int:
     baseline = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.exists() else None
     model = args.model or (baseline["model"] if baseline else get_settings().embedding_model)
     current = measure(model)
-    print(json.dumps(current, indent=1))
+    print(json.dumps({"cpu": cpu_features(), **current}, indent=1))
     if args.update:
         BASELINE.write_text(json.dumps(current, indent=1) + "\n", encoding="utf-8", newline="\n")
         return 0
@@ -78,6 +88,8 @@ def main() -> int:
     ]
     for failure in failures:
         print("REGRESSION", failure, file=sys.stderr)
+    for line in drift_notice(failures):
+        print(line, file=sys.stderr)
     return 1 if failures else 0
 
 
