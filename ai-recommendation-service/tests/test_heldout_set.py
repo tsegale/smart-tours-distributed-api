@@ -1,10 +1,10 @@
-"""The held-out set stays out of everything that measures until the owner has reviewed it."""
+"""The held-out set: signed off before anything ran on it, and used by one comparison only, never to tune or gate."""
 
 from pathlib import Path
 
 from eval.curated import CURATED
 from eval.curated_coverage import CURATED_COVERAGE
-from eval.heldout import HELDOUT, NEEDS_REVIEW
+from eval.heldout import HELDOUT, NEEDS_REVIEW, REVIEWED_ON
 from eval.run_eval import curated_queries, load_tours, query_sets
 
 EVAL = Path(__file__).parents[1] / "eval"
@@ -23,9 +23,12 @@ def test_it_labels_real_tours():
     curated_queries(load_tours(), HELDOUT, "heldout")  # raises on a name that isn't a tour
 
 
-def test_until_it_is_reviewed_nothing_measures_it():
-    if not NEEDS_REVIEW:
-        return
+def test_it_is_signed_off():
+    assert NEEDS_REVIEW is False
+    assert REVIEWED_ON == "2026-11-07"
+
+
+def test_only_the_held_out_comparison_uses_it():
     assert "heldout" not in query_sets(load_tours())
     importers = [p.name for p in EVAL.glob("*.py") if p.name != "heldout.py" and "heldout" in p.read_text("utf-8")]
-    assert importers == []
+    assert importers in ([], ["lexical_precision.py"])

@@ -1,5 +1,5 @@
-"""Held-out queries for testing lexical-precision candidates. PROPOSED LABELS: not reviewed, and nothing has run on
-them.
+"""Held-out queries for testing lexical-precision candidates. Signed off by the owner on 2026-11-07, before any system
+ran on them.
 
 The candidates (a lexical weight that drops on long queries, one stemmer per query, a minimum share of matching terms)
 came out of looking at the other sets, so they can't be judged on those alone. These 24 queries are the fresh test.
@@ -10,9 +10,10 @@ How these labels were made (2026-11-07):
 2. This isn't a blind test of the author: Claude already knew how the candidates work and which queries hurt lexical
    search. The queries aim for a natural mix instead of targeting any candidate: seven pairs of six words or more in
    English, five shorter, some with the tours' own words and some without.
-3. The owner reviews the labels. Only then does NEEDS_REVIEW go False and the set join an evaluation.
+3. The owner reviewed the labels and accepted every proposed judgment unchanged, on 2026-11-07. Only then did any
+   system run on them (eval/lexical_precision.py).
 
-Calls the owner may want to check:
+Calls the owner was asked to check, and kept:
 - "hippos and crocodiles": no tour has both. The photo boat gets 3 because hippos surface a few metres away, the Kunene
   rafting 2 because the crocodiles stay on the far bank, and the Bayei walk 1 because a hippo path is only a warning.
 - "fishing": a single relevant tour, by design. It is one of three tours no signed-off set labels, as are the photo boat
@@ -26,8 +27,8 @@ Grades as in curated.py: 3 what was asked for, 2 a close match, 1 related, anyth
 is a translation of the English, so a pair shares one dict.
 """
 
-NEEDS_REVIEW = True
-REVIEWED_ON = None
+NEEDS_REVIEW = False
+REVIEWED_ON = "2026-11-07"
 
 _BIRDS = {
     "Lagoon flamingos and oyster farm": 3,
