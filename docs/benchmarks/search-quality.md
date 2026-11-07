@@ -378,7 +378,47 @@ only that tour labelled: the case a length-based rule could break, and one the k
 - **Negation handling: no.** No clear gain, on five queries, for a rule that would need maintaining in two languages.
 - **RRF weight: promising, but not yet.** `0.1 from 6 words` is the best candidate: clearly better on curated (+0.019) and coverage (+0.081), no clear difference on filters, and unchanged on exact names and long titles.
   A flat 0.1 or 0.25 is ruled out by its clear loss on exact names. But the threshold was picked after looking at these same queries, with coverage providing most of the gain. Test it on queries written afterwards, ideally real ones, before shipping it.
-- **Being tested:** that rule, one stemmer chosen by the query's language, and a minimum share of matching query terms, on 24 fresh queries in `eval/heldout.py`. They were committed before any system ran on them, and their labels await the owner's review. Nothing here is shipped.
+- **Tested on fresh queries since: [none of it holds up](#the-held-out-test).**
+
+### The held-out test
+
+24 queries in `eval/heldout.py`, 12 EN/DE pairs, written and committed before any system ran on them, and signed off by the owner
+with every proposed label unchanged on 2026-11-07. Claude wrote them knowing how the candidates work, so this isn't blind to the
+author. `eval/lexical_precision.py` was committed before it ran, with its selection rule in the docstring: thresholds and the
+combination are chosen on the old sets only (the four above, plus pasted tour titles as a guard) by the `select` phase, which never
+loads the held-out set. Its choice was committed too, before `final` ran. The script's copy of the lexical SQL first reproduces the
+service's ranking exactly, query by query, on every set.
+
+**None of the candidates is clearly better on the held-out set, and none is shipped.**
+
+<!-- table:heldout -->
+| Candidate | Curated | Rule | Known | Coverage | **Held-out** | Titles |
+| --- | --- | --- | --- | --- | --- | --- |
+| current | 0.752 | 0.880 | 0.878 | 0.417 | 0.515 | 0.936 |
+| 6-word rule | 0.770, +0.019 [+0.002, +0.036], better | 0.891, +0.011 [-0.008, +0.033], no clear difference | 0.878, +0.000 [+0.000, +0.000], no clear difference | 0.498, +0.081 [+0.033, +0.140], better | 0.529, +0.015 [-0.028, +0.056], no clear difference | 0.936, +0.000 [+0.000, +0.000], no clear difference |
+| one stemmer | 0.740, -0.011 [-0.028, +0.000], no clear difference | 0.883, +0.003 [-0.002, +0.008], no clear difference | 0.878, +0.000 [+0.000, +0.000], no clear difference | 0.417, +0.000 [+0.000, +0.000], no clear difference | 0.515, +0.000 [+0.000, +0.000], no clear difference | 0.936, +0.000 [+0.000, +0.000], no clear difference |
+| one stemmer, true language (not deployable) | 0.740, -0.011 [-0.028, +0.000], no clear difference | 0.883, +0.003 [-0.002, +0.008], no clear difference | 0.878, +0.000 [+0.000, +0.000], no clear difference | 0.417, +0.000 [+0.000, +0.000], no clear difference | 0.515, +0.000 [+0.000, +0.000], no clear difference | 0.938, +0.001 [+0.000, +0.005], no clear difference |
+| min share 0.34 | 0.781, +0.030 [-0.018, +0.077], no clear difference | 0.900, +0.020 [-0.014, +0.056], no clear difference | 0.878, +0.000 [+0.000, +0.000], no clear difference | 0.464, +0.047 [-0.032, +0.140], no clear difference | 0.517, +0.003 [-0.077, +0.073], no clear difference | 0.949, +0.013 [+0.001, +0.028], better |
+| min share 0.67 | 0.785, +0.034 [-0.014, +0.081], no clear difference | 0.895, +0.015 [-0.019, +0.050], no clear difference | 0.878, +0.000 [+0.000, +0.000], no clear difference | 0.464, +0.047 [-0.032, +0.140], no clear difference | 0.530, +0.016 [-0.066, +0.088], no clear difference | 0.911, -0.025 [-0.056, +0.004], no clear difference |
+| min share 0.75 | 0.785, +0.034 [-0.014, +0.081], no clear difference | 0.895, +0.015 [-0.019, +0.050], no clear difference | 0.878, +0.000 [+0.000, +0.000], no clear difference | 0.464, +0.047 [-0.032, +0.140], no clear difference | 0.530, +0.016 [-0.066, +0.088], no clear difference | 0.911, -0.025 [-0.056, +0.004], no clear difference |
+<!-- /table:heldout -->
+
+- **The 6-word rule: +0.015 [-0.028, +0.056], no clear difference.** That is about a fifth of its gain on coverage (+0.081), the
+  set its threshold was picked on. It moved 11 of the 24 queries, 8 up and 3 down: the biggest losses were "we are travelling with small
+  children and grandparents, nothing too hard" (-0.204) and "somewhere indoors and cool to get out of the midday heat" (-0.201).
+  That fits a threshold fitted to the queries it was tested on. It is still the best candidate on the old sets, so the pre-registered
+  rule picked it as the best combination too.
+- **One stemmer: no effect.** The detector is right on 23 of 24 held-out queries (the 24th keeps both stemmers), and using each
+  query's true language instead scores the same. The words that pull in wrong tours (`walk`, `view`, `feel`, `water`) are content
+  words in both languages, so stemming in one doesn't remove them. On curated it is -0.011, no clear difference.
+- **Minimum share: not a valid test, because of a flaw in how terms were counted.** A word that is a stopword in only one language
+  still counted, because the other stemmer kept it ("to", "a", "it" and "my" in English queries). "strenuous walk uphill to a big
+  view, I want to feel it in my legs" counted 13 terms, so 0.34 needed 5, and no tour matches more than 3. On multi-word queries, the
+  lexical list is therefore simply empty: at 0.67 and 0.75 the results are identical to dense + parser on every coverage and rule query
+  and 49 of 50 curated ones. What this measured is "no lexical list unless the query is one or two words". That isn't nothing (no
+  clear loss anywhere, and exact names keep the lexical list), but it isn't the idea that was meant to be tested.
+- **The held-out set is harder than the others, whatever runs on it:** 0.515 for the current system. It's also small: 24 queries,
+  12 intents, so an interval of about ±0.05 on a paired difference is as tight as it gets.
 
 ## 3. Runtimes
 

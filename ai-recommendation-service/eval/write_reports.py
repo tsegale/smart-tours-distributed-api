@@ -348,6 +348,23 @@ def gate_lines(survey: dict) -> str:
     return table(["Gate line, shipped model", "VNNI", "No VNNI", "Spread"], rows)
 
 
+def heldout(results: dict) -> str:
+    """Every candidate on every set, the held-out one included, against the current system."""
+    order = ("curated", "rule", "known", "coverage", "heldout", "titles")
+    rows = []
+    for name, row in results["systems"].items():
+        cells = []
+        for set_name in order:
+            cell = row["sets"][set_name]
+            value = f"{cell['ndcg'][0]:.3f}"
+            if "paired" in cell:
+                value += f", {_pair(cell['paired'])}"
+            cells.append(value)
+        rows.append(f"| {name} | " + " | ".join(cells) + " |")
+    header = ["Candidate", "Curated", "Rule", "Known", "Coverage", "**Held-out**", "Titles"]
+    return table(header, rows)
+
+
 def itineraries(results: list[dict]) -> str:
     names = {
         "none": "Deterministic only (no provider)",
@@ -423,6 +440,7 @@ def main() -> None:
             "coverage-queries": coverage_queries(analysis),
             "coverage-groups": coverage_groups(analysis),
             "coverage-candidates": coverage_candidates(analysis),
+            "heldout": heldout(load("lexical_precision.json")),
             "drift": drift(load("cpu_survey.json")),
             "gate-lines": gate_lines(load("cpu_survey_gate.json")),
             "cross-encoders": cross_encoders(load("cpu_survey_gate.json")),

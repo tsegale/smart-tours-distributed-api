@@ -1,5 +1,6 @@
 """The held-out set: signed off before anything ran on it, and used by one comparison only, never to tune or gate."""
 
+import re
 from pathlib import Path
 
 from eval.curated import CURATED
@@ -30,5 +31,6 @@ def test_it_is_signed_off():
 
 def test_only_the_held_out_comparison_uses_it():
     assert "heldout" not in query_sets(load_tours())
-    importers = [p.name for p in EVAL.glob("*.py") if p.name != "heldout.py" and "heldout" in p.read_text("utf-8")]
-    assert importers in ([], ["lexical_precision.py"])
+    imports = re.compile(r"from \.heldout import|from eval\.heldout import|import eval\.heldout")
+    importers = [p.name for p in EVAL.glob("*.py") if imports.search(p.read_text("utf-8"))]
+    assert importers == ["lexical_precision.py"]
