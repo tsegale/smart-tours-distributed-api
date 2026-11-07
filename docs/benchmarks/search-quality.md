@@ -376,11 +376,14 @@ only that tour labelled: the case a length-based rule could break, and one the k
   queries together: no comparison changes direction, and the only verdicts that move are the EN cross-encoder and `e5-small`, both becoming clearly worse, which favours what is already chosen.
 - **Add them to the CI gate: done, as their own lines.** Their spread on the gate's own system is 0.0047 at most ([measured](#the-gates-lines-and-the-cross-encoders)), inside the tolerance.
 - **Negation handling: no.** No clear gain, on five queries, for a rule that would need maintaining in two languages.
-- **RRF weight: promising, but not yet.** `0.1 from 6 words` is the best candidate: clearly better on curated (+0.019) and coverage (+0.081), no clear difference on filters, and unchanged on exact names and long titles.
-  A flat 0.1 or 0.25 is ruled out by its clear loss on exact names. But the threshold was picked after looking at these same queries, with coverage providing most of the gain. Test it on queries written afterwards, ideally real ones, before shipping it.
-- **Tested on fresh queries since: [none of it holds up](#the-held-out-test).**
+- **RRF weight: rejected.** `0.1 from 6 words` looked best here: clearly better on curated (+0.019) and coverage (+0.081). A flat 0.1 or
+  0.25 is ruled out by its clear loss on exact names. The threshold was picked after looking at these same queries, and on fresh ones the
+  gain [didn't hold](#the-held-out-test-a-negative-result).
 
-### The held-out test
+### The held-out test: a negative result
+
+**Nothing changes in retrieval.** The 6-word rule was overfitted, one stemmer had no effect, and the minimum-share idea is untested
+rather than rejected, because the test of it had a bug. The experiment stopped here, by the owner's decision.
 
 24 queries in `eval/heldout.py`, 12 EN/DE pairs, written and committed before any system ran on them, and signed off by the owner
 with every proposed label unchanged on 2026-11-07. Claude wrote them knowing how the candidates work, so this isn't blind to the
@@ -403,15 +406,15 @@ service's ranking exactly, query by query, on every set.
 | min share 0.75 | 0.785, +0.034 [-0.014, +0.081], no clear difference | 0.895, +0.015 [-0.019, +0.050], no clear difference | 0.878, +0.000 [+0.000, +0.000], no clear difference | 0.464, +0.047 [-0.032, +0.140], no clear difference | 0.530, +0.016 [-0.066, +0.088], no clear difference | 0.911, -0.025 [-0.056, +0.004], no clear difference |
 <!-- /table:heldout -->
 
-- **The 6-word rule: +0.015 [-0.028, +0.056], no clear difference.** That is about a fifth of its gain on coverage (+0.081), the
+- **The 6-word rule: overfitted.** +0.015 [-0.028, +0.056] on the held-out set, no clear difference, against +0.081 on coverage, the
   set its threshold was picked on. It moved 11 of the 24 queries, 8 up and 3 down: the biggest losses were "we are travelling with small
   children and grandparents, nothing too hard" (-0.204) and "somewhere indoors and cool to get out of the midday heat" (-0.201).
   That fits a threshold fitted to the queries it was tested on. It is still the best candidate on the old sets, so the pre-registered
   rule picked it as the best combination too.
-- **One stemmer: no effect.** The detector is right on 23 of 24 held-out queries (the 24th keeps both stemmers), and using each
+- **One stemmer: no effect, so rejected.** The detector is right on 23 of 24 held-out queries (the 24th keeps both stemmers), and using each
   query's true language instead scores the same. The words that pull in wrong tours (`walk`, `view`, `feel`, `water`) are content
   words in both languages, so stemming in one doesn't remove them. On curated it is -0.011, no clear difference.
-- **Minimum share: not a valid test, because of a flaw in how terms were counted.** A word that is a stopword in only one language
+- **Minimum share: untested, not rejected. The test was invalid, because of a bug in how terms were counted.** A word that is a stopword in only one language
   still counted, because the other stemmer kept it ("to", "a", "it" and "my" in English queries). "strenuous walk uphill to a big
   view, I want to feel it in my legs" counted 13 terms, so 0.34 needed 5, and no tour matches more than 3. On multi-word queries, the
   lexical list is therefore simply empty: at 0.67 and 0.75 the results are identical to dense + parser on every coverage and rule query
@@ -419,6 +422,10 @@ service's ranking exactly, query by query, on every set.
   clear loss anywhere, and exact names keep the lexical list), but it isn't the idea that was meant to be tested.
 - **The held-out set is harder than the others, whatever runs on it:** 0.515 for the current system. It's also small: 24 queries,
   12 intents, so an interval of about ±0.05 on a paired difference is as tight as it gets.
+
+**Future work: the corrected minimum-share test.** Count only words that are content words in every stemmer the query uses, choose
+thresholds on the old sets again, and judge on a new held-out set written and signed off before anything runs on it. This one has now
+been looked at, so it can't serve as a held-out set again. Real queries, once there are any, would be better than either.
 
 ## 3. Runtimes
 

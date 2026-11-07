@@ -118,14 +118,14 @@ curl -s localhost:8080/api/ai/itineraries -H "Authorization: Bearer $CUSTOMER" -
 curl -s localhost:8080/api/ai/recommendations/me -H "Authorization: Bearer $CUSTOMER"
 ```
 
-What the evaluation decided, as nDCG@10 with `paraphrase-multilingual-MiniLM-L12-v2` (U8U8, ONNX) on three query shapes:
+What the evaluation decided, as nDCG@10 with `paraphrase-multilingual-MiniLM-L12-v2` (U8U8, ONNX) on four query shapes:
 
-| Retrieval | Vague description | Filter phrases | Exact name |
-| --- | --- | --- | --- |
-| Lexical only | 0.459 | 0.476 | 0.876 |
-| Dense + query understanding | 0.781 | 0.895 | 0.577 |
-| Hybrid + query understanding, equal weights | 0.736 | 0.830 | 0.902 |
-| **Hybrid + query understanding, lexical weight 0.5 (chosen)** | **0.752** | **0.880** | **0.878** |
+| Retrieval | Vague description | Filter phrases | Exact name | Conversational |
+| --- | --- | --- | --- | --- |
+| Lexical only | 0.459 | 0.476 | 0.876 | 0.196 |
+| Dense + query understanding | 0.781 | 0.895 | 0.577 | 0.464 |
+| Hybrid + query understanding, equal weights | 0.736 | 0.830 | 0.902 | 0.393 |
+| **Hybrid + query understanding, lexical weight 0.5 (chosen)** | **0.752** | **0.880** | **0.878** | **0.417** |
 
 | Runtime, same model | Resident memory | Query p50 | Image |
 | --- | --- | --- | --- |
@@ -297,6 +297,11 @@ sequenceDiagram
 - **Hardened containers and supply chain.** Non-root, no capabilities and read-only filesystems on application
   containers; Trivy and an SBOM per image, gitleaks over the whole history and Dependabot in CI.
 - **Consistent errors.** RFC 9457 Problem Details (`application/problem+json`) from every service.
+- **Model choices by evaluation, negative results included.** Labels reviewed by the owner, paired bootstrap intervals, and a CI
+  quality gate. When the gate disagreed with itself on one commit, a survey of 48 runner jobs traced it to an int8 file that lost
+  quality on CPUs without VNNI. The fix shipped with that evidence, and model files are now pinned by revision and hash. A
+  pre-registered held-out test then rejected a ranking tweak that looked like a clear gain on the queries it was tuned on
+  ([search quality](docs/benchmarks/search-quality.md)).
 
 ## Quickstart
 
@@ -450,7 +455,8 @@ every push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 | 2 | Search and caching: dynamic filters, distance sort, keyset pagination, CQRS availability, Redis, rate limiting | Done |
 | 3 | Integrations: currency (Frankfurter, NAD base) and weather (Open-Meteo) behind Resilience4j, chaos profile | Done |
 | 4 | Async workers: tour-core outbox, booking lifecycle events, notification-service (Celery), PDF tickets with QR check-in, compose profiles | Done |
-| 5 | Production ops: Keycloak, OpenTelemetry + Grafana, live deployment with TLS | |
+| 5 | Production ops: Keycloak, OpenTelemetry + Grafana, SLOs and alerts, security hardening and supply-chain scanning | Done |
+| 5, Part B | Live deployment: OpenTofu, k3s, Argo CD, TLS, restore drill | Parked |
 | 6 | AI: hybrid search by evaluation, grounded itineraries with validation and fallback, personalised recommendations | Done, with no real LLM run yet |
 
 ## Repository layout
