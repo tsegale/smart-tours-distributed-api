@@ -55,7 +55,7 @@ services:
   # ---------------------------------------------------------------- data stores
   tours-db:
     <<: *data-store
-    image: postgis/postgis:16-3.4
+    image: postgis/postgis:18-3.6
     environment:
       POSTGRES_DB: tours
       POSTGRES_USER: ${TOURS_DB_USER:?set TOURS_DB_USER in .env}
@@ -112,7 +112,7 @@ services:
   # Rate-limit token buckets (gateway). Default policy: never evicts, so a bucket can't vanish under pressure.
   redis:
     <<: *data-store
-    image: redis:7.4-alpine
+    image: redis:8.0-alpine
     ports: ["127.0.0.1:6379:6379"]
     healthcheck: &redis-healthcheck
       test: ["CMD", "redis-cli", "ping"]
@@ -129,7 +129,7 @@ services:
   # Separate from the limiter's Redis so cache pressure or a cache flush never touches rate-limit state.
   redis-cache:
     <<: *data-store
-    image: redis:7.4-alpine
+    image: redis:8.0-alpine
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
     ports: ["127.0.0.1:6380:6379"]
     healthcheck: *redis-healthcheck
@@ -141,7 +141,7 @@ services:
 
   rabbitmq:
     <<: *data-store
-    image: rabbitmq:4.1-management-alpine
+    image: rabbitmq:4.4-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?set RABBITMQ_USER in .env}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}
@@ -366,7 +366,7 @@ services:
   # STRIPE_WEBHOOK_SECRET in .env; see docs/smoke-test.md.
   stripe-cli:
     <<: *locked-down
-    image: stripe/stripe-cli:v1.55.3
+    image: stripe/stripe-cli:v1.55.8
     profiles: [payments]
     command:
       - listen
@@ -458,7 +458,7 @@ services:
   # Collector, Tempo, Prometheus, Loki and Grafana in one container, all provisioned from infra/observability (ADR 0017).
   # Grafana: http://127.0.0.1:3001, admin / admin. For development: the image says so, and it binds to localhost here.
   otel-lgtm:
-    image: grafana/otel-lgtm:0.39.0
+    image: grafana/otel-lgtm:0.40.0
     profiles: [observability]
     ports:
       - "127.0.0.1:3001:3000" # not 3000: the front end's origin
@@ -578,7 +578,7 @@ services:
   # One-shot: creates the vhost and grants the app user on it, through the management API (idempotent PUTs).
   rabbitmq-setup:
     <<: *no-capabilities
-    image: curlimages/curl:8.22.0
+    image: curlimages/curl:8.23.0
     profiles: [notifications]
     entrypoint: ["sh", "-c"]
     command:
@@ -599,7 +599,7 @@ services:
   # this is Chainguard's build of current MinIO source (with a shell, for the healthcheck), pinned by digest.
   minio:
     <<: *no-capabilities
-    image: cgr.dev/chainguard/minio:latest-dev@sha256:6d4f84fa90a51955476b23d9bc3bc371d60835c59d1b36826169e0392c2b57a2
+    image: cgr.dev/chainguard/minio:latest-dev@sha256:49d6b44887490f56906ff6ffc6b730ae6072b5d50ec479295a66bd056f3f063c
     profiles: [notifications]
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -623,7 +623,7 @@ services:
   # and one that only reads (booking-service, which presigns downloads). Idempotent.
   minio-setup:
     <<: *no-capabilities
-    image: cgr.dev/chainguard/minio-client:latest-dev@sha256:39768db4c3fa811bc8f2e2a3e0add8ea391648b1c980de179985e1c353dc1805
+    image: cgr.dev/chainguard/minio-client:latest-dev@sha256:d28f884b111d8555fe890c2e47a11f12d3193d554a849ca7b7048a2826e960be
     profiles: [notifications]
     entrypoint: ["sh", "/setup/minio-setup.sh"]
     environment:
@@ -639,7 +639,7 @@ services:
   # SMTP sink with a web UI and an API (tests assert on it): http://localhost:8025
   mailpit:
     <<: *no-capabilities
-    image: axllent/mailpit:v1.31.6
+    image: axllent/mailpit:v1.33.1
     profiles: [notifications]
     environment:
       MP_ENABLE_CHAOS: "true" # SMTP failures on demand, through its API (docs/smoke-test.md, tests)
