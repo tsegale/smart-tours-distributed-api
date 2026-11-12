@@ -1,7 +1,7 @@
 -r requirements.txt
-pytest==9.1.1
+pytest==9.2.0
 httpx2==2.16.0
-ruff==0.17.3
+ruff==0.17.4
 respx==0.23.1
 jsonschema==4.26.0
 # jsonschema checks format: date-time only with this installed
