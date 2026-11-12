@@ -27,7 +27,7 @@ jobs:
         env:
           HF_HUB_DISABLE_XET: "1"
         run: python eval/quantize_candidates.py candidates
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: candidates
           path: ai-recommendation-service/candidates
@@ -60,7 +60,7 @@ jobs:
             --health-cmd "pg_isready -U ai" --health-interval 3s smarttours/ai-db:ci
           for _ in $(seq 40); do [ "$(docker inspect -f '{{.State.Health.Status}}' ai-db)" = healthy ] && break; sleep 3; done
       - run: pip install -r requirements-dev.txt
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: candidates
           path: ai-recommendation-service/candidates
@@ -72,7 +72,7 @@ jobs:
           grep -m1 'model name' /proc/cpuinfo
           grep -m1 flags /proc/cpuinfo | tr ' ' '\n' | grep -E '^(avx2|avx512f|avx512_vnni|avx_vnni)$' | tr '\n' ' '; echo
           alembic upgrade head && python -m eval.cpu_survey --out survey.json --models candidates
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: survey-${{ matrix.attempt }}
           path: ai-recommendation-service/survey.json
@@ -92,7 +92,7 @@ jobs:
           cache: pip
           cache-dependency-path: ai-recommendation-service/requirements*.txt
       - run: pip install -r requirements-dev.txt
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           pattern: survey-*
           path: surveys
@@ -100,7 +100,7 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://ai:ai@localhost:5432/unused
         run: python -m eval.cpu_survey --report ../surveys --json summary.json | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: summary
           path: ai-recommendation-service/summary.json
