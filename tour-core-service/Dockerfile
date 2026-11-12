@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ---- build ----
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:24-jdk AS build
 WORKDIR /src
 # The Maven wrapper pins the Maven version, so the build image only needs a JDK.
 COPY --chmod=755 mvnw .
@@ -12,7 +12,7 @@ RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q package -DskipTests \
  && java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination target/extracted
 
 # ---- runtime ----
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 # Layered jar: dependencies change rarely, so they get their own cached image layers.
