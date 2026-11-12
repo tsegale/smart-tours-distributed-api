@@ -39,7 +39,7 @@ jobs:
           DATABASE_URL: postgresql+psycopg://ai:ai@localhost:5432/ai_gate
           HF_HUB_DISABLE_XET: "1"
         run: alembic upgrade head && python -m eval.cpu_survey_gate --out survey.json
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: survey-${{ matrix.attempt }}
           path: ai-recommendation-service/survey.json
@@ -59,7 +59,7 @@ jobs:
           cache: pip
           cache-dependency-path: ai-recommendation-service/requirements*.txt
       - run: pip install -r requirements-dev.txt
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           pattern: survey-*
           path: surveys
@@ -67,7 +67,7 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://ai:ai@localhost:5432/unused
         run: python -m eval.cpu_survey_gate --report ../surveys --json summary.json
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: summary
           path: ai-recommendation-service/summary.json
