@@ -19,11 +19,11 @@
 
     <properties>
         <java.version>21</java.version>
-        <springdoc.version>3.1.1</springdoc.version>
+        <springdoc.version>3.2.0</springdoc.version>
         <!-- resilience4j-spring-boot4 is the module built for Spring Boot 4 / Spring Framework 7 (ADR 0012). -->
         <resilience4j.version>2.4.0</resilience4j.version>
         <!-- ShedLock 7 targets Spring Framework 7. -->
-        <shedlock.version>7.10.1</shedlock.version>
+        <shedlock.version>7.11.0</shedlock.version>
         <!-- wiremock-standalone shades its own Jetty. wiremock-jetty12 3.13.2 is built against Jetty 12.0 and fails on
              the Jetty 12.1 that Spring Boot 4.1 manages (NoSuchMethodError in Environment.ensure). -->
         <wiremock.version>3.13.2</wiremock.version>
@@ -108,7 +108,7 @@
         <dependency>
             <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-logback-appender-1.0</artifactId>
-            <version>2.28.0-alpha</version>
+            <version>2.33.1-alpha</version>
         </dependency>
 
         <dependency>
@@ -148,7 +148,7 @@
             <!-- Contract tests: published events against their JSON Schemas in docs/events. Jackson 3, like Boot 4. -->
             <groupId>com.networknt</groupId>
             <artifactId>json-schema-validator</artifactId>
-            <version>3.0.8</version>
+            <version>3.0.9</version>
             <scope>test</scope>
         </dependency>
         <dependency>
